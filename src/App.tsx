@@ -741,6 +741,7 @@ export function App() {
       {!playing && !isCrazyGamesDistribution && (
         <nav className="site-guide-links" aria-label="Wormifi guides and policies">
           <a href="/how-to-play.html">How to play</a>
+          <a href="/guides.html">Guides</a>
           <a href="/multiplayer.html">Multiplayer</a>
           <a href="/pirate-treasure.html">Treasure guide</a>
           <a href="/install.html" className="install-link">Install the app</a>
