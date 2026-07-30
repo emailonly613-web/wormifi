@@ -121,6 +121,12 @@ import {
 import type { GameBoardId } from "../game/boardPreference";
 import { getGamePaceProfile, type GamePaceId } from "../game/gamePace";
 import { remainingSprintBurstMs } from "../game/sprintControl";
+import {
+  advanceCameraMotion,
+  createCameraMotionState,
+  snapCameraMotion,
+  type CameraMotionState,
+} from "../game/cameraMotion";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -196,7 +202,7 @@ interface Particle {
 
 interface ArenaRenderRuntime {
   state: GameState;
-  camera: Vec2;
+  camera: CameraMotionState;
   particles: Particle[];
   impactUntil: number;
   shakeUntil: number;
@@ -590,7 +596,7 @@ export function ArenaCanvas({
       lastHudTick: -1,
       lastFrame: performance.now(),
       accumulatorSeconds: 0,
-      camera: { x: 0, y: 0 },
+      camera: createCameraMotionState(),
       particles: [],
       resultCommitted: false,
       runEnded: false,
@@ -874,7 +880,7 @@ export function ArenaCanvas({
             replay.accumulatorSeconds = 0;
             replay.lastFrame = now;
             const focus = replay.state.players[PLAYER_ID]?.position;
-            if (focus) replay.camera = { ...focus };
+            if (focus) snapCameraMotion(replay.camera, focus, now);
           }
         } else if (!replay.completed) {
           replay.accumulatorSeconds += replayDelta;
@@ -1194,7 +1200,9 @@ export function ArenaCanvas({
         lastFrame: performance.now(),
         accumulatorSeconds: 0,
         completed: false,
-        camera: replayPlayer ? { ...replayPlayer.position } : { x: 0, y: 0 },
+        camera: replayPlayer
+          ? createCameraMotionState(replayPlayer.position, performance.now())
+          : createCameraMotionState(),
         particles: [],
         impactUntil: 0,
         shakeUntil: 0,
@@ -1786,10 +1794,11 @@ function renderArena(
   drawArenaFloor(context, width, height, "#102b4a");
 
   const player = runtime.state.players[PLAYER_ID];
-  const focus = player?.alive ? player.position : runtime.camera;
-  const cameraSmoothing = 0.105;
-  runtime.camera.x += (focus.x - runtime.camera.x) * cameraSmoothing;
-  runtime.camera.y += (focus.y - runtime.camera.y) * cameraSmoothing;
+  const camera = advanceCameraMotion(
+    runtime.camera,
+    player?.alive ? player.position : undefined,
+    now,
+  );
   // One shared framing rule keeps desktop, phone, Practice, replay, Live, and
   // radar knowledge aligned with the same inhabited open-zone composition.
   const zoom = getArenaCameraZoom(
@@ -1800,12 +1809,12 @@ function renderArena(
     runtime.state.tick,
   );
   const worldToScreen = (point: Vec2, output: Vec2 = { x: 0, y: 0 }): Vec2 => {
-    output.x = width / 2 + (point.x - runtime.camera.x) * zoom;
-    output.y = height / 2 + (point.y - runtime.camera.y) * zoom;
+    output.x = width / 2 + (point.x - camera.x) * zoom;
+    output.y = height / 2 + (point.y - camera.y) * zoom;
     return output;
   };
 
-  drawArenaTexture(context, width, height, runtime.camera, zoom, effectTime);
+  drawArenaTexture(context, width, height, camera, zoom, effectTime);
   drawPirateShipBackdrop(context, width, height);
   drawBoundary(context, runtime.state, worldToScreen, zoom, effectTime, width, height);
   drawChargingStationField(context, {
@@ -1825,7 +1834,7 @@ function renderArena(
     context,
     runtime.state,
     worldToScreen,
-    runtime.camera,
+    camera,
     zoom,
     width,
     height,

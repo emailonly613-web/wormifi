@@ -125,6 +125,11 @@ import {
   type RadarPlayerMarker,
   type RadarStation,
 } from "./PirateRadar";
+import {
+  advanceCameraMotion,
+  createCameraMotionState,
+  type CameraMotionState,
+} from "../game/cameraMotion";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
@@ -758,7 +763,7 @@ export function LiveArenaCanvas({
   const actionCalloutTimerRef = useRef<number | undefined>(undefined);
   const sequenceRef = useRef(-1);
   const nextHudRefreshAtRef = useRef(0);
-  const cameraRef = useRef<Vec2>({ x: 0, y: 0 });
+  const cameraRef = useRef<CameraMotionState>(createCameraMotionState());
   const particlesRef = useRef<LiveParticle[]>([]);
   const previousFrameAtRef = useRef<number | undefined>(undefined);
   const pickupComboRef = useRef({ count: 0, lastTick: Number.NEGATIVE_INFINITY });
@@ -793,6 +798,10 @@ export function LiveArenaCanvas({
     preference.addEventListener("change", updatePreference);
     return () => preference.removeEventListener("change", updatePreference);
   }, []);
+
+  useEffect(() => {
+    cameraRef.current = createCameraMotionState();
+  }, [roomId, session]);
 
   useEffect(() => {
     if (!running) return;
@@ -1640,6 +1649,7 @@ export function LiveArenaCanvas({
           worldRef.current,
           ui.playerId,
           cameraRef.current,
+          now,
           reducedMotionRef.current ? 0 : now,
           debugHitboxesRef.current,
           tutorialSparkIdRef.current,
@@ -2149,7 +2159,8 @@ function renderLiveArena(
   snapshot: SnapshotMessage | null,
   world: LiveWorldState | null,
   playerId: string | undefined,
-  camera: Vec2,
+  cameraMotion: CameraMotionState,
+  frameNow: number,
   now: number,
   debugHitboxes: boolean,
   tutorialSparkId: string | null,
@@ -2183,9 +2194,11 @@ function renderLiveArena(
   drawArenaFloor(context, width, height, "#123153", "#081a34", "#020813");
 
   const ownPlayer = snapshot?.players.find((player) => player.id === playerId);
-  const focus = ownPlayer?.position ?? { x: 0, y: 0 };
-  camera.x += (focus.x - camera.x) * 0.11;
-  camera.y += (focus.y - camera.y) * 0.11;
+  const camera = advanceCameraMotion(
+    cameraMotion,
+    ownPlayer?.alive ? ownPlayer.position : undefined,
+    frameNow,
+  );
   const zoom = getArenaCameraZoom(
     width,
     height,
