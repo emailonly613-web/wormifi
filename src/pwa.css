@@ -1,0 +1,61 @@
+.pwa-notice {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100% - 130px));
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 211, 111, 0.42);
+  border-radius: 13px;
+  color: #f7fbff;
+  background: rgba(4, 14, 31, 0.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
+}
+
+.pwa-notice div {
+  display: grid;
+  gap: 1px;
+  text-align: center;
+}
+
+.pwa-notice b {
+  color: #ffd770;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.pwa-notice span {
+  color: #bfd2df;
+  font-size: 9px;
+}
+
+.pwa-notice button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid rgba(99, 245, 214, 0.48);
+  border-radius: 10px;
+  color: #05241e;
+  background: #68f4d6;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.pwa-notice .pwa-error-dismiss {
+  border-color: rgba(255, 130, 163, 0.38);
+  color: #ffd5e1;
+  background: rgba(151, 37, 75, 0.55);
+}
+
+@media (max-width: 560px) {
+  .pwa-notice {
+    bottom: max(96px, calc(env(safe-area-inset-bottom) + 86px));
+    max-width: calc(100% - 24px);
+  }
+}

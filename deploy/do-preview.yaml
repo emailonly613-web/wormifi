@@ -1,0 +1,109 @@
+# Wormifi preview only. This must create a brand-new DigitalOcean App Platform
+# app. It intentionally contains no custom-domain attachment and no reference
+# to the separate Fire Your Coworkers application.
+name: wormifi-preview
+region: nyc
+
+features:
+  - buildpack-stack=ubuntu-22
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+
+services:
+  - name: arena
+    git:
+      repo_clone_url: https://github.com/emailonly613-web/wormifi.git
+      branch: main
+    source_dir: /
+    environment_slug: node-js
+    build_command: corepack pnpm install --frozen-lockfile && corepack pnpm --dir server install --frozen-lockfile && corepack pnpm --dir server typecheck
+    run_command: node --experimental-transform-types --experimental-loader ./server/src/extension-loader.mjs ./server/src/cli.ts
+    http_port: 8080
+    protocol: HTTP
+    instance_count: 1
+    instance_size_slug: basic-xs
+    health_check:
+      initial_delay_seconds: 5
+      period_seconds: 10
+      timeout_seconds: 3
+      success_threshold: 1
+      failure_threshold: 3
+      http_path: /healthz
+      port: 8080
+    termination:
+      drain_seconds: 30
+      grace_period_seconds: 60
+    envs:
+      - key: NODE_VERSION
+        scope: BUILD_TIME
+        type: GENERAL
+        value: "24.14.1"
+      - key: NODE_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: production
+      - key: HOST
+        scope: RUN_TIME
+        type: GENERAL
+        value: 0.0.0.0
+      - key: TARGET_POPULATION
+        scope: RUN_TIME
+        type: GENERAL
+        value: "12"
+      - key: TARGET_DROP_COUNT
+        scope: RUN_TIME
+        type: GENERAL
+        value: "720"
+      - key: SNAPSHOT_HZ
+        scope: RUN_TIME
+        type: GENERAL
+        value: "15"
+      - key: ARENA_RADIUS
+        scope: RUN_TIME
+        type: GENERAL
+        value: "1850"
+
+static_sites:
+  - name: web
+    git:
+      repo_clone_url: https://github.com/emailonly613-web/wormifi.git
+      branch: main
+    source_dir: /
+    environment_slug: node-js
+    build_command: corepack pnpm install --frozen-lockfile && corepack pnpm build
+    output_dir: dist
+    index_document: index.html
+    catchall_document: index.html
+    envs:
+      - key: NODE_VERSION
+        scope: BUILD_TIME
+        type: GENERAL
+        value: "24.14.1"
+
+# Rule order is intentional: health and WebSocket traffic reach the Node
+# service before the static-site catch-all. App Platform terminates TLS; browser
+# clients use wss://<starter-domain>/arena while the service listens on 8080.
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /healthz
+      component:
+        name: arena
+        preserve_path_prefix: true
+    - match:
+        path:
+          prefix: /arena
+      component:
+        name: arena
+        rewrite: /
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+
+# Deliberately omitted:
+# domains:
+#   - domain: wormifi.com

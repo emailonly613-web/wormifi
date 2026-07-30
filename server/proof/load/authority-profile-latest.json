@@ -1,0 +1,192 @@
+{
+  "claim": "isolated-local-component-profile-only",
+  "timerSamples": [
+    {
+      "label": "bare-setInterval",
+      "durationMs": 2001.694,
+      "ticks": 44,
+      "observedHz": 21.981,
+      "targetHz": 30,
+      "targetRatio": 0.733
+    },
+    {
+      "label": "one-room-2-actors-0-drops-snapshot-15hz",
+      "durationMs": 2007.337,
+      "ticks": 59,
+      "observedHz": 29.392,
+      "targetHz": 30,
+      "targetRatio": 0.98
+    },
+    {
+      "label": "one-room-2-actors-720-drops-snapshot-1hz",
+      "durationMs": 2008.983,
+      "ticks": 60,
+      "observedHz": 29.866,
+      "targetHz": 30,
+      "targetRatio": 0.996
+    },
+    {
+      "label": "one-room-2-actors-720-drops-snapshot-15hz",
+      "durationMs": 2012.705,
+      "ticks": 59,
+      "observedHz": 29.314,
+      "targetHz": 30,
+      "targetRatio": 0.977
+    },
+    {
+      "label": "one-room-12-actors-720-drops-snapshot-15hz",
+      "durationMs": 2008.116,
+      "ticks": 60,
+      "observedHz": 29.879,
+      "targetHz": 30,
+      "targetRatio": 0.996
+    }
+  ],
+  "snapshots": [
+    {
+      "targetPopulation": 2,
+      "targetDropCount": 0,
+      "players": 2,
+      "drops": 0,
+      "bodySegments": 16,
+      "oneTimeWorldPayloadBytes": 121,
+      "oneTimeWorldWithoutDropsBytes": 121,
+      "dropsApproximateBytes": 0,
+      "dropsPercentOfWorldPayload": 0,
+      "incrementalSnapshotPayloadBytes": 1469,
+      "incrementalSnapshotWithoutPlayersBytes": 185,
+      "playersApproximateBytes": 1284,
+      "playersPercentOfIncrementalSnapshot": 87.406,
+      "snapshotBuild": {
+        "iterations": 250,
+        "totalMs": 0.499,
+        "meanMs": 0.001997,
+        "operationsPerSecond": 500801.282
+      },
+      "incrementalSnapshotJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 1.237,
+        "meanMs": 0.004949,
+        "operationsPerSecond": 202052.857
+      },
+      "oneTimeWorldJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 0.09,
+        "meanMs": 0.000362,
+        "operationsPerSecond": 2765486.726
+      },
+      "serializationAtSixRecipients": {
+        "hypotheticalRepeatedCpuMsPerSnapshot": 0.03,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.004949,
+        "avoidedSerializationMultiplier": 6
+      },
+      "estimatedNetworkAt15Hz": {
+        "mebibytesPerSecondPerClient": 0.021,
+        "megabitsPerSecondPerClient": 0.176,
+        "mebibytesPerSecondPerSixClientRoom": 0.126,
+        "mebibytesPerSecondForFourSixClientRooms": 0.504
+      }
+    },
+    {
+      "targetPopulation": 2,
+      "targetDropCount": 720,
+      "players": 2,
+      "drops": 720,
+      "bodySegments": 16,
+      "oneTimeWorldPayloadBytes": 105247,
+      "oneTimeWorldWithoutDropsBytes": 123,
+      "dropsApproximateBytes": 105124,
+      "dropsPercentOfWorldPayload": 99.883,
+      "incrementalSnapshotPayloadBytes": 1464,
+      "incrementalSnapshotWithoutPlayersBytes": 187,
+      "playersApproximateBytes": 1277,
+      "playersPercentOfIncrementalSnapshot": 87.227,
+      "snapshotBuild": {
+        "iterations": 250,
+        "totalMs": 22.08,
+        "meanMs": 0.08832,
+        "operationsPerSecond": 11322.412
+      },
+      "incrementalSnapshotJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 1.016,
+        "meanMs": 0.004064,
+        "operationsPerSecond": 246087.213
+      },
+      "oneTimeWorldJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 65.462,
+        "meanMs": 0.261847,
+        "operationsPerSecond": 3819.027
+      },
+      "serializationAtSixRecipients": {
+        "hypotheticalRepeatedCpuMsPerSnapshot": 0.024,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.004064,
+        "avoidedSerializationMultiplier": 6
+      },
+      "estimatedNetworkAt15Hz": {
+        "mebibytesPerSecondPerClient": 0.021,
+        "megabitsPerSecondPerClient": 0.176,
+        "mebibytesPerSecondPerSixClientRoom": 0.126,
+        "mebibytesPerSecondForFourSixClientRooms": 0.503
+      }
+    },
+    {
+      "targetPopulation": 12,
+      "targetDropCount": 720,
+      "players": 12,
+      "drops": 720,
+      "bodySegments": 96,
+      "oneTimeWorldPayloadBytes": 105197,
+      "oneTimeWorldWithoutDropsBytes": 124,
+      "dropsApproximateBytes": 105073,
+      "dropsPercentOfWorldPayload": 99.882,
+      "incrementalSnapshotPayloadBytes": 7904,
+      "incrementalSnapshotWithoutPlayersBytes": 188,
+      "playersApproximateBytes": 7716,
+      "playersPercentOfIncrementalSnapshot": 97.621,
+      "snapshotBuild": {
+        "iterations": 250,
+        "totalMs": 17.184,
+        "meanMs": 0.068736,
+        "operationsPerSecond": 14548.332
+      },
+      "incrementalSnapshotJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 5.427,
+        "meanMs": 0.021706,
+        "operationsPerSecond": 46069.362
+      },
+      "oneTimeWorldJsonSerialization": {
+        "iterations": 250,
+        "totalMs": 66.741,
+        "meanMs": 0.266966,
+        "operationsPerSecond": 3745.801
+      },
+      "serializationAtSixRecipients": {
+        "hypotheticalRepeatedCpuMsPerSnapshot": 0.13,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.021706,
+        "avoidedSerializationMultiplier": 6
+      },
+      "estimatedNetworkAt15Hz": {
+        "mebibytesPerSecondPerClient": 0.113,
+        "megabitsPerSecondPerClient": 0.948,
+        "mebibytesPerSecondPerSixClientRoom": 0.678,
+        "mebibytesPerSecondForFourSixClientRooms": 2.714
+      }
+    }
+  ],
+  "interpretation": [
+    "Compare bare timer and zero-drop room rates to separate timer scheduling from simulation work.",
+    "Compare 720-drop snapshot at 1 Hz and 15 Hz to expose snapshot construction overhead without WebSocket fanout.",
+    "Snapshot byte attribution estimates the dominant JSON fields by removing one field group at a time.",
+    "Fanout serialization compares the current serialize-once room broadcast with the avoided one-serialization-per-recipient pattern; actual socket overhead is not included.",
+    "Network estimates are raw JSON payload only and exclude WebSocket framing, TCP/IP, TLS, retransmission, and compression."
+  ],
+  "caveats": [
+    "This microprofile runs without connected sockets, so it does not replace the end-to-end load harness.",
+    "Private room methods are invoked only by this diagnostic script and are not a supported application API.",
+    "The profile is local, same-process, short-duration, and not a production capacity or parity claim."
+  ],
+  "measuredAtUtc": "2026-07-30T00:05:29.243Z"
+}

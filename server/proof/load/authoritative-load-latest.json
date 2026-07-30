@@ -1,0 +1,194 @@
+{
+  "verdict": "LOCAL_CAPACITY_GATE_PASS",
+  "claim": "bounded-local-authoritative-network-proof-only",
+  "configuration": {
+    "clients": 24,
+    "rooms": 4,
+    "durationSeconds": 10,
+    "inputHz": 20,
+    "pingHz": 2,
+    "fixedStepHz": 30,
+    "snapshotHz": 15,
+    "targetPopulationPerRoom": 12,
+    "reconnectClients": 4,
+    "invalidBurstMessages": 250,
+    "reconnectPauseMs": 150,
+    "allowCapacityMiss": false
+  },
+  "measured": {
+    "runtimeMs": 10010.909,
+    "initialJoinMs": {
+      "samples": 24,
+      "min": 60.337,
+      "p50": 68.669,
+      "p95": 75.882,
+      "p99": 76.456,
+      "max": 76.601,
+      "mean": 68.539
+    },
+    "reconnectMs": {
+      "samples": 4,
+      "min": 161.501,
+      "p50": 162.879,
+      "p95": 164.022,
+      "p99": 164.127,
+      "max": 164.154,
+      "mean": 162.853
+    },
+    "pingRoundTripMs": {
+      "samples": 456,
+      "min": 0.622,
+      "p50": 1.078,
+      "p95": 2.252,
+      "p99": 4.39,
+      "max": 4.471,
+      "mean": 1.262
+    },
+    "snapshotInterArrivalMs": {
+      "samples": 3594,
+      "min": 4.407,
+      "p50": 62.947,
+      "p95": 79,
+      "p99": 80.643,
+      "max": 153.414,
+      "mean": 66.456
+    },
+    "snapshotDeliveryLagMs": {
+      "samples": 3622,
+      "min": 0,
+      "p50": 1,
+      "p95": 2,
+      "p99": 5,
+      "max": 7,
+      "mean": 1.29
+    },
+    "snapshotPayloadBytes": {
+      "samples": 3622,
+      "min": 7764,
+      "p50": 8051,
+      "p95": 9381,
+      "p99": 10729,
+      "max": 12512,
+      "mean": 8222.34
+    },
+    "worldSyncPayloadBytes": {
+      "samples": 28,
+      "min": 105436,
+      "p50": 105481,
+      "p95": 110428.25,
+      "p99": 112235.44,
+      "max": 112621,
+      "mean": 106117.25
+    },
+    "observedRoomTickRateHz": {
+      "samples": 28,
+      "min": 29.988,
+      "p50": 30.007,
+      "p95": 30.055,
+      "p99": 30.124,
+      "max": 30.149,
+      "mean": 30.015
+    },
+    "inputsSent": 3900,
+    "inputMessagesPerSecond": 389.575,
+    "pingsSent": 456,
+    "pongsReceived": 456,
+    "snapshotsReceived": 3622,
+    "worldSyncsReceived": 28,
+    "snapshotsPerClientSecond": 15.075,
+    "estimatedSnapshotWireMiBPerSecond": 2.837,
+    "capacityGate": {
+      "pass": true,
+      "minimumTargetRatio": 0.98,
+      "fixedStepTargetHz": 30,
+      "observedMedianTickRateHz": 30.007,
+      "fixedStepTargetRatio": 1,
+      "snapshotTargetHz": 15,
+      "observedSnapshotsPerClientSecond": 15.075,
+      "snapshotTargetRatio": 1.005
+    },
+    "eventLoopDelayMs": {
+      "min": 8.286,
+      "p50": 15.54,
+      "p95": 17.826,
+      "p99": 20.021,
+      "max": 88.08,
+      "mean": 15.647
+    },
+    "process": {
+      "cpuPercentOfOneCore": 16.082,
+      "userCpuMs": 1360,
+      "systemCpuMs": 250,
+      "baselineHeapMiB": 23.098,
+      "endingHeapMiB": 95.38,
+      "peakHeapMiB": 114.048,
+      "baselineRssMiB": 135.004,
+      "endingRssMiB": 265.809,
+      "peakRssMiB": 269.773
+    },
+    "invalidAndBurstProbe": {
+      "expectedErrorCodesObserved": [
+        "JOIN_REQUIRED",
+        "BAD_JSON",
+        "MALFORMED_INPUT",
+        "UNSUPPORTED_FIELD",
+        "STALE_INPUT",
+        "RATE_LIMITED"
+      ],
+      "boundedInvalidBurstMessages": 250,
+      "responsiveAfterBurst": true,
+      "healthCheckAfterBurst": true
+    },
+    "reconnect": {
+      "attempted": 4,
+      "recoveredSamePlayer": 4
+    },
+    "collectorGroundLoop": {
+      "beaconWorldSyncs": 28,
+      "activeCollectorSnapshots": 0,
+      "echoOriginDropsSeen": 4324,
+      "metadataViolations": 0,
+      "bandwidthBudget": {
+        "pass": true,
+        "maximumWorldPayloadBytes": 163840,
+        "observedWorldP99Bytes": 112235.44,
+        "maximumSnapshotPayloadBytes": 24576,
+        "observedSnapshotP99Bytes": 10729,
+        "maximumEstimatedSnapshotWireMiBPerSecond": 4,
+        "observedEstimatedSnapshotWireMiBPerSecond": 2.837
+      }
+    },
+    "roomIsolationViolations": 0
+  },
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "architecture": "x64",
+    "logicalCpuCount": 48,
+    "cpuModel": "AMD Ryzen Threadripper 9960X 24-Cores          ",
+    "totalMemoryGiB": 127.371,
+    "freeMemoryGiBAtReport": 58.42
+  },
+  "assertions": [
+    "24 real WebSocket clients were distributed across 4 isolated rooms.",
+    "4 reconnects recovered the same server-owned player identity.",
+    "The server stayed responsive after 250 deliberately stale messages.",
+    "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",
+    "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured.",
+    "Collector beacon/active-state metadata and Echo producer identity stayed coherent under room load.",
+    "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget.",
+    "Observed simulation and snapshot delivery both reached at least 98% of their configured local targets."
+  ],
+  "caveats": [
+    "This is a bounded localhost measurement, not a production capacity result or a parity claim.",
+    "Synthetic clients and the server share one process and machine; CPU, heap, RSS, and event-loop numbers include both sides of the harness.",
+    "Ping RTT and snapshot inter-arrival are measured. Input-to-authoritative-ack latency is not measured because the current protocol does not acknowledge each input.",
+    "Loopback traffic does not test WAN latency, packet loss, jitter, TLS termination, proxies, mobile radios, or geographic distance.",
+    "The bounded invalid-message burst is a safety regression probe, not DDoS, WAF, bandwidth-exhaustion, or sustained abuse certification.",
+    "No multi-node room routing, persistence, rolling deployment, regional failover, or reconnect across server replacement was tested.",
+    "Synthetic sockets are not external humans and do not establish retention, fairness, fun, monetization, or Wormate-level market parity.",
+    "A separate deployment soak with external load generators, 100/200/350 ms network profiles, packet loss, and long-duration monitoring remains required."
+  ],
+  "measuredAtUtc": "2026-07-30T01:20:37.785Z"
+}

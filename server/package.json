@@ -1,0 +1,26 @@
+{
+  "name": "@wormifi/authoritative-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Small server-authoritative multiplayer proof for Wormifi",
+  "type": "module",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24.14.0 <25"
+  },
+  "scripts": {
+    "start": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs src/cli.ts",
+    "test": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs --test tests/integration/*.test.ts",
+    "test:load": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs tests/load/authoritative-load.ts",
+    "profile:load": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs tests/load/profile-authority.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "@types/ws": "8.18.1",
+    "typescript": "6.0.3"
+  }
+}

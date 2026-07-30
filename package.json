@@ -1,0 +1,38 @@
+{
+  "name": "wormifi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wormifi original living-chain arena",
+  "type": "module",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24.14.0 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest run",
+    "test:soak": "vitest run tests/soak.test.ts --reporter=verbose",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:multiplayer": "playwright test --config=playwright.multiplayer.config.ts",
+    "test:e2e:pwa": "playwright test --config=playwright.pwa.config.ts",
+    "og:generate": "node scripts/generate-og-card.mjs",
+    "og:verify": "node scripts/verify-og-card.mjs"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.3",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}

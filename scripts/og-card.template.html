@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        width: 1200px;
+        height: 630px;
+        margin: 0;
+        overflow: hidden;
+        color: #f6ffff;
+        background: #061022;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+      }
+
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: #061022;
+        isolation: isolate;
+      }
+
+      .gameplay {
+        position: absolute;
+        top: 0;
+        right: -92px;
+        bottom: 0;
+        left: 92px;
+        background-image: url("{{GAMEPLAY_DATA_URL}}");
+        background-size: cover;
+        background-position: 50% 50%;
+        z-index: 0;
+      }
+
+      .wash {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(3, 11, 27, .98) 0%, rgba(4, 17, 37, .92) 35%, rgba(4, 18, 37, .48) 58%, rgba(2, 9, 22, .04) 79%),
+          linear-gradient(0deg, rgba(1, 7, 18, .76), transparent 32%, rgba(1, 8, 20, .16));
+        z-index: 1;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        opacity: .12;
+        background-image:
+          linear-gradient(rgba(106, 230, 255, .18) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(106, 230, 255, .18) 1px, transparent 1px);
+        background-size: 42px 42px;
+        z-index: 2;
+      }
+
+      .content {
+        position: absolute;
+        left: 66px;
+        top: 62px;
+        width: 570px;
+        z-index: 10;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        color: #9beee1;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: .19em;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #63f7db;
+        box-shadow: 0 0 20px #5affe0;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+        font-size: 105px;
+        font-weight: 900;
+        line-height: .86;
+        letter-spacing: -.07em;
+        color: transparent;
+        background: linear-gradient(105deg, #f2ffff 0%, #66f5dd 26%, #52b9ff 57%, #ff71ae 92%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-stroke: 1px rgba(255,255,255,.22);
+      }
+
+      .tagline {
+        margin: 13px 0 0 4px;
+        color: #e6faff;
+        font-size: 17px;
+        font-weight: 900;
+        letter-spacing: .36em;
+      }
+
+      .promise {
+        width: 520px;
+        margin: 45px 0 0;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+        font-size: 43px;
+        font-weight: 800;
+        line-height: 1.04;
+        letter-spacing: -.025em;
+        text-wrap: balance;
+      }
+
+      .promise em {
+        color: #6dffe1;
+        font-style: normal;
+      }
+
+      .trust {
+        display: flex;
+        gap: 10px;
+        margin-top: 31px;
+      }
+
+      .trust span {
+        padding: 9px 13px;
+        border: 1px solid rgba(123, 240, 228, .32);
+        border-radius: 999px;
+        color: #c9fff4;
+        background: rgba(9, 48, 59, .68);
+        box-shadow: inset 0 1px rgba(255,255,255,.09);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .09em;
+      }
+
+      .truth {
+        position: absolute;
+        top: 34px;
+        right: 38px;
+        display: grid;
+        gap: 2px;
+        justify-items: end;
+        padding: 10px 13px;
+        border: 1px solid rgba(167, 230, 255, .3);
+        border-radius: 13px;
+        color: #e5f8ff;
+        background: rgba(4, 18, 38, .76);
+        box-shadow: 0 10px 28px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.08);
+        z-index: 12;
+      }
+
+      .corner-wash {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 330px;
+        height: 128px;
+        background: radial-gradient(circle at 78% 20%, rgba(3, 13, 30, .94), rgba(3, 13, 30, .72) 48%, transparent 76%);
+        z-index: 11;
+      }
+
+      .truth strong {
+        font-size: 12px;
+        letter-spacing: .13em;
+      }
+
+      .truth small {
+        color: #8eb6c7;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: .09em;
+      }
+
+      .domain {
+        position: absolute;
+        right: 42px;
+        bottom: 32px;
+        color: rgba(218, 246, 255, .84);
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: .18em;
+        text-shadow: 0 2px 8px #000;
+        z-index: 10;
+      }
+
+      .orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(.2px);
+        z-index: 11;
+      }
+
+      .orb-a {
+        left: 40px;
+        top: 31px;
+        width: 18px;
+        height: 18px;
+        background: #ffbf55;
+        box-shadow: 0 0 24px #ffad43;
+      }
+
+      .orb-b {
+        left: 603px;
+        top: 102px;
+        width: 12px;
+        height: 12px;
+        background: #ff68a4;
+        box-shadow: 0 0 20px #ff4c97;
+      }
+
+      .frame {
+        position: absolute;
+        inset: 15px;
+        border: 1px solid rgba(151, 229, 255, .25);
+        border-radius: 27px;
+        box-shadow: inset 0 0 0 7px rgba(28, 131, 184, .035);
+        pointer-events: none;
+        z-index: 20;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" aria-label="Wormifi social preview using actual rendered gameplay">
+      <div class="gameplay"></div>
+      <div class="wash"></div>
+      <div class="grid"></div>
+      <span class="orb orb-a"></span>
+      <span class="orb orb-b"></span>
+      <section class="content">
+        <div class="eyebrow">ORIGINAL LIVING-CHAIN ARENA</div>
+        <h1>WORMIFI</h1>
+        <p class="tagline">EVERY CHAIN HAS A STORY</p>
+        <p class="promise">Collect sparks. Grow your crew. <em>Cut rivals.</em></p>
+        <div class="trust">
+          <span>INSTANT GUEST PLAY</span>
+          <span>NO PAY-TO-WIN</span>
+        </div>
+      </section>
+      <div class="corner-wash"></div>
+      <aside class="truth">
+        <strong>ACTUAL GAMEPLAY</strong>
+        <small>AI RIVALS ARE LABELED IN-GAME</small>
+      </aside>
+      <div class="domain">WORMIFI.COM</div>
+      <div class="frame"></div>
+    </main>
+  </body>
+</html>

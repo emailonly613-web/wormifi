@@ -1,0 +1,31 @@
+# Dependencies and generated application output
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Test output (proof selected for release should be copied intentionally to proof/)
+coverage/
+playwright-report/
+blob-report/
+test-results/
+test-results-*/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs and package-manager noise
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

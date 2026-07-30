@@ -1,0 +1,66 @@
+param(
+    [string]$SpecPath = (Join-Path $PSScriptRoot "..\do-preview.yaml")
+)
+
+$ErrorActionPreference = "Stop"
+$resolvedSpec = (Resolve-Path -LiteralPath $SpecPath).Path
+$spec = Get-Content -LiteralPath $resolvedSpec -Raw
+
+function Assert-SpecPattern {
+    param(
+        [string]$Pattern,
+        [string]$FailureMessage
+    )
+    if ($spec -notmatch $Pattern) {
+        throw $FailureMessage
+    }
+}
+
+function Assert-SpecAbsent {
+    param(
+        [string]$Pattern,
+        [string]$FailureMessage
+    )
+    if ($spec -match $Pattern) {
+        throw $FailureMessage
+    }
+}
+
+Assert-SpecPattern '(?m)^name:\s*wormifi-preview\s*$' "Spec must create the isolated wormifi-preview app."
+Assert-SpecPattern '(?m)^\s*repo_clone_url:\s*https://github\.com/emailonly613-web/wormifi\.git\s*$' "Spec must use only the dedicated Wormifi remote."
+Assert-SpecPattern '(?m)^\s*prefix:\s*/healthz\s*$' "Spec must expose /healthz through ingress."
+Assert-SpecPattern '(?m)^\s*prefix:\s*/arena\s*$' "Spec must route /arena to the authority service."
+Assert-SpecPattern '(?m)^\s*catchall_document:\s*index\.html\s*$' "Static Vite site must use the SPA catch-all."
+Assert-SpecPattern '(?m)^\s*value:\s*"24\.14\.1"\s*$' "Spec must pin the DigitalOcean-supported Node build version."
+Assert-SpecAbsent '(?mi)^domains:\s*$' "Preview spec must not attach any custom domain."
+Assert-SpecAbsent '(?i)fireyourcoworkers' "Preview spec must never reference Fire Your Coworkers."
+
+$repoReferences = [regex]::Matches(
+    $spec,
+    '(?m)^\s*repo_clone_url:\s*https://github\.com/emailonly613-web/wormifi\.git\s*$'
+).Count
+if ($repoReferences -ne 2) {
+    throw "Expected exactly two dedicated Wormifi source references; found $repoReferences."
+}
+
+$nodeVersionReferences = [regex]::Matches(
+    $spec,
+    '(?m)^\s*value:\s*"24\.14\.1"\s*$'
+).Count
+if ($nodeVersionReferences -ne 2) {
+    throw "Expected Node 24.14.1 on both build components; found $nodeVersionReferences references."
+}
+
+& doctl apps spec validate $resolvedSpec --schema-only
+if ($LASTEXITCODE -ne 0) {
+    throw "DigitalOcean schema validation failed with exit code $LASTEXITCODE."
+}
+
+Write-Output "SPEC_SCHEMA_VALID=YES"
+Write-Output "ISOLATED_APP_NAME=YES"
+Write-Output "DEDICATED_WORMIFI_REMOTE_ONLY=YES"
+Write-Output "FIRE_YOUR_COWORKERS_REFERENCED=NO"
+Write-Output "CUSTOM_DOMAIN_ATTACHED=NO"
+Write-Output "ARENA_INGRESS_PRESENT=YES"
+Write-Output "HEALTH_INGRESS_PRESENT=YES"
+Write-Output "DO_SUPPORTED_NODE_PINNED=YES"

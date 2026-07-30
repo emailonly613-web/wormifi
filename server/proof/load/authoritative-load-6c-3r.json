@@ -1,0 +1,154 @@
+{
+  "verdict": "LOCAL_HARNESS_PASS",
+  "claim": "bounded-local-authoritative-network-proof-only",
+  "configuration": {
+    "clients": 6,
+    "rooms": 3,
+    "durationSeconds": 6,
+    "inputHz": 20,
+    "pingHz": 2,
+    "fixedStepHz": 30,
+    "snapshotHz": 15,
+    "targetPopulationPerRoom": 4,
+    "reconnectClients": 3,
+    "invalidBurstMessages": 100,
+    "reconnectPauseMs": 150
+  },
+  "measured": {
+    "runtimeMs": 6002.77,
+    "initialJoinMs": {
+      "samples": 6,
+      "min": 28.451,
+      "p50": 29.529,
+      "p95": 31.488,
+      "p99": 31.574,
+      "max": 31.596,
+      "mean": 29.894
+    },
+    "reconnectMs": {
+      "samples": 3,
+      "min": 167.493,
+      "p50": 168.453,
+      "p95": 169.365,
+      "p99": 169.446,
+      "max": 169.467,
+      "mean": 168.471
+    },
+    "pingRoundTripMs": {
+      "samples": 63,
+      "min": 0.29,
+      "p50": 0.413,
+      "p95": 1.215,
+      "p99": 1.42,
+      "max": 1.49,
+      "mean": 0.517
+    },
+    "snapshotInterArrivalMs": {
+      "samples": 393,
+      "min": 3.476,
+      "p50": 92.123,
+      "p95": 94.731,
+      "p99": 95.566,
+      "max": 95.838,
+      "mean": 88.433
+    },
+    "snapshotDeliveryLagMs": {
+      "samples": 402,
+      "min": 1,
+      "p50": 3,
+      "p95": 4,
+      "p99": 5,
+      "max": 6,
+      "mean": 3.052
+    },
+    "snapshotPayloadBytes": {
+      "samples": 402,
+      "min": 105622,
+      "p50": 107156,
+      "p95": 107701,
+      "p99": 107792,
+      "max": 107878,
+      "mean": 107055.943
+    },
+    "observedRoomTickRateHz": {
+      "samples": 9,
+      "min": 22.303,
+      "p50": 22.322,
+      "p95": 22.638,
+      "p99": 22.679,
+      "max": 22.689,
+      "mean": 22.403
+    },
+    "inputsSent": 585,
+    "inputMessagesPerSecond": 97.455,
+    "pingsSent": 63,
+    "pongsReceived": 63,
+    "snapshotsReceived": 402,
+    "snapshotsPerClientSecond": 11.162,
+    "eventLoopDelayMs": {
+      "min": 8.102,
+      "p50": 15.557,
+      "p95": 18.579,
+      "p99": 19.988,
+      "max": 33.341,
+      "mean": 15.55
+    },
+    "process": {
+      "cpuPercentOfOneCore": 16.143,
+      "userCpuMs": 829,
+      "systemCpuMs": 140,
+      "baselineHeapMiB": 14.398,
+      "endingHeapMiB": 26.936,
+      "peakHeapMiB": 32.142,
+      "baselineRssMiB": 104.695,
+      "endingRssMiB": 138.273,
+      "peakRssMiB": 139.539
+    },
+    "invalidAndBurstProbe": {
+      "expectedErrorCodesObserved": [
+        "JOIN_REQUIRED",
+        "BAD_JSON",
+        "MALFORMED_INPUT",
+        "UNSUPPORTED_FIELD",
+        "STALE_INPUT",
+        "RATE_LIMITED"
+      ],
+      "boundedInvalidBurstMessages": 100,
+      "responsiveAfterBurst": true,
+      "healthCheckAfterBurst": true
+    },
+    "reconnect": {
+      "attempted": 3,
+      "recoveredSamePlayer": 3
+    },
+    "roomIsolationViolations": 0
+  },
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "architecture": "x64",
+    "logicalCpuCount": 48,
+    "cpuModel": "AMD Ryzen Threadripper 9960X 24-Cores          ",
+    "totalMemoryGiB": 127.371,
+    "freeMemoryGiBAtReport": 58.063
+  },
+  "assertions": [
+    "6 real WebSocket clients were distributed across 3 isolated rooms.",
+    "3 reconnects recovered the same server-owned player identity.",
+    "The server stayed responsive after 100 deliberately stale messages.",
+    "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",
+    "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured."
+  ],
+  "caveats": [
+    "This is a bounded localhost measurement, not a production capacity result or a parity claim.",
+    "Synthetic clients and the server share one process and machine; CPU, heap, RSS, and event-loop numbers include both sides of the harness.",
+    "Ping RTT and snapshot inter-arrival are measured. Input-to-authoritative-ack latency is not measured because the current protocol does not acknowledge each input.",
+    "Loopback traffic does not test WAN latency, packet loss, jitter, TLS termination, proxies, mobile radios, or geographic distance.",
+    "The bounded invalid-message burst is a safety regression probe, not DDoS, WAF, bandwidth-exhaustion, or sustained abuse certification.",
+    "No multi-node room routing, persistence, rolling deployment, regional failover, or reconnect across server replacement was tested.",
+    "Synthetic sockets are not external humans and do not establish retention, fairness, fun, monetization, or Wormate-level market parity.",
+    "A separate deployment soak with external load generators, 100/200/350 ms network profiles, packet loss, and long-duration monitoring remains required."
+  ],
+  "measuredAtUtc": "2026-07-29T23:58:34.491Z"
+}
