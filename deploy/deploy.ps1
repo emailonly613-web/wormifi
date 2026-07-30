@@ -21,6 +21,7 @@ function Step($msg) { Write-Host "[wormifi-deploy] $msg" }
 Step 'reading live app spec'
 $specJson = doctl apps spec get $AppId --format json
 if ($LASTEXITCODE -ne 0) { throw 'could not read the live app spec' }
+$liveSpec = $specJson | ConvertFrom-Json
 $spec = $specJson | ConvertFrom-Json
 
 # --- 2. GA4 measurement id as a build-time env on the static site ---------
@@ -33,6 +34,34 @@ $envs = @($web.envs | Where-Object { $_.key -ne 'VITE_GA4_MEASUREMENT_ID' })
 $envs += [pscustomobject]@{ key = 'VITE_GA4_MEASUREMENT_ID'; scope = 'BUILD_TIME'; value = $Ga4MeasurementId }
 $web.envs = $envs
 Step "set VITE_GA4_MEASUREMENT_ID=$Ga4MeasurementId (BUILD_TIME, static site 'web')"
+
+# Keep the live service on the same spatial profile as the reviewed source
+# spec. Reading and rewriting the live spec preserves DigitalOcean-owned fields
+# while making these product-critical values impossible to silently skip.
+$arena = $spec.services | Where-Object { $_.name -eq 'arena' }
+if (-not $arena) { throw 'service "arena" not found in the spec' }
+$liveArena = $liveSpec.services | Where-Object { $_.name -eq 'arena' }
+$desiredArenaRuntime = [ordered]@{
+  TARGET_POPULATION = '32'
+  TARGET_DROP_COUNT = '600'
+  SNAPSHOT_HZ = '15'
+  ARENA_RADIUS = '1450'
+}
+$arenaRuntimeAlready = $true
+foreach ($entry in $desiredArenaRuntime.GetEnumerator()) {
+  $existing = @($liveArena.envs | Where-Object { $_.key -eq $entry.Key })
+  if ($existing.Count -ne 1 -or $existing[0].value -ne $entry.Value) {
+    $arenaRuntimeAlready = $false
+  }
+  $arena.envs = @($arena.envs | Where-Object { $_.key -ne $entry.Key }) +
+    [pscustomobject]@{
+      key = $entry.Key
+      scope = 'RUN_TIME'
+      type = 'GENERAL'
+      value = $entry.Value
+    }
+  Step "set $($entry.Key)=$($entry.Value) (RUN_TIME, service 'arena')"
+}
 
 # --- 3. Real 404s instead of a catch-all homepage -------------------------
 # catchall_document answered 200 with index.html for every unknown path, which
@@ -74,11 +103,13 @@ if ($DryRun) {
 # does, the spec step is skipped entirely: a spec-triggered deployment builds
 # the commit PINNED on the app (the last attempt), not the branch tip, so a
 # needless spec update after a broken push can only rebuild the broken pin.
-$gaAlready = @($web.envs | Where-Object { $_.key -eq 'VITE_GA4_MEASUREMENT_ID' -and $_.value -eq $Ga4MeasurementId }).Count -gt 0
+$liveWeb = $liveSpec.static_sites | Where-Object { $_.name -eq 'web' }
+$gaAlready = @($liveWeb.envs | Where-Object { $_.key -eq 'VITE_GA4_MEASUREMENT_ID' -and $_.value -eq $Ga4MeasurementId }).Count -gt 0
 $specUpToDate = $gaAlready -and
+  $arenaRuntimeAlready -and
   -not $hadCatchall -and
-  ($specJson | ConvertFrom-Json).static_sites[0].error_document -eq '404.html' -and
-  @(($specJson | ConvertFrom-Json).ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0
+  $liveWeb.error_document -eq '404.html' -and
+  @($liveSpec.ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0
 
 if ($specUpToDate) {
   Step 'live spec already matches; skipping the spec update'
@@ -108,6 +139,18 @@ if ($running -ne $originTip) {
 # --- 6. Prove it on the public domain -------------------------------------
 Step 'verifying against https://wormifi.com'
 $fail = @()
+
+$health = Invoke-RestMethod -Uri 'https://wormifi.com/healthz'
+if (
+  $health.roomProfile.targetPopulation -eq 32 -and
+  $health.roomProfile.targetDropCount -eq 600 -and
+  $health.roomProfile.snapshotHz -eq 15 -and
+  $health.roomProfile.arenaRadius -eq 1450
+) {
+  Step 'PROVEN: live server reports the 32-player / 600-drop / radius-1450 room profile'
+} else {
+  $fail += "live room profile mismatch: $($health.roomProfile | ConvertTo-Json -Compress)"
+}
 
 $landing = Invoke-WebRequest -Uri 'https://wormifi.com/' -UseBasicParsing
 $bundle = ([regex]::Match($landing.Content, 'src="(/assets/[^"]+\.js)"')).Groups[1].Value

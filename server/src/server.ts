@@ -7,6 +7,7 @@ import {
   getGamePaceProfile,
   isGamePaceId,
 } from "../../src/game/gamePace.ts";
+import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel.ts";
 
 import {
   PROTOCOL_VERSION,
@@ -81,6 +82,12 @@ export class AuthoritativeArenaServer {
   private readonly joinTimeoutMs: number;
   private readonly heartbeatIntervalMs: number;
   private readonly idleTimeoutMs: number;
+  private readonly roomProfile: {
+    targetPopulation: number;
+    targetDropCount: number;
+    snapshotHz: number;
+    arenaRadius: number;
+  };
   private readonly roomOptions: ArenaRoomOptions;
   private readonly rooms = new Map<string, ArenaRoom>();
   private readonly bindings = new Map<WebSocket, ConnectionBinding>();
@@ -106,14 +113,30 @@ export class AuthoritativeArenaServer {
       this.heartbeatIntervalMs * 2,
       positiveInteger(options.idleTimeoutMs, DEFAULT_IDLE_TIMEOUT_MS, 50),
     );
+    this.roomProfile = {
+      targetPopulation: Math.max(
+        0,
+        Math.floor(options.targetPopulation ?? LIVE_SPATIAL_PROFILE.targetPopulation),
+      ),
+      targetDropCount: Math.max(
+        0,
+        Math.floor(options.targetDropCount ?? LIVE_SPATIAL_PROFILE.targetDropCount),
+      ),
+      snapshotHz: positiveInteger(options.snapshotHz, 15),
+      arenaRadius: positiveNumber(
+        options.arenaRadius,
+        LIVE_SPATIAL_PROFILE.arenaRadius,
+        600,
+      ),
+    };
     this.roomOptions = {
-      targetPopulation: options.targetPopulation,
+      targetPopulation: this.roomProfile.targetPopulation,
       maxHumanPlayers: options.maxHumanPlayers,
       fixedStepHz: options.fixedStepHz,
-      snapshotHz: options.snapshotHz,
+      snapshotHz: this.roomProfile.snapshotHz,
       reconnectGraceMs: options.reconnectGraceMs,
-      arenaRadius: options.arenaRadius,
-      targetDropCount: options.targetDropCount,
+      arenaRadius: this.roomProfile.arenaRadius,
+      targetDropCount: this.roomProfile.targetDropCount,
       board: options.board,
       paceId: options.paceId,
       heatRing: options.heatRing,
@@ -135,6 +158,7 @@ export class AuthoritativeArenaServer {
           rooms: this.rooms.size,
           connections: this.connections.size,
           maxConnections: this.maxConnections,
+          roomProfile: this.roomProfile,
         }));
         return;
       }

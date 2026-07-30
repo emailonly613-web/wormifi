@@ -10,6 +10,7 @@ import type {
 } from "../../src/protocol.ts";
 import { PROTOCOL_VERSION } from "../../src/protocol.ts";
 import { SERVER_BUILD_REVISION } from "../../src/build-info.ts";
+import { LIVE_SPATIAL_PROFILE } from "../../../src/game/spatialFeel.ts";
 import {
   AuthoritativeArenaServer,
   type AuthoritativeServerOptions,
@@ -172,12 +173,24 @@ test("the global connection ceiling rejects excess sockets and recovers capacity
       buildRevision?: string;
       connections?: number;
       maxConnections?: number;
+      roomProfile?: {
+        targetPopulation?: number;
+        targetDropCount?: number;
+        snapshotHz?: number;
+        arenaRadius?: number;
+      };
     };
     assert.equal(health.ok, true);
     assert.equal(health.protocolVersion, PROTOCOL_VERSION);
     assert.equal(health.buildRevision, SERVER_BUILD_REVISION);
     assert.equal(health.connections, 1);
     assert.equal(health.maxConnections, 1);
+    assert.deepEqual(health.roomProfile, {
+      targetPopulation: 0,
+      targetDropCount: 0,
+      snapshotHz: 5,
+      arenaRadius: LIVE_SPATIAL_PROFILE.arenaRadius,
+    });
 
     await first.close();
     const replacement = await SecurityClient.connect(websocketUrl);
