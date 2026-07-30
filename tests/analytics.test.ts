@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ensureGtagQueue,
   isValidGa4MeasurementId,
   readSafeCampaignParameters,
   sanitizePageLocation,
@@ -44,5 +45,32 @@ describe("privacy-conscious analytics helpers", () => {
         campaign_name: undefined,
         campaign_id: undefined,
       });
+  });
+
+  it("queues gtag commands as arguments objects so gtag.js executes them", () => {
+    // A plain array pushes fine and is then silently ignored by gtag.js, which
+    // is indistinguishable from "analytics works" everywhere except Google's
+    // servers. This shipped once and cost the site every hit it ever recorded.
+    // The suite runs in node, so stand up just enough of a window for the
+    // queue helper to attach itself to.
+    const host = globalThis as { window?: unknown };
+    const previousWindow = host.window;
+    const layer: unknown[] = [];
+    const fakeWindow = { dataLayer: layer } as unknown as Window & typeof globalThis;
+    host.window = fakeWindow;
+
+    ensureGtagQueue();
+    fakeWindow.gtag!("event", "page_view", { page_title: "test" });
+
+    expect(layer).toHaveLength(1);
+    expect(Array.isArray(layer[0])).toBe(false);
+    expect(Object.prototype.toString.call(layer[0])).toBe("[object Arguments]");
+    expect(Array.from(layer[0] as ArrayLike<unknown>)).toEqual([
+      "event",
+      "page_view",
+      { page_title: "test" },
+    ]);
+
+    host.window = previousWindow;
   });
 });

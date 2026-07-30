@@ -106,11 +106,16 @@ export function setWormifiAnalyticsConsent(choice: ConsentChoice) {
   }
 }
 
-function ensureGtagQueue() {
+export function ensureGtagQueue() {
   window.dataLayer ??= [];
-  window.gtag ??= (...command: GtagCommand) => {
-    window.dataLayer!.push(command);
-  };
+  // gtag.js only executes dataLayer entries that are `arguments` objects. A
+  // plain array is pushed successfully and then silently ignored, so consent,
+  // config and every event queue up and none of them ever reach Google. The
+  // official snippet uses `arguments` for exactly this reason.
+  window.gtag ??= function gtagQueue() {
+    // eslint-disable-next-line prefer-rest-params
+    window.dataLayer!.push(arguments);
+  } as Window["gtag"];
 }
 
 function setDefaultConsent() {
