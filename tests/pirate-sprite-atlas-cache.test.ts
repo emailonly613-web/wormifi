@@ -26,7 +26,7 @@ class ReadyImage {
 
   set src(value: string) {
     this.value = value;
-    const match = value.match(/ground-treasure-v2-rotations-(1|2)x\.png$/);
+    const match = value.match(/ground-treasure-v3-rotations-(1|2)x\.png$/);
     if (!match) return;
     const scale = Number(match[1]) as 1 | 2;
     this.naturalWidth = ATLAS_DIMENSIONS[scale].width;
@@ -62,6 +62,15 @@ function canvasContext(sourceScale = 1) {
     strokeStyle: "",
     lineWidth: 1,
   };
+}
+
+function imageDrawCalls(
+  context: ReturnType<typeof canvasContext>,
+  sourceFragment: string,
+) {
+  return context.drawImage.mock.calls.filter(([source]) =>
+    String((source as ReadyImage).src).includes(sourceFragment)
+  );
 }
 
 async function flushMicrotasks(count = 20) {
@@ -109,7 +118,9 @@ describe("bounded static pirate treasure rotation atlases", () => {
     await flushMicrotasks();
 
     const authoredImages = createdImages.filter((image) =>
-      !image.src.includes("ground-treasure-v2-rotations")
+      !image.src.includes("ground-treasure-v3-rotations") &&
+      !image.src.includes("treasure-float-shadow-v1.svg") &&
+      !image.src.includes("treasure-glint-v1.svg")
     );
     expect(authoredImages).toHaveLength(PIRATE_SPRITE_NAMES.length);
     expect(new Set(authoredImages.map((image) => image.src))).toEqual(
@@ -118,7 +129,7 @@ describe("bounded static pirate treasure rotation atlases", () => {
       )),
     );
     expect(createdImages.some((image) =>
-      image.src.includes("ground-treasure-v2-rotations")
+      image.src.includes("ground-treasure-v3-rotations")
     )).toBe(false);
 
     // The crowded desktop canvas can intentionally render below the device's
@@ -137,10 +148,10 @@ describe("bounded static pirate treasure rotation atlases", () => {
     await flushMicrotasks();
 
     expect(createdImages.filter((image) =>
-      image.src.includes("ground-treasure-v2-rotations-1x.png")
+      image.src.includes("ground-treasure-v3-rotations-1x.png")
     )).toHaveLength(1);
     expect(createdImages.some((image) =>
-      image.src.includes("ground-treasure-v2-rotations-2x.png")
+      image.src.includes("ground-treasure-v3-rotations-2x.png")
     )).toBe(false);
   });
 
@@ -160,14 +171,13 @@ describe("bounded static pirate treasure rotation atlases", () => {
       180,
       0,
     );
-    expect(context.drawImage.mock.calls[0]?.[0]).toBeInstanceOf(ReadyImage);
-    expect(String((context.drawImage.mock.calls[0]?.[0] as ReadyImage).src)).toContain(
-      "treasure-ruby-cluster.png",
-    );
+    const fallbackCalls = imageDrawCalls(context, "treasure-ruby-cluster.png");
+    expect(fallbackCalls).toHaveLength(1);
+    expect(fallbackCalls[0]?.[0]).toBeInstanceOf(ReadyImage);
 
     await flushMicrotasks();
     const atlasImages = createdImages.filter((image) =>
-      image.src.includes("ground-treasure-v2-rotations-1x.png")
+      image.src.includes("ground-treasure-v3-rotations-1x.png")
     );
     expect(atlasImages).toHaveLength(1);
 
@@ -191,9 +201,10 @@ describe("bounded static pirate treasure rotation atlases", () => {
       200,
     );
 
-    expect(context.drawImage).toHaveBeenCalledTimes(2);
-    expect(context.drawImage.mock.calls.every(([source]) => source === atlasImages[0])).toBe(true);
-    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v2-rotations")))
+    const atlasDraws = imageDrawCalls(context, "ground-treasure-v3-rotations");
+    expect(atlasDraws).toHaveLength(2);
+    expect(atlasDraws.every(([source]) => source === atlasImages[0])).toBe(true);
+    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v3-rotations")))
       .toHaveLength(1);
     expect(context.getTransform).toHaveBeenCalledTimes(3);
     expect(context.imageSmoothingEnabled).toBe(false);
@@ -228,9 +239,9 @@ describe("bounded static pirate treasure rotation atlases", () => {
 
     expect(createBitmap).not.toHaveBeenCalled();
     expect(createElement).not.toHaveBeenCalled();
-    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v2-rotations-2x.png")))
+    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v3-rotations-2x.png")))
       .toHaveLength(1);
-    expect(createdImages.some((image) => image.src.includes("ground-treasure-v2-rotations-1x.png")))
+    expect(createdImages.some((image) => image.src.includes("ground-treasure-v3-rotations-1x.png")))
       .toBe(false);
   });
 
@@ -271,13 +282,14 @@ describe("bounded static pirate treasure rotation atlases", () => {
     const expectedFlatIndexes = items.map(({ seed }) =>
       (seed % 7) * 17 + seed % 17
     );
-    expect(context.drawImage.mock.calls.map((call) => call[1])).toEqual(
+    const atlasDraws = imageDrawCalls(context, "ground-treasure-v3-rotations");
+    expect(atlasDraws.map((call) => call[1])).toEqual(
       expectedFlatIndexes.map((index) => index % 10 * cellExtent),
     );
-    expect(context.drawImage.mock.calls.map((call) => call[2])).toEqual(
+    expect(atlasDraws.map((call) => call[2])).toEqual(
       expectedFlatIndexes.map((index) => Math.floor(index / 10) * cellExtent),
     );
-    expect(context.drawImage.mock.calls.every((call) => call[3] === 68 && call[4] === 68))
+    expect(atlasDraws.every((call) => call[3] === 68 && call[4] === 68))
       .toBe(true);
   });
 
@@ -324,9 +336,10 @@ describe("bounded static pirate treasure rotation atlases", () => {
       );
 
       const cellExtent = sourceScale === 1 ? 68 : 136;
-      expect(Number(context.drawImage.mock.calls[0]?.[7]) * 48 / (cellExtent / sourceScale))
+      const atlasDraws = imageDrawCalls(context, "ground-treasure-v3-rotations");
+      expect(Number(atlasDraws[0]?.[7]) * 48 / (cellExtent / sourceScale))
         .toBeCloseTo(baseSize, 8);
-      expect(Number(context.drawImage.mock.calls[1]?.[7]) * 48 / (cellExtent / sourceScale))
+      expect(Number(atlasDraws[1]?.[7]) * 48 / (cellExtent / sourceScale))
         .toBeCloseTo(baseSize * 0.94, 8);
     }
   });
@@ -335,7 +348,7 @@ describe("bounded static pirate treasure rotation atlases", () => {
     class InvalidAtlasImage extends ReadyImage {
       override set src(value: string) {
         super.src = value;
-        if (value.includes("ground-treasure-v2-rotations")) {
+        if (value.includes("ground-treasure-v3-rotations")) {
           this.naturalWidth = 1;
           this.naturalHeight = 1;
         }
@@ -373,17 +386,17 @@ describe("bounded static pirate treasure rotation atlases", () => {
     );
     await flushMicrotasks();
 
-    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v2-rotations")))
+    expect(createdImages.filter((image) => image.src.includes("ground-treasure-v3-rotations")))
       .toHaveLength(1);
     expect(context.drawImage.mock.calls.every(([source]) =>
-      !String((source as ReadyImage).src).includes("ground-treasure-v2-rotations")
+      !String((source as ReadyImage).src).includes("ground-treasure-v3-rotations")
     )).toBe(true);
   });
 
   it("ships deterministic lossless atlases with the contracted dimensions", async () => {
     for (const scale of [1, 2] as const) {
       const png = await readFile(path.resolve(
-        `public/assets/sprites/pirate-atlas/ground-treasure-v2-rotations-${scale}x.png`,
+        `public/assets/sprites/pirate-atlas/ground-treasure-v3-rotations-${scale}x.png`,
       ));
       expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
       expect(png.readUInt32BE(16)).toBe(ATLAS_DIMENSIONS[scale].width);

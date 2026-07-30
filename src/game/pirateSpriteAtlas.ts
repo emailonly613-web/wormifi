@@ -44,19 +44,15 @@ type DrawableSprite = HTMLImageElement | HTMLCanvasElement;
 
 const sourceImages = new Map<PirateSpriteName, HTMLImageElement>();
 const hueVariants = new Map<string, HTMLCanvasElement>();
+const GROUND_TREASURE_FLOAT_SHADOW_PATH =
+  `${SPRITE_ROOT}/treasure-float-shadow-v1.svg`;
+let groundTreasureFloatShadowImage: HTMLImageElement | undefined;
+const GROUND_TREASURE_GLINT_PATH = `${SPRITE_ROOT}/treasure-glint-v1.svg`;
+let groundTreasureGlintImage: HTMLImageElement | undefined;
 const GROUND_TREASURE_SPRITE_LOGICAL_EXTENT = 48;
 export const GROUND_TREASURE_MIN_LOGICAL_SIZE = 42;
 export const GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE = 34;
 export const GROUND_TREASURE_RADIUS_SCALE = 4.25;
-const GROUND_TREASURE_PLATE_COLORS = [
-  "rgba(255, 211, 82, 0.96)",
-  "rgba(255, 92, 112, 0.96)",
-  "rgba(89, 180, 255, 0.96)",
-  "rgba(75, 241, 171, 0.96)",
-  "rgba(255, 244, 222, 0.96)",
-  "rgba(255, 178, 60, 0.96)",
-  "rgba(255, 221, 145, 0.96)",
-] as const;
 const GROUND_TREASURE_SOURCE_SCALES = [1, 2] as const;
 const GROUND_TREASURE_ROTATION_MIN = -8;
 const GROUND_TREASURE_ROTATION_COUNT = 17;
@@ -115,6 +111,31 @@ function imageFor(name: PirateSpriteName): HTMLImageElement | undefined {
   return image.complete && image.naturalWidth > 0 ? image : undefined;
 }
 
+function groundTreasureFloatShadow(): HTMLImageElement | undefined {
+  if (typeof Image === "undefined") return undefined;
+  if (!groundTreasureFloatShadowImage) {
+    groundTreasureFloatShadowImage = new Image();
+    groundTreasureFloatShadowImage.decoding = "async";
+    groundTreasureFloatShadowImage.src = GROUND_TREASURE_FLOAT_SHADOW_PATH;
+  }
+  return groundTreasureFloatShadowImage.complete &&
+      groundTreasureFloatShadowImage.naturalWidth > 0
+    ? groundTreasureFloatShadowImage
+    : undefined;
+}
+
+function groundTreasureGlint(): HTMLImageElement | undefined {
+  if (typeof Image === "undefined") return undefined;
+  if (!groundTreasureGlintImage) {
+    groundTreasureGlintImage = new Image();
+    groundTreasureGlintImage.decoding = "async";
+    groundTreasureGlintImage.src = GROUND_TREASURE_GLINT_PATH;
+  }
+  return groundTreasureGlintImage.complete && groundTreasureGlintImage.naturalWidth > 0
+    ? groundTreasureGlintImage
+    : undefined;
+}
+
 function quantizedHue(hueDegrees: number): number {
   if (!Number.isFinite(hueDegrees)) return 0;
   const normalized = ((hueDegrees % 360) + 360) % 360;
@@ -158,7 +179,7 @@ function groundTreasureSourceScale(
 function groundTreasureRotationAtlasPath(
   sourceScale: GroundTreasureSourceScale,
 ): string {
-  return `${SPRITE_ROOT}/ground-treasure-v2-rotations-${sourceScale}x.png`;
+  return `${SPRITE_ROOT}/ground-treasure-v3-rotations-${sourceScale}x.png`;
 }
 
 function pumpGroundTreasureRotationAtlases(): void {
@@ -382,30 +403,6 @@ export interface GroundTreasureSpriteItem {
   screenY?: number;
 }
 
-function drawGroundTreasurePlate(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  safeSeed: number,
-): void {
-  const plateRadius = size * 0.58;
-  context.globalAlpha = 0.92;
-  context.fillStyle = "rgba(3, 9, 31, 0.82)";
-  context.strokeStyle = GROUND_TREASURE_PLATE_COLORS[
-    safeSeed % GROUND_TREASURE_PLATE_COLORS.length
-  ];
-  context.lineWidth = Math.max(1.5, size * 0.045);
-  context.beginPath();
-  context.moveTo(x, y - plateRadius);
-  context.lineTo(x + plateRadius, y);
-  context.lineTo(x, y + plateRadius);
-  context.lineTo(x - plateRadius, y);
-  context.closePath();
-  context.fill();
-  context.stroke();
-}
-
 /**
  * Bounded field renderer for ordinary ground loot. Unlike the old radial gem
  * field, every object has a semantic, asymmetric pirate-treasure silhouette.
@@ -431,6 +428,8 @@ export function drawGroundTreasureSpriteField(
   const rotationAtlas = typeof Image === "undefined"
     ? undefined
     : groundTreasureRotationAtlasFor(sourceScale);
+  const floatShadow = groundTreasureFloatShadow();
+  const glint = groundTreasureGlint();
   const treasureSizeScale = zoom * GROUND_TREASURE_RADIUS_SCALE;
   const minimumTreasureSize = height <= 500 || width <= 700
     ? GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE
@@ -443,9 +442,6 @@ export function drawGroundTreasureSpriteField(
   const previousSmoothingEnabled = context.imageSmoothingEnabled;
   const previousSmoothingQuality = context.imageSmoothingQuality;
   const previousGlobalAlpha = context.globalAlpha;
-  const previousFillStyle = context.fillStyle;
-  const previousStrokeStyle = context.strokeStyle;
-  const previousLineWidth = context.lineWidth;
   context.imageSmoothingEnabled = true;
   // Atlas cells were already rotated and resampled at high quality offline.
   // Medium runtime filtering keeps small treasure crisp without repeating an
@@ -462,11 +458,9 @@ export function drawGroundTreasureSpriteField(
         minimumTreasureSize,
         item.radius * treasureSizeScale,
       );
-      // Atlas content can extend at most sqrt(2)/2 of its requested size from
-      // center; vertical bob adds another 4.5%. Cull with those true maxima
-      // before running trigonometry for the many offscreen world pickups.
+      // Include the raised sprite and its detached shadow in the culling box.
       const horizontalCullExtent = baseSize * 0.708;
-      const verticalCullExtent = baseSize * 0.753;
+      const verticalCullExtent = baseSize * 0.95;
       if (
         screenX < -horizontalCullExtent ||
         screenY < -verticalCullExtent ||
@@ -476,10 +470,24 @@ export function drawGroundTreasureSpriteField(
 
       const pulse = 0.97 + Math.sin(pulseTime + item.seed * 0.017) * 0.03;
       const size = baseSize * pulse;
+      const lift = (Math.sin(bobTime + item.seed) + 1) * 0.5;
       spriteOptions.x = screenX;
-      spriteOptions.y = screenY + Math.sin(bobTime + item.seed) * size * 0.045;
+      spriteOptions.y = screenY - size * (0.06 + lift * 0.12);
       spriteOptions.size = size;
       const safeSeed = Number.isFinite(item.seed) ? Math.abs(Math.trunc(item.seed)) : 0;
+      if (floatShadow) {
+        const shadowWidth = size * (0.9 - lift * 0.1);
+        const shadowHeight = size * (0.34 - lift * 0.05);
+        context.globalAlpha = previousGlobalAlpha * (0.62 - lift * 0.14);
+        context.drawImage(
+          floatShadow,
+          screenX - shadowWidth / 2,
+          screenY + size * 0.25 - shadowHeight / 2,
+          shadowWidth,
+          shadowHeight,
+        );
+        context.globalAlpha = previousGlobalAlpha;
+      }
       const rotationIndex = safeSeed % GROUND_TREASURE_ROTATION_COUNT;
       if (rotationAtlas) {
         const treasureIndex = safeSeed % COMMON_TREASURE.length;
@@ -500,33 +508,38 @@ export function drawGroundTreasureSpriteField(
           destinationExtent,
         );
       } else {
-        if (typeof context.beginPath === "function") {
-          drawGroundTreasurePlate(
-            context,
-            spriteOptions.x,
-            spriteOptions.y,
-            spriteOptions.size,
-            safeSeed,
-          );
-          context.globalAlpha = previousGlobalAlpha;
-        }
         const rotationClass = GROUND_TREASURE_ROTATION_MIN + rotationIndex;
         spriteOptions.rotation = rotationClass * 0.035;
         const spriteName = commonTreasureSprite(item.seed);
         drawPirateAtlasSprite(context, spriteName, spriteOptions);
+      }
+      if (glint) {
+        const twinkle = Math.max(
+          0,
+          Math.sin(now * 0.0042 + safeSeed * 0.73),
+        );
+        const glintSize = size * (0.17 + twinkle * 0.1);
+        context.globalAlpha = previousGlobalAlpha * (0.28 + twinkle * 0.62);
+        context.drawImage(
+          glint,
+          spriteOptions.x - size * 0.25 - glintSize / 2,
+          spriteOptions.y - size * 0.26 - glintSize / 2,
+          glintSize,
+          glintSize,
+        );
+        context.globalAlpha = previousGlobalAlpha;
       }
     }
   } finally {
     context.imageSmoothingEnabled = previousSmoothingEnabled;
     context.imageSmoothingQuality = previousSmoothingQuality;
     context.globalAlpha = previousGlobalAlpha;
-    context.fillStyle = previousFillStyle;
-    context.strokeStyle = previousStrokeStyle;
-    context.lineWidth = previousLineWidth;
   }
 }
 
 export function preloadPirateSpriteAtlas(): void {
   if (typeof Image === "undefined") return;
   for (const name of PIRATE_SPRITE_NAMES) imageFor(name);
+  groundTreasureFloatShadow();
+  groundTreasureGlint();
 }

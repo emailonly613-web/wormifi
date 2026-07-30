@@ -17,6 +17,19 @@ describe("original pirate sprite atlas", () => {
     expect(GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE).toBeGreaterThanOrEqual(34);
   });
 
+  it("uses a soft oval float shadow without square or diamond framing", () => {
+    const shadow = readFileSync(resolve(
+      "public/assets/sprites/pirate-atlas/treasure-float-shadow-v1.svg",
+    ), "utf8");
+    expect(shadow).toContain("<ellipse");
+    expect(shadow).not.toMatch(/<rect|<polygon/i);
+    const glint = readFileSync(resolve(
+      "public/assets/sprites/pirate-atlas/treasure-glint-v1.svg",
+    ), "utf8");
+    expect(glint).toContain("<ellipse");
+    expect(glint).not.toMatch(/<rect|<polygon/i);
+  });
+
   it("maps ordinary pickups to semantic treasure silhouettes, never dots", () => {
     const expected = new Set([
       "treasure-doubloons",
