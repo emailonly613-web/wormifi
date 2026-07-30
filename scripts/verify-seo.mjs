@@ -8,6 +8,7 @@ const pages = [
   ["how-to-play.html", "https://wormifi.com/how-to-play.html"],
   ["multiplayer.html", "https://wormifi.com/multiplayer.html"],
   ["pirate-treasure.html", "https://wormifi.com/pirate-treasure.html"],
+  ["install.html", "https://wormifi.com/install.html"],
   ["press.html", "https://wormifi.com/press.html"],
   ["privacy.html", "https://wormifi.com/privacy.html"],
 ];

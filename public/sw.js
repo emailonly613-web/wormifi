@@ -1,10 +1,11 @@
 const CACHE_PREFIX = "wormifi-app-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v6`;
+const CACHE_NAME = `${CACHE_PREFIX}v7`;
 const CANONICAL_PAGE_URLS = [
   "/",
   "/how-to-play.html",
   "/multiplayer.html",
   "/pirate-treasure.html",
+  "/install.html",
   "/press.html",
   "/privacy.html",
 ];

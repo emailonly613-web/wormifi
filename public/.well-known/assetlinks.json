@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.wormifi.twa",
+      "sha256_cert_fingerprints": [
+        "27:17:BD:97:35:98:F7:70:2B:7D:20:11:B3:DA:9F:A7:04:6D:45:22:86:ED:99:23:E7:C1:19:06:1A:87:FB:B9"
+      ]
+    }
+  }
+]
