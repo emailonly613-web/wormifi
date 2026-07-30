@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import {
+  COSMETIC_THEME_CATALOG,
+  DEFAULT_COSMETIC_THEME_ID,
+  getCosmeticTheme,
+  isCosmeticTheme,
+  isCosmeticThemeId,
+} from "../src/game/cosmeticThemes";
+import {
+  COSMETIC_THEME_CATALOG as PHOTO_SKIN_COSMETIC_THEME_CATALOG,
+  PHOTO_SKIN_THEMES,
+  createDefaultPhotoSkinState,
+  getPhotoSkinTheme,
+} from "../src/game/photoSkin";
+
+describe("public-safe authored cosmetic themes", () => {
+  it("has one stable default and a closed nine-theme catalog", () => {
+    expect(DEFAULT_COSMETIC_THEME_ID).toBe("tideglass-corsair");
+    expect(COSMETIC_THEME_CATALOG.map((theme) => theme.id)).toEqual([
+      "tideglass-corsair",
+      "sunken-crown",
+      "coral-signal",
+      "emerald-privateer",
+      "ruby-raider",
+      "pearl-wraith",
+      "pepper-flare",
+      "storm-cannon",
+      "vortex-oracle",
+    ]);
+    expect(new Set(COSMETIC_THEME_CATALOG.map((theme) => theme.palette.join("|"))).size).toBe(9);
+    expect(isCosmeticThemeId("sunken-crown")).toBe(true);
+    expect(isCosmeticThemeId("data:image/webp;base64,private")).toBe(false);
+    expect(isCosmeticThemeId("ghost-theme")).toBe(false);
+    expect(getCosmeticTheme("ghost-theme").id).toBe(DEFAULT_COSMETIC_THEME_ID);
+    expect(isCosmeticTheme(COSMETIC_THEME_CATALOG[1])).toBe(true);
+  });
+
+  it("keeps every existing Photo Skin theme import working from the shared catalog", () => {
+    expect(PHOTO_SKIN_THEMES).toBe(COSMETIC_THEME_CATALOG);
+    expect(PHOTO_SKIN_COSMETIC_THEME_CATALOG).toBe(COSMETIC_THEME_CATALOG);
+    expect(getPhotoSkinTheme("coral-signal")).toBe(getCosmeticTheme("coral-signal"));
+    expect(createDefaultPhotoSkinState(1).themeId).toBe(DEFAULT_COSMETIC_THEME_ID);
+  });
+});

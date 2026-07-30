@@ -3,12 +3,24 @@ import {
   randomPointInCircle,
   randomUnitVector,
 } from "./random";
+import {
+  cloneAndValidateBoard,
+  evaluateChargingWrap,
+  OPEN_SEAS_BOARD,
+} from "./chargingStations";
+import {
+  getBoostMassCostMultiplier,
+  getDropRelicKind,
+  getPirateRelicSpec,
+  isRelicActiveAtTick,
+} from "./relics";
 import type {
   BotInputContext,
   BotInputProviderMap,
   CollisionRadiusConfig,
   DropState,
   GameConfig,
+  GameBoardConfig,
   GameEvent,
   GameState,
   GameStepResult,
@@ -16,6 +28,7 @@ import type {
   PlayerInput,
   PlayerInputMap,
   PlayerState,
+  PirateRelicKind,
   RankedPlayer,
   SpawnDropOptions,
   SpawnPlayerOptions,
@@ -26,14 +39,39 @@ import type {
 const EPSILON = 1e-9;
 const TAU = Math.PI * 2;
 
+interface DropIdCache {
+  drops: GameState["drops"];
+  length: number;
+  ids: Set<string>;
+}
+
+// Large local arenas add their deterministic ground field in one batch. Keep
+// duplicate-ID validation O(1) across that batch; rebuilding after simulation
+// replaces/removes the drop array preserves the existing validation contract.
+const dropIdCaches = new WeakMap<GameState, DropIdCache>();
+
+function getDropIdCache(state: GameState): DropIdCache {
+  const current = dropIdCaches.get(state);
+  if (current?.drops === state.drops && current.length === state.drops.length) {
+    return current;
+  }
+  const rebuilt: DropIdCache = {
+    drops: state.drops,
+    length: state.drops.length,
+    ids: new Set(state.drops.map((drop) => drop.id)),
+  };
+  dropIdCaches.set(state, rebuilt);
+  return rebuilt;
+}
+
 export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   fixedStepSeconds: 1 / 30,
   arenaRadius: 5_000,
   spawnRadiusFactor: 0.62,
-  spawnAttempts: 12,
-  startMass: 100,
-  minimumMass: 40,
-  minimumBoostMass: 60,
+  spawnAttempts: 48,
+  startMass: 48,
+  minimumMass: 24,
+  minimumBoostMass: 34,
   baseSpeed: 235,
   boostSpeed: 330,
   boostMassPerSecond: 12,
@@ -42,14 +80,18 @@ export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   maximumTurnRadiansPerSecond: (270 * Math.PI) / 180,
   minimumTurnRadiansPerSecond: (145 * Math.PI) / 180,
   turnMassScale: 420,
-  baseRadius: 9,
-  massRadiusFactor: 0.42,
-  bodyRadiusFactor: 0.88,
-  segmentSpacingFactor: 1.35,
-  startingBodySegments: 8,
-  minimumBodySegments: 3,
-  massPerSegment: 20,
-  spawnShieldSeconds: 2.5,
+  // A compact spawn must still read as a healthy worm. These radii keep the
+  // three-segment opener short while giving it a plump, collision-faithful
+  // silhouette; sqrt(mass) then makes sustained growth visibly add girth.
+  baseRadius: 8,
+  massRadiusFactor: 0.68,
+  bodyRadiusFactor: 0.98,
+  segmentSpacingFactor: 0.82,
+  startingBodySegments: 3,
+  minimumBodySegments: 2,
+  maximumBodySegments: 72,
+  massPerSegment: 6,
+  spawnShieldSeconds: 1.5,
   dropRadius: 4,
   deathDropTargetMass: 5,
   maximumDeathDrops: 80,
@@ -95,11 +137,23 @@ function validateConfig(config: GameConfig): void {
   if (!Number.isFinite(config.arenaRadius) || config.arenaRadius <= 0) {
     throw new Error("arenaRadius must be a positive finite number");
   }
-  if (config.minimumBodySegments < 1) {
-    throw new Error("minimumBodySegments must be at least one");
+  if (!Number.isSafeInteger(config.minimumBodySegments) || config.minimumBodySegments < 1) {
+    throw new Error("minimumBodySegments must be a positive safe integer");
   }
-  if (config.startingBodySegments < config.minimumBodySegments) {
+  if (
+    !Number.isSafeInteger(config.startingBodySegments) ||
+    config.startingBodySegments < config.minimumBodySegments
+  ) {
     throw new Error("startingBodySegments cannot be below minimumBodySegments");
+  }
+  if (
+    !Number.isSafeInteger(config.maximumBodySegments) ||
+    config.maximumBodySegments < config.startingBodySegments
+  ) {
+    throw new Error("maximumBodySegments cannot be below startingBodySegments");
+  }
+  if (!Number.isFinite(config.massPerSegment) || config.massPerSegment <= 0) {
+    throw new Error("massPerSegment must be a positive finite number");
   }
   if (config.maximumDeathDrops < 1 || config.deathDropTargetMass <= 0) {
     throw new Error("death drop settings must be positive");
@@ -121,12 +175,20 @@ function validateConfig(config: GameConfig): void {
 export function createGameState(
   seed: string | number,
   overrides: Partial<GameConfig> = {},
+  board: Readonly<GameBoardConfig> = OPEN_SEAS_BOARD,
 ): GameState {
   const config: GameConfig = { ...DEFAULT_GAME_CONFIG, ...overrides };
   validateConfig(config);
+  const preparedBoard = cloneAndValidateBoard(
+    board,
+    config.fixedStepSeconds,
+    config.arenaRadius,
+  );
 
   return {
     config,
+    board: preparedBoard.board,
+    chargingStations: preparedBoard.states,
     initialSeed: seed,
     randomState: hashSeed(seed),
     tick: 0,
@@ -155,9 +217,27 @@ function getTargetBodyLength(player: PlayerState, config: GameConfig): number {
   const growthSegments = Math.floor(
     (player.mass - config.startMass) / config.massPerSegment,
   );
-  return Math.max(
-    config.minimumBodySegments,
-    config.startingBodySegments + growthSegments,
+  return Math.min(
+    config.maximumBodySegments,
+    Math.max(
+      config.minimumBodySegments,
+      config.startingBodySegments + growthSegments,
+    ),
+  );
+}
+
+function distanceToSegment(point: Vec2, start: Vec2, end: Vec2): number {
+  const segmentX = end.x - start.x;
+  const segmentY = end.y - start.y;
+  const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+  if (lengthSquared <= EPSILON) return Math.sqrt(distanceSquared(point, start));
+  const projection = Math.max(0, Math.min(1,
+    ((point.x - start.x) * segmentX + (point.y - start.y) * segmentY) /
+      lengthSquared,
+  ));
+  return Math.hypot(
+    point.x - (start.x + segmentX * projection),
+    point.y - (start.y + segmentY * projection),
   );
 }
 
@@ -190,6 +270,14 @@ function syncBodyLength(player: PlayerState, config: GameConfig): void {
 function pickSpawnPosition(state: GameState): Vec2 {
   const spawnRadius = state.config.arenaRadius * state.config.spawnRadiusFactor;
   const livingPlayers = Object.values(state.players).filter((player) => player.alive);
+  const startingBodyRadius = getBodyRadius(
+    { mass: state.config.startMass },
+    state.config,
+  );
+  const startingChainReach =
+    state.config.startingBodySegments *
+      startingBodyRadius * 2 * state.config.segmentSpacingFactor +
+    startingBodyRadius;
   let bestPosition: Vec2 = { x: 0, y: 0 };
   let bestClearance = -Infinity;
 
@@ -199,11 +287,21 @@ function pickSpawnPosition(state: GameState): Vec2 {
 
     const clearance = livingPlayers.length === 0
       ? state.config.arenaRadius
-      : Math.min(
-          ...livingPlayers.map((player) =>
-            Math.sqrt(distanceSquared(candidate.value, player.position)),
-          ),
-        );
+      : Math.min(...livingPlayers.flatMap((player) => {
+        const clearances = [
+          Math.sqrt(distanceSquared(candidate.value, player.position)) -
+            startingChainReach - getPlayerRadius(player, state.config),
+        ];
+        for (let index = 0; index < player.body.length; index += 1) {
+          const start = index === 0 ? player.position : player.body[index - 1];
+          const end = player.body[index];
+          clearances.push(
+            distanceToSegment(candidate.value, start, end) -
+              startingChainReach - getBodyRadius(player, state.config),
+          );
+        }
+        return clearances;
+      }));
 
     if (clearance > bestClearance) {
       bestClearance = clearance;
@@ -286,7 +384,15 @@ export function spawnDrop(
   state: GameState,
   options: SpawnDropOptions,
 ): DropState {
-  const isSpecialistPickup = options.specialist !== undefined;
+  if (options.specialist && options.relicKind) {
+    throw new Error("Use either the legacy specialist field or relicKind, not both");
+  }
+  if (options.specialistDurationSeconds && options.relicDurationSeconds) {
+    throw new Error("Use either specialist or Relic duration, not both");
+  }
+  const resolvedRelicKind = options.relicKind ??
+    (options.specialist === "collector" ? "loot-compass" : undefined);
+  const isSpecialistPickup = resolvedRelicKind !== undefined;
   if (
     !Number.isFinite(options.mass) ||
     options.mass < 0 ||
@@ -298,7 +404,13 @@ export function spawnDrop(
 
   const source = options.source ?? "arena";
   const specialistDurationSeconds =
-    options.specialistDurationSeconds ?? state.config.collectorDurationSeconds;
+    options.relicDurationSeconds ??
+    options.specialistDurationSeconds ??
+    (resolvedRelicKind === "loot-compass"
+      ? state.config.collectorDurationSeconds
+      : resolvedRelicKind
+        ? getPirateRelicSpec(resolvedRelicKind).durationSeconds
+        : state.config.collectorDurationSeconds);
   if (
     isSpecialistPickup &&
     (!Number.isFinite(specialistDurationSeconds) || specialistDurationSeconds <= 0)
@@ -313,15 +425,28 @@ export function spawnDrop(
         ? "owner"
         : options.collectorReachPolicy ?? "neutral";
 
+  const id = options.id ?? `drop-${state.nextEntityNumber++}`;
+  const idCache = getDropIdCache(state);
+  if (idCache.ids.has(id)) {
+    throw new Error(`Drop ${id} already exists`);
+  }
+
   const drop: DropState = {
-    id: options.id ?? `drop-${state.nextEntityNumber++}`,
+    id,
     position: cloneVec(options.position),
     mass: options.mass,
     radius: options.radius ?? state.config.dropRadius,
     source,
     originPlayerId: options.originPlayerId,
     specialist: options.specialist,
-    specialistDurationTicks: isSpecialistPickup
+    specialistDurationTicks: options.specialist
+      ? Math.max(
+          1,
+          Math.ceil(specialistDurationSeconds / state.config.fixedStepSeconds),
+        )
+      : undefined,
+    relicKind: options.relicKind,
+    relicDurationTicks: options.relicKind
       ? Math.max(
           1,
           Math.ceil(specialistDurationSeconds / state.config.fixedStepSeconds),
@@ -332,10 +457,9 @@ export function spawnDrop(
     blockedUntilTick: options.blockedUntilTick ?? 0,
   };
 
-  if (state.drops.some((existing) => existing.id === drop.id)) {
-    throw new Error(`Drop ${drop.id} already exists`);
-  }
   state.drops.push(drop);
+  idCache.ids.add(drop.id);
+  idCache.length = state.drops.length;
   return drop;
 }
 
@@ -367,24 +491,51 @@ function updateBodyPositions(player: PlayerState, config: GameConfig): void {
   let leader = player.position;
 
   for (const segment of player.body) {
-    const awayFromLeader = normalize(
-      { x: segment.x - leader.x, y: segment.y - leader.y },
-      { x: -player.direction.x, y: -player.direction.y },
-    );
-    segment.x = leader.x + awayFromLeader.x * spacing;
-    segment.y = leader.y + awayFromLeader.y * spacing;
+    const deltaX = segment.x - leader.x;
+    const deltaY = segment.y - leader.y;
+    const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+    let awayX: number;
+    let awayY: number;
+    if (!Number.isFinite(lengthSquared) || lengthSquared <= EPSILON) {
+      awayX = -player.direction.x;
+      awayY = -player.direction.y;
+    } else {
+      const inverseLength = 1 / Math.sqrt(lengthSquared);
+      awayX = deltaX * inverseLength;
+      awayY = deltaY * inverseLength;
+    }
+    segment.x = leader.x + awayX * spacing;
+    segment.y = leader.y + awayY * spacing;
     leader = segment;
   }
 }
 
-function buildBotContext(state: GameState, player: PlayerState): BotInputContext {
-  const playerIds = Object.keys(state.players).sort();
+function snapshotPreviousGeometry(player: PlayerState): void {
+  player.previousPosition.x = player.position.x;
+  player.previousPosition.y = player.position.y;
+  while (player.previousBody.length < player.body.length) {
+    player.previousBody.push({ x: 0, y: 0 });
+  }
+  player.previousBody.length = player.body.length;
+  for (let index = 0; index < player.body.length; index += 1) {
+    const source = player.body[index];
+    const target = player.previousBody[index];
+    target.x = source.x;
+    target.y = source.y;
+  }
+}
+
+function buildBotContext(
+  state: GameState,
+  player: PlayerState,
+  players: readonly Readonly<PlayerState>[],
+): BotInputContext {
   return {
     tick: state.tick,
     deltaSeconds: state.config.fixedStepSeconds,
     config: state.config,
     self: player,
-    players: playerIds.map((id) => state.players[id]),
+    players,
     drops: state.drops,
   };
 }
@@ -488,6 +639,71 @@ export function sweptCircleHitTime(
   return null;
 }
 
+/**
+ * Sweeps a head against the complete visible body path, not only the follower
+ * centers. The renderer joins the head and followers into one continuous
+ * chain, so collision samples the same links densely enough that adjacent
+ * solid circles overlap. Each sample still uses the single swept-circle law;
+ * this closes spatial gaps without adding a second hit rule or frame-rate
+ * dependence.
+ */
+function sweptHeadToBodyHitTime(
+  attacker: Readonly<PlayerState>,
+  owner: Readonly<PlayerState>,
+  config: Readonly<GameConfig>,
+): number | null {
+  const attackerRadius = getPlayerRadius(attacker, config);
+  const bodyRadius = getBodyRadius(owner, config);
+  const maximumSampleSpacing = Math.max(EPSILON, bodyRadius * 0.9);
+  let earliest: number | null = null;
+
+  for (let index = 0; index < owner.body.length; index += 1) {
+    const currentStart = index === 0 ? owner.position : owner.body[index - 1];
+    const previousStart = index === 0
+      ? owner.previousPosition
+      : owner.previousBody[index - 1] ?? currentStart;
+    const currentEnd = owner.body[index];
+    const previousEnd = owner.previousBody[index] ?? currentEnd;
+    const currentLength = Math.sqrt(distanceSquared(currentStart, currentEnd));
+    const previousLength = Math.sqrt(distanceSquared(previousStart, previousEnd));
+    const sampleCount = Math.max(
+      1,
+      Math.ceil(Math.max(currentLength, previousLength) / maximumSampleSpacing),
+    );
+
+    // Exclude the owner's head endpoint (alpha 0) because the shared law is
+    // head-to-other-body. Include every follower endpoint and enough material
+    // points between them to make the visible neck and body continuously solid.
+    for (let sample = 1; sample <= sampleCount; sample += 1) {
+      const alpha = sample / sampleCount;
+      const bodyPrevious = {
+        x: previousStart.x + (previousEnd.x - previousStart.x) * alpha,
+        y: previousStart.y + (previousEnd.y - previousStart.y) * alpha,
+      };
+      const bodyCurrent = {
+        x: currentStart.x + (currentEnd.x - currentStart.x) * alpha,
+        y: currentStart.y + (currentEnd.y - currentStart.y) * alpha,
+      };
+      const collisionTime = sweptCircleHitTime(
+        attacker.previousPosition,
+        attacker.position,
+        attackerRadius,
+        bodyPrevious,
+        bodyCurrent,
+        bodyRadius,
+      );
+      if (
+        collisionTime !== null &&
+        (earliest === null || collisionTime < earliest - EPSILON)
+      ) {
+        earliest = collisionTime;
+      }
+    }
+  }
+
+  return earliest;
+}
+
 function findCollisionDeaths(state: GameState): DeathCandidate[] {
   const players = Object.values(state.players)
     .filter((player) => player.alive)
@@ -499,36 +715,23 @@ function findCollisionDeaths(state: GameState): DeathCandidate[] {
 
     let earliest: DeathCandidate | undefined;
     for (const owner of players) {
-      if (owner.id === attacker.id || owner.shieldTicksRemaining > 0) continue;
+      if (owner.id === attacker.id) continue;
 
-      const combinedRadius =
-        getPlayerRadius(attacker, state.config) + getBodyRadius(owner, state.config);
-      for (let index = 0; index < owner.body.length; index += 1) {
-        const currentBody = owner.body[index];
-        const previousBody = owner.previousBody[index] ?? currentBody;
-        const collisionTime = sweptCircleHitTime(
-          attacker.previousPosition,
-          attacker.position,
-          getPlayerRadius(attacker, state.config),
-          previousBody,
-          currentBody,
-          getBodyRadius(owner, state.config),
-        );
-        if (collisionTime === null) continue;
+      const collisionTime = sweptHeadToBodyHitTime(attacker, owner, state.config);
+      if (collisionTime === null) continue;
 
-        if (
-          !earliest ||
-          collisionTime < earliest.collisionTime - EPSILON ||
-          (Math.abs(collisionTime - earliest.collisionTime) <= EPSILON &&
-            owner.id.localeCompare(earliest.killerId ?? "") < 0)
-        ) {
-          earliest = {
-            victimId: attacker.id,
-            cause: "collision",
-            killerId: owner.id,
-            collisionTime,
-          };
-        }
+      if (
+        !earliest ||
+        collisionTime < earliest.collisionTime - EPSILON ||
+        (Math.abs(collisionTime - earliest.collisionTime) <= EPSILON &&
+          owner.id.localeCompare(earliest.killerId ?? "") < 0)
+      ) {
+        earliest = {
+          victimId: attacker.id,
+          cause: "collision",
+          killerId: owner.id,
+          collisionTime,
+        };
       }
     }
 
@@ -594,7 +797,30 @@ export function isSpecialistActive(
   return Boolean(
     player.alive &&
     player.specialist?.kind === specialist &&
-    state.tick < player.specialist.expiresAtTick
+    isRelicActiveAtTick(player.specialist, state.tick, "loot-compass")
+  );
+}
+
+export function isRelicActive(
+  state: Readonly<GameState>,
+  player: Readonly<PlayerState>,
+  relicKind: PirateRelicKind,
+): boolean {
+  return Boolean(
+    player.alive &&
+    isRelicActiveAtTick(player.specialist, state.tick, relicKind),
+  );
+}
+
+export function getRelicSecondsRemaining(
+  state: Readonly<GameState>,
+  player: Readonly<PlayerState>,
+  relicKind: PirateRelicKind,
+): number {
+  if (!isRelicActive(state, player, relicKind)) return 0;
+  return Math.max(
+    0,
+    (player.specialist!.expiresAtTick - state.tick) * state.config.fixedStepSeconds,
   );
 }
 
@@ -623,6 +849,7 @@ function expireSpecialists(state: GameState, events: GameEvent[]): void {
       tick: state.tick,
       playerId: player.id,
       specialist: active.kind,
+      ...(active.relicKind ? { relicKind: active.relicKind } : {}),
     });
   }
 }
@@ -666,7 +893,7 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
   // later array entries in the same tick. Drop order cannot grant hidden range.
   const activeCollectors = new Set(
     livingPlayers
-      .filter((player) => isSpecialistActive(state, player, "collector"))
+      .filter((player) => isRelicActive(state, player, "loot-compass"))
       .map((player) => player.id),
   );
 
@@ -719,15 +946,34 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
       dropId: drop.id,
       mass: drop.mass,
     });
-    if (drop.specialist) {
-      const durationTicks = drop.specialistDurationTicks ?? Math.max(
-        1,
-        Math.ceil(
-          state.config.collectorDurationSeconds / state.config.fixedStepSeconds,
-        ),
-      );
+    const relicKind = getDropRelicKind(drop);
+    if (relicKind) {
+      const durationTicks = drop.relicDurationTicks ??
+        drop.specialistDurationTicks ??
+        Math.max(
+          1,
+          Math.ceil(
+            (relicKind === "loot-compass"
+              ? state.config.collectorDurationSeconds
+              : getPirateRelicSpec(relicKind).durationSeconds) /
+              state.config.fixedStepSeconds,
+          ),
+        );
+      const previousRelic = collector.specialist;
+      if (previousRelic && state.tick < previousRelic.expiresAtTick) {
+        events.push({
+          type: "specialistExpired",
+          tick: state.tick,
+          playerId: collector.id,
+          specialist: previousRelic.kind,
+          ...(previousRelic.relicKind
+            ? { relicKind: previousRelic.relicKind }
+            : {}),
+        });
+      }
       collector.specialist = {
-        kind: drop.specialist,
+        kind: "collector",
+        ...(relicKind === "loot-compass" ? {} : { relicKind }),
         activatedAtTick: state.tick,
         expiresAtTick: state.tick + durationTicks,
         durationTicks,
@@ -737,7 +983,8 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
         tick: state.tick,
         playerId: collector.id,
         dropId: drop.id,
-        specialist: drop.specialist,
+        specialist: "collector",
+        ...(relicKind === "loot-compass" ? {} : { relicKind }),
         durationTicks,
       });
     }
@@ -745,6 +992,247 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
 
   state.drops = remainingDrops;
   for (const player of livingPlayers) syncBodyLength(player, state.config);
+}
+
+function getChargingStationConfig(state: Readonly<GameState>, stationId: string) {
+  const station = state.board.chargingStations.find((candidate) => candidate.id === stationId);
+  if (!station) throw new Error(`Missing charging station config for ${stationId}`);
+  return station;
+}
+
+/**
+ * A completed physical wrap latches to the dock while it charges. Boost is the
+ * universal cast-off input: it releases the latch and resumes ordinary motion.
+ * The latch freezes no rival and grants no collision or shield exception.
+ */
+function isPlayerMooredForCharging(
+  state: Readonly<GameState>,
+  player: Readonly<PlayerState>,
+): boolean {
+  if (player.lastInput.boost) return false;
+  for (const chargingState of Object.values(state.chargingStations)) {
+    if (
+      chargingState.phase !== "charging" ||
+      chargingState.playerId !== player.id
+    ) {
+      continue;
+    }
+    const station = getChargingStationConfig(state, chargingState.stationId);
+    const geometry = evaluateChargingWrap(player, station);
+    if (
+      geometry.valid &&
+      geometry.windingDirection === chargingState.windingDirection
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function cooldownTicks(seconds: number, fixedStepSeconds: number): number {
+  return Math.max(0, Math.ceil(seconds / fixedStepSeconds));
+}
+
+function resetChargingStateToReady(
+  chargingState: GameState["chargingStations"][string],
+): void {
+  chargingState.phase = "ready";
+  chargingState.playerId = undefined;
+  chargingState.windingDirection = 0;
+  chargingState.progressTicks = 0;
+  chargingState.graceTicksRemaining = 0;
+  chargingState.cooldownTicksRemaining = 0;
+  chargingState.massAwarded = 0;
+}
+
+function advanceValidCharge(
+  state: GameState,
+  chargingState: GameState["chargingStations"][string],
+  player: PlayerState,
+  events: GameEvent[],
+): void {
+  const station = getChargingStationConfig(state, chargingState.stationId);
+  if (chargingState.phase === "interrupted") {
+    chargingState.phase = "charging";
+    events.push({
+      type: "chargingResumed",
+      tick: state.tick,
+      stationId: station.id,
+      playerId: player.id,
+      progressTicks: chargingState.progressTicks,
+    });
+  }
+
+  chargingState.phase = "charging";
+  chargingState.graceTicksRemaining = cooldownTicks(
+    station.interruptionGraceSeconds,
+    state.config.fixedStepSeconds,
+  );
+  chargingState.progressTicks = Math.min(
+    chargingState.requiredTicks,
+    chargingState.progressTicks + 1,
+  );
+
+  // Award against the progress high-water mark. Decay and resume can never
+  // mint the same partial reward twice.
+  const targetMassAward = station.massReward *
+    (chargingState.progressTicks / chargingState.requiredTicks);
+  const incrementalMass = Math.max(0, targetMassAward - chargingState.massAwarded);
+  if (incrementalMass > EPSILON) {
+    chargingState.massAwarded = targetMassAward;
+    player.mass += incrementalMass;
+    player.stats.peakMass = Math.max(player.stats.peakMass, player.mass);
+    syncBodyLength(player, state.config);
+  }
+
+  if (chargingState.progressTicks < chargingState.requiredTicks) return;
+
+  // Set the configured total exactly on completion so floating-point addition
+  // cannot drift the public result between different render chunking.
+  const finalAdjustment = station.massReward - chargingState.massAwarded;
+  if (finalAdjustment > EPSILON) {
+    chargingState.massAwarded = station.massReward;
+    player.mass += finalAdjustment;
+    player.stats.peakMass = Math.max(player.stats.peakMass, player.mass);
+    syncBodyLength(player, state.config);
+  }
+  const completedMass = chargingState.massAwarded;
+  chargingState.phase = "cooldown";
+  chargingState.cooldownTicksRemaining = cooldownTicks(
+    station.completionCooldownSeconds,
+    state.config.fixedStepSeconds,
+  );
+  chargingState.graceTicksRemaining = 0;
+  events.push({
+    type: "chargingCompleted",
+    tick: state.tick,
+    stationId: station.id,
+    playerId: player.id,
+    massAwarded: completedMass,
+    cooldownTicks: chargingState.cooldownTicksRemaining,
+  });
+}
+
+function updateChargingStations(state: GameState, events: GameEvent[]): void {
+  if (state.board.chargingStations.length === 0) return;
+
+  const reservedPlayers = new Set(
+    Object.values(state.chargingStations)
+      .filter((station) =>
+        (station.phase === "charging" || station.phase === "interrupted") &&
+        station.playerId !== undefined
+      )
+      .map((station) => station.playerId as PlayerId),
+  );
+  const players = Object.values(state.players)
+    .filter((player) => player.alive)
+    .sort((first, second) => first.id.localeCompare(second.id));
+  const stations = [...state.board.chargingStations]
+    .sort((first, second) => first.id.localeCompare(second.id));
+
+  for (const station of stations) {
+    const chargingState = state.chargingStations[station.id];
+    if (!chargingState) continue;
+
+    if (chargingState.phase === "cooldown") {
+      chargingState.cooldownTicksRemaining = Math.max(
+        0,
+        chargingState.cooldownTicksRemaining - 1,
+      );
+      if (chargingState.cooldownTicksRemaining === 0) {
+        resetChargingStateToReady(chargingState);
+      }
+      continue;
+    }
+
+    if (chargingState.playerId) {
+      const player = state.players[chargingState.playerId];
+      const geometry = player?.alive
+        ? evaluateChargingWrap(player, station)
+        : undefined;
+      const remainsValid = Boolean(
+        player?.alive &&
+        !player.lastInput.boost &&
+        geometry?.valid &&
+        geometry.windingDirection === chargingState.windingDirection,
+      );
+
+      if (remainsValid && player) {
+        advanceValidCharge(state, chargingState, player, events);
+        continue;
+      }
+
+      if (chargingState.phase === "charging") {
+        chargingState.phase = "interrupted";
+        chargingState.graceTicksRemaining = cooldownTicks(
+          station.interruptionGraceSeconds,
+          state.config.fixedStepSeconds,
+        );
+        events.push({
+          type: "chargingInterrupted",
+          tick: state.tick,
+          stationId: station.id,
+          playerId: chargingState.playerId,
+          progressTicks: chargingState.progressTicks,
+        });
+        continue;
+      }
+
+      if (chargingState.graceTicksRemaining > 0) {
+        chargingState.graceTicksRemaining -= 1;
+        continue;
+      }
+      chargingState.progressTicks = Math.max(
+        0,
+        chargingState.progressTicks - station.interruptionDecayTicksPerTick,
+      );
+      if (chargingState.progressTicks > 0) continue;
+
+      const interruptedPlayerId = chargingState.playerId;
+      const awardedMass = chargingState.massAwarded;
+      chargingState.phase = "cooldown";
+      chargingState.playerId = undefined;
+      chargingState.windingDirection = 0;
+      chargingState.cooldownTicksRemaining = cooldownTicks(
+        station.resetCooldownSeconds,
+        state.config.fixedStepSeconds,
+      );
+      chargingState.graceTicksRemaining = 0;
+      chargingState.massAwarded = 0;
+      events.push({
+        type: "chargingReset",
+        tick: state.tick,
+        stationId: station.id,
+        playerId: interruptedPlayerId,
+        massAwarded: awardedMass,
+      });
+      continue;
+    }
+
+    const candidate = players.find((player) => {
+      if (reservedPlayers.has(player.id) || player.lastInput.boost) return false;
+      return evaluateChargingWrap(player, station).valid;
+    });
+    if (!candidate) continue;
+
+    const geometry = evaluateChargingWrap(candidate, station);
+    if (!geometry.valid || geometry.windingDirection === 0) continue;
+    reservedPlayers.add(candidate.id);
+    chargingState.playerId = candidate.id;
+    chargingState.windingDirection = geometry.windingDirection;
+    chargingState.progressTicks = 0;
+    chargingState.massAwarded = 0;
+    chargingState.phase = "charging";
+    events.push({
+      type: "chargingStarted",
+      tick: state.tick,
+      stationId: station.id,
+      playerId: candidate.id,
+      windingDirection: geometry.windingDirection,
+      requiredTicks: chargingState.requiredTicks,
+    });
+    advanceValidCharge(state, chargingState, candidate, events);
+  }
 }
 
 export function stepGame(
@@ -756,6 +1244,7 @@ export function stepGame(
   const events: GameEvent[] = [];
   expireSpecialists(state, events);
   const playerIds = Object.keys(state.players).sort();
+  const playerRefs = playerIds.map((playerId) => state.players[playerId]);
 
   for (const playerId of playerIds) {
     const player = state.players[playerId];
@@ -763,7 +1252,7 @@ export function stepGame(
 
     const botInput =
       !inputs[playerId] && player.kind === "bot"
-        ? botProviders[playerId]?.nextInput(buildBotContext(state, player))
+        ? botProviders[playerId]?.nextInput(buildBotContext(state, player, playerRefs))
         : undefined;
     acceptInput(player, inputs[playerId] ?? botInput);
   }
@@ -772,9 +1261,12 @@ export function stepGame(
     const player = state.players[playerId];
     if (!player.alive) continue;
 
-    player.previousPosition = cloneVec(player.position);
-    player.previousBody = player.body.map(cloneVec);
+    snapshotPreviousGeometry(player);
     player.stats.survivalTicks += 1;
+
+    if (isPlayerMooredForCharging(state, player)) {
+      continue;
+    }
 
     const maximumTurn =
       getTurnRate(player, state.config) * state.config.fixedStepSeconds;
@@ -792,7 +1284,9 @@ export function stepGame(
 
     if (canBoost) {
       const massLost = Math.min(
-        state.config.boostMassPerSecond * state.config.fixedStepSeconds,
+        state.config.boostMassPerSecond *
+          getBoostMassCostMultiplier(player.specialist, state.tick) *
+          state.config.fixedStepSeconds,
         player.mass - state.config.minimumBoostMass,
       );
       player.mass -= massLost;
@@ -805,6 +1299,7 @@ export function stepGame(
 
   resolveDeaths(state, findCollisionDeaths(state), events);
   collectDrops(state, events);
+  updateChargingStations(state, events);
 
   for (const player of Object.values(state.players)) {
     if (player.alive && player.shieldTicksRemaining > 0) {

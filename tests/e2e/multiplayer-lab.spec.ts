@@ -36,9 +36,13 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   const first = await firstContext.newPage();
   const second = await secondContext.newPage();
   const room = `browser-proof-${Date.now().toString(36)}`;
-  const path = `/?room=${room}&arena_ws=${encodeURIComponent(arenaUrl)}`;
+  const path = `/?room=${room}&board=black-pearl-relay&arena_ws=${encodeURIComponent(arenaUrl)}`;
 
   await Promise.all([first.goto(path), second.goto(path)]);
+  await expect(first.getByTestId("lobby-room-identity")).toHaveText(`ROOM #${room.toUpperCase()}`);
+  await expect(second.getByTestId("lobby-room-identity")).toHaveText(`ROOM #${room.toUpperCase()}`);
+  await expect(first.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
+  await expect(second.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
   await first.getByLabel("Your arena name").fill("Browser Alice");
   await second.getByLabel("Your arena name").fill("Browser Bob");
 
@@ -53,10 +57,39 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   await expect(second.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(firstArena).toHaveAttribute("data-authority", "server-confirmed");
   await expect(secondArena).toHaveAttribute("data-authority", "server-confirmed");
+  await expect(firstArena).toHaveAttribute("data-board-id", "black-pearl-relay");
+  await expect(secondArena).toHaveAttribute("data-board-id", "black-pearl-relay");
   await expect(firstArena).toHaveAttribute("data-player-count", "4");
   await expect(secondArena).toHaveAttribute("data-player-count", "4");
   await expect(first.getByTestId("live-human-count")).toContainText("2 HUMANS");
   await expect(second.getByTestId("live-human-count")).toContainText("2 HUMANS");
+  const firstRoomIdentity = first.getByTestId("room-identity");
+  await expect(firstRoomIdentity).toHaveText(new RegExp(`LIVE ROOM #${room.toUpperCase()}`, "u"));
+  await expect(firstRoomIdentity).toHaveAttribute("data-room-id", room);
+  await expect(first.getByTestId("in-game-invite")).toBeVisible();
+  const firstRadar = first.getByTestId("pirate-radar");
+  await expect(firstRadar).toBeVisible();
+  await expect(firstRadar).toHaveAttribute("data-room-id", room);
+  const visibleRadarCounts = await firstRadar.evaluate((element) => ({
+    rivals: Number(element.getAttribute("data-rival-marker-count")),
+    other: Number(element.getAttribute("data-other-player-count")),
+    humans: Number(element.getAttribute("data-human-player-count")),
+    ai: Number(element.getAttribute("data-ai-player-count")),
+  }));
+  expect(visibleRadarCounts.rivals).toBe(visibleRadarCounts.other);
+  expect(visibleRadarCounts.other).toBeGreaterThanOrEqual(0);
+  expect(visibleRadarCounts.other).toBeLessThanOrEqual(3);
+  expect(visibleRadarCounts.humans + visibleRadarCounts.ai).toBe(visibleRadarCounts.other);
+  await expect(firstRadar).toHaveAttribute("data-station-count", "2");
+  await expect(firstRadar).toHaveAttribute("data-spyglass-bearing-count", "0");
+  await expect(firstRadar).toHaveAttribute(
+    "data-fair-intel",
+    "arena-bounds,self-heading,coarse-players,collector,public-hazard,stations",
+  );
+  await expect(firstRadar.getByTestId("radar-player")).toBeVisible();
+  await expect(firstRadar.getByTestId("radar-other-player")).toHaveCount(visibleRadarCounts.other);
+  await expect(firstRadar.getByTestId("radar-collector")).toHaveCount(1);
+  await expect(firstRadar.getByTestId("radar-station")).toHaveCount(2);
   const exactMass = Number(await firstArena.getAttribute("data-player-mass"));
   const baseRadius = Number(await firstArena.getAttribute("data-collision-base-radius"));
   const massFactor = Number(await firstArena.getAttribute("data-collision-mass-factor"));
@@ -64,9 +97,13 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   const renderedHeadRadius = Number(await firstArena.getAttribute("data-collision-head-radius"));
   const renderedBodyRadius = Number(await firstArena.getAttribute("data-collision-body-radius"));
   const expectedHeadRadius = baseRadius + Math.sqrt(exactMass) * massFactor;
+  expect(baseRadius).toBeCloseTo(8, 5);
+  expect(massFactor).toBeCloseTo(0.68, 5);
+  expect(bodyFactor).toBeCloseTo(0.98, 5);
   expect(renderedHeadRadius).toBeCloseTo(expectedHeadRadius, 2);
   expect(renderedBodyRadius).toBeCloseTo(expectedHeadRadius * bodyFactor, 2);
   expect(renderedBodyRadius).toBeLessThan(renderedHeadRadius);
+  expect(renderedBodyRadius / renderedHeadRadius).toBeCloseTo(0.98, 2);
   const firstPlayerId = await firstArena.getAttribute("data-player-id");
   expect(firstPlayerId).toMatch(/^human-/u);
   await Promise.all([
@@ -89,28 +126,378 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   await expect(first.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(firstArena).toHaveAttribute("data-authority", "server-confirmed");
   await expect(firstArena).toHaveAttribute("data-player-id", firstPlayerId ?? "missing-player-id");
+  await expect(firstArena).toHaveAttribute("data-board-id", "black-pearl-relay");
   await expect(first.getByTestId("live-human-count")).toContainText("2 HUMANS");
+
+  await first.getByTestId("in-game-invite").click();
+  const inviteDialog = first.getByTestId("room-invite-dialog");
+  await expect(inviteDialog).toContainText(`ROOM #${room.toUpperCase()}`);
+  const invite = new URL(await first.getByTestId("room-invite-url").inputValue());
+  expect(invite.searchParams.get("room")).toBe(room);
+  expect(invite.searchParams.get("board")).toBe("black-pearl-relay");
+  await first.getByRole("button", { name: "CLOSE" }).click();
 
   await Promise.all([firstContext.close(), secondContext.close()]);
 });
 
-test("Collector is visible and active while Rival Remains stay outside its vacuum", async ({ page }) => {
-  expect(PROTOCOL_VERSION).toBe(4);
+test("Heat Ring UI reconciles a resolved hoard from the event's real death-drop IDs and mass", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  const roomId = "heat-ring-client-resolved";
+  const playerId = "human-heat-proof";
+  const botIds = ["bot-ruby-wake", "bot-jade-jib"] as const;
+  const heatRing: NonNullable<WorldMessage["heatRing"]> = {
+    phase: "active",
+    theme: "corsair",
+    center: { x: 320, y: 0 },
+    radius: 340,
+    safeSpawnRadius: 380,
+    botIds,
+    startsAtTick: 0,
+    reverseAtTick: 30,
+    earliestResolveTick: 90,
+    deadlineTick: 240,
+  };
+  const collisionRadii = {
+    baseRadius: 8,
+    massRadiusFactor: 0.68,
+    bodyRadiusFactor: 0.98,
+  };
+  const player = (
+    id: string,
+    name: string,
+    kind: PublicPlayerState["kind"],
+    position: { x: number; y: number },
+    alive = true,
+  ): PublicPlayerState => ({
+    id,
+    name,
+    kind,
+    connected: true,
+    alive,
+    position,
+    direction: { x: 1, y: 0 },
+    body: [
+      { x: position.x - 20, y: position.y },
+      { x: position.x - 40, y: position.y },
+      { x: position.x - 60, y: position.y },
+    ],
+    mass: 48,
+    kills: 0,
+    score: 0,
+    shieldTicksRemaining: 0,
+  });
+  const jewels: PublicDropState[] = [
+    {
+      id: "ruby-hoard-1",
+      position: { x: 478, y: 22 },
+      mass: 3.25,
+      radius: 5.2,
+      source: "death",
+      originPlayerId: botIds[0],
+    },
+    {
+      id: "ruby-hoard-2",
+      position: { x: 491, y: 8 },
+      mass: 5.5,
+      radius: 5.2,
+      source: "death",
+      originPlayerId: botIds[0],
+    },
+    {
+      id: "jade-hoard-1",
+      position: { x: 504, y: -15 },
+      mass: 8.5,
+      radius: 5.2,
+      source: "death",
+      originPlayerId: botIds[1],
+    },
+  ];
+  let resolved = false;
+  let tick = 0;
+  let socketSend: ((data: string) => void) | undefined;
+  const sendSnapshot = (events: SnapshotMessage["events"], dropUpserts: PublicDropState[] = []) => {
+    const snapshot: SnapshotMessage = {
+      type: "snapshot",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId,
+      tick,
+      serverTimeMs: 40_000 + tick,
+      players: [
+        player(playerId, "Heat Proof", "human", { x: 0, y: 0 }),
+        player(botIds[0], "Ruby Wake", "bot", { x: 300, y: 20 }, !resolved),
+        player(botIds[1], "Jade Jib", "bot", { x: 340, y: -20 }, !resolved),
+      ],
+      dropUpserts,
+      removedDropIds: [],
+      events,
+    };
+    socketSend?.(JSON.stringify(snapshot));
+  };
+
+  await page.routeWebSocket("ws://heat-ring-resolved.test/arena", (socket) => {
+    socketSend = (data) => socket.send(data);
+    socket.onMessage((raw) => {
+      const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as {
+        type?: string;
+        direction?: { y?: number };
+      };
+      if (message.type === "join") {
+        const welcome: WelcomeMessage = {
+          type: "welcome",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          playerId,
+          reconnectToken: "heat-resolved-reconnect-token-0001",
+          reconnected: false,
+          tick,
+          fixedStepSeconds: 1 / 30,
+          lastAcceptedSequence: -1,
+        };
+        const world: WorldMessage = {
+          type: "world",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          tick,
+          arenaRadius: 1_200,
+          collisionRadii,
+          drops: [],
+          heatRing,
+        };
+        socket.send(JSON.stringify(welcome));
+        socket.send(JSON.stringify(world));
+        sendSnapshot([{ type: "heatRingStarted", tick, heatRing }]);
+        return;
+      }
+      if (message.type !== "input" || resolved || (message.direction?.y ?? 0) < 0.7) return;
+      resolved = true;
+      tick = 111;
+      sendSnapshot([
+        {
+          type: "playerDied",
+          tick,
+          playerId: botIds[0],
+          killerId: botIds[1],
+          cause: "collision",
+          collisionTime: 0.42,
+        },
+        {
+          type: "playerDied",
+          tick,
+          playerId: botIds[1],
+          killerId: botIds[0],
+          cause: "collision",
+          collisionTime: 0.42,
+        },
+        {
+          type: "heatRingResolved",
+          tick,
+          botIds,
+          dropIds: jewels.map((drop) => drop.id),
+          totalMass: jewels.reduce((sum, drop) => sum + drop.mass, 0),
+        },
+      ], jewels);
+    });
+  });
+
+  await page.goto(`/?room=${roomId}&arena_ws=${encodeURIComponent("ws://heat-ring-resolved.test/arena")}`);
+  await page.getByLabel("Your arena name").fill("Heat Proof");
+  await page.getByTestId("live-lab-button").click();
+  const arena = page.getByTestId("live-arena-canvas");
+  await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
+  await expect(arena).toHaveAttribute("data-heat-ring-phase", "active");
+  await expect(arena).toHaveAttribute("data-heat-ring-bots", "2");
+  await expect(arena).toHaveAttribute("data-heat-ring-jewels", "0");
+  await expect(arena).toHaveAttribute("data-heat-ring-mass", "0");
+  await expect(page.getByTestId("live-action-callout")).toContainText("CORSAIR HEAT RING");
+  const radar = page.getByTestId("pirate-radar");
+  await expect(radar).toHaveAttribute("data-hazard-count", "1");
+  await expect(radar).toHaveAttribute("data-other-player-count", "2");
+  const radarHeatRing = radar.getByTestId("radar-heat-ring");
+  await expect(radarHeatRing).toHaveAttribute("data-world-radius", "340");
+  expect(Number(await radarHeatRing.locator("circle").getAttribute("r"))).toBeCloseTo(11.62, 2);
+
+  await page.keyboard.press("ArrowDown");
+  await expect(arena).toHaveAttribute("data-heat-ring-phase", "resolved");
+  await expect(arena).toHaveAttribute("data-heat-ring-bots", "2");
+  await expect(arena).toHaveAttribute("data-heat-ring-jewels", "3");
+  await expect(arena).toHaveAttribute("data-heat-ring-mass", "17.25");
+  await expect(arena).toHaveAttribute("data-rival-remains-count", "3");
+  await expect(radar).toHaveAttribute("data-hazard-count", "0");
+  await expect(radarHeatRing).toHaveCount(0);
+  const callout = page.getByTestId("live-action-callout");
+  await expect(callout).toContainText("RIVAL HOARD RELEASED · 3 REAL JEWELS · 17.3 SIZE");
+  await expect(callout).not.toContainText("VERIFYING");
+  expect(pageErrors).toEqual([]);
+});
+
+test("Heat Ring UI clears an authoritative abort without inventing treasure", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  const roomId = "heat-ring-client-aborted";
+  const playerId = "human-heat-abort";
+  const botIds = ["bot-ruby-abort", "bot-jade-abort"] as const;
+  const heatRing: NonNullable<WorldMessage["heatRing"]> = {
+    phase: "active",
+    theme: "corsair",
+    center: { x: 320, y: 0 },
+    radius: 340,
+    safeSpawnRadius: 380,
+    botIds,
+    startsAtTick: 0,
+    reverseAtTick: 30,
+    earliestResolveTick: 90,
+    deadlineTick: 240,
+  };
+  let tick = 0;
+  let aborted = false;
+  let socketSend: ((data: string) => void) | undefined;
+  const players: PublicPlayerState[] = [
+    {
+      id: playerId,
+      name: "Abort Proof",
+      kind: "human",
+      connected: true,
+      alive: true,
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      body: [{ x: -20, y: 0 }, { x: -40, y: 0 }, { x: -60, y: 0 }],
+      mass: 48,
+      kills: 0,
+      score: 0,
+      shieldTicksRemaining: 20,
+    },
+    ...botIds.map((id, index): PublicPlayerState => ({
+      id,
+      name: index === 0 ? "Ruby Wake" : "Jade Jib",
+      kind: "bot",
+      connected: true,
+      alive: true,
+      position: { x: 480 + index * 20, y: index === 0 ? 20 : -20 },
+      direction: { x: index === 0 ? 1 : -1, y: 0 },
+      body: [{ x: 460 + index * 20, y: index === 0 ? 20 : -20 }],
+      mass: 48,
+      kills: 0,
+      score: 0,
+      shieldTicksRemaining: 0,
+    })),
+  ];
+  const sendSnapshot = (events: SnapshotMessage["events"]) => {
+    const snapshot: SnapshotMessage = {
+      type: "snapshot",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId,
+      tick,
+      serverTimeMs: 50_000 + tick,
+      players,
+      dropUpserts: [],
+      removedDropIds: [],
+      events,
+    };
+    socketSend?.(JSON.stringify(snapshot));
+  };
+
+  await page.routeWebSocket("ws://heat-ring-aborted.test/arena", (socket) => {
+    socketSend = (data) => socket.send(data);
+    socket.onMessage((raw) => {
+      const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as {
+        type?: string;
+        direction?: { y?: number };
+      };
+      if (message.type === "join") {
+        const welcome: WelcomeMessage = {
+          type: "welcome",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          playerId,
+          reconnectToken: "heat-abort-reconnect-token-0001",
+          reconnected: false,
+          tick,
+          fixedStepSeconds: 1 / 30,
+          lastAcceptedSequence: -1,
+        };
+        const world: WorldMessage = {
+          type: "world",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          tick,
+          arenaRadius: 1_200,
+          collisionRadii: {
+            baseRadius: 8,
+            massRadiusFactor: 0.68,
+            bodyRadiusFactor: 0.98,
+          },
+          drops: [],
+        };
+        socket.send(JSON.stringify(welcome));
+        socket.send(JSON.stringify(world));
+        // This fixture intentionally starts from an ordinary WorldMessage so
+        // the active attributes must come from the validated started event.
+        sendSnapshot([{ type: "heatRingStarted", tick, heatRing }]);
+        return;
+      }
+      if (message.type !== "input" || aborted || (message.direction?.y ?? 0) > -0.7) return;
+      aborted = true;
+      tick = 30;
+      sendSnapshot([{
+        type: "heatRingAborted",
+        tick,
+        botIds,
+        reason: "second-human",
+      }]);
+    });
+  });
+
+  await page.goto(`/?room=${roomId}&arena_ws=${encodeURIComponent("ws://heat-ring-aborted.test/arena")}`);
+  await page.getByLabel("Your arena name").fill("Abort Proof");
+  await page.getByTestId("live-lab-button").click();
+  const arena = page.getByTestId("live-arena-canvas");
+  await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
+  await expect(arena).toHaveAttribute("data-heat-ring-phase", "active");
+  await expect(arena).toHaveAttribute("data-heat-ring-bots", "2");
+
+  await page.keyboard.press("ArrowUp");
+  await expect(arena).toHaveAttribute("data-heat-ring-phase", "aborted");
+  await expect(arena).toHaveAttribute("data-heat-ring-bots", "2");
+  await expect(arena).toHaveAttribute("data-heat-ring-jewels", "0");
+  await expect(arena).toHaveAttribute("data-heat-ring-mass", "0");
+  await expect(arena).toHaveAttribute("data-rival-remains-count", "0");
+  await expect(page.getByTestId("live-action-callout")).toContainText(
+    "CORSAIR DUEL CLEARED · HUMAN CREW ARRIVED",
+  );
+  expect(pageErrors).toEqual([]);
+});
+
+test("Loot Compass is visible and active while Rival Remains stay outside its pull", async ({ page }) => {
+  expect(PROTOCOL_VERSION).toBe(5);
   const roomId = "collector-client-proof";
   const playerId = "human-collector-proof";
   const collectorDropId = "collector-beacon-proof";
   const fixedStepSeconds = 1 / 30;
   const collisionRadii = {
-    baseRadius: 9,
-    massRadiusFactor: 0.42,
-    bodyRadiusFactor: 0.88,
+    baseRadius: 8,
+    massRadiusFactor: 0.68,
+    bodyRadiusFactor: 0.98,
   };
   const drops: PublicDropState[] = [
     {
       id: "neutral-spark-proof",
-      position: { x: 60, y: 20 },
+      position: { x: 20, y: 0 },
       mass: 2,
       radius: 5,
+      source: "arena",
+    },
+    {
+      id: "pop-cluster-proof",
+      position: { x: 74, y: -42 },
+      mass: 5.8,
+      radius: 6.2,
       source: "arena",
     },
     {
@@ -169,7 +556,11 @@ test("Collector is visible and active while Rival Remains stay outside its vacuu
   await page.routeWebSocket("ws://collector-fixture.test/arena", (socket) => {
     let tick = 100;
     let active = false;
-    const sendSnapshot = (removedDropIds: string[] = []) => {
+    let pullSent = false;
+    const sendSnapshot = (
+      removedDropIds: string[] = [],
+      events: SnapshotMessage["events"] = [],
+    ) => {
       const snapshot: SnapshotMessage = {
         type: "snapshot",
         protocolVersion: PROTOCOL_VERSION,
@@ -180,7 +571,7 @@ test("Collector is visible and active while Rival Remains stay outside its vacuu
         players: [publicPlayer(active, 105)],
         dropUpserts: [],
         removedDropIds,
-        events: [],
+        events,
       };
       socket.send(JSON.stringify(snapshot));
     };
@@ -222,7 +613,24 @@ test("Collector is visible and active while Rival Remains stay outside its vacuu
       if (message.boost && !active) {
         active = true;
         tick = 105;
-        sendSnapshot([collectorDropId]);
+        sendSnapshot([collectorDropId], [{
+          type: "specialistActivated",
+          tick,
+          playerId,
+          dropId: collectorDropId,
+          specialist: "collector",
+          durationTicks: 360,
+        }]);
+      } else if (active && !pullSent) {
+        pullSent = true;
+        tick += 2;
+        sendSnapshot(["neutral-spark-proof"], [{
+          type: "dropCollected",
+          tick,
+          playerId,
+          dropId: "neutral-spark-proof",
+          mass: 2,
+        }]);
       } else if (active) {
         sendSnapshot();
       }
@@ -234,32 +642,163 @@ test("Collector is visible and active while Rival Remains stay outside its vacuu
   await page.getByTestId("live-lab-button").click();
 
   const arena = page.getByTestId("live-arena-canvas");
-  const collector = page.getByTestId("live-collector-status");
+  const collector = page.getByTestId("live-relic-status");
   await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(arena).toHaveAttribute("data-collector-beacon-count", "1");
-  await expect(arena).toHaveAttribute("data-neutral-spark-count", "1");
+  await expect(arena).toHaveAttribute("data-neutral-spark-count", "2");
+  await expect(arena).toHaveAttribute("data-pop-cluster-count", "1");
   await expect(arena).toHaveAttribute("data-sprint-drop-count", "1");
   await expect(arena).toHaveAttribute("data-rival-remains-count", "1");
-  await expect(collector).toContainText("FIND THE CYAN BEACON");
+  await expect(collector).toHaveCount(0);
   await page.screenshot({ path: "proof/browser/multiplayer/03-collector-beacon.png", fullPage: true });
 
   const headRadiusBefore = await arena.getAttribute("data-collision-head-radius");
   const bodyRadiusBefore = await arena.getAttribute("data-collision-body-radius");
   await page.keyboard.down("Space");
   await expect(arena).toHaveAttribute("data-collector-active", "true");
+  await expect(page.getByTestId("live-action-callout")).toContainText("LOOT COMPASS ON");
+  await expect.poll(
+    async () => Number(await arena.getAttribute("data-live-particle-count")),
+  ).toBeGreaterThan(0);
+  await page.screenshot({ path: "proof/browser/multiplayer/07-live-collector-celebration.png", fullPage: true });
   await page.keyboard.up("Space");
-  await expect(collector).toHaveAttribute("data-active", "true");
-  await expect(collector).toContainText(/PULLS SPARKS \+ YOUR SPRINT DROPS/u);
+  await expect(collector).toHaveAttribute("data-relic-kind", "loot-compass");
+  await expect(collector).toContainText("LOOT COMPASS ACTIVE");
+  await expect(collector).toContainText(/PULLS GEMS \+ YOUR WAKE LOOT/u);
+  await expect(arena).toHaveAttribute("data-neutral-spark-count", "1");
+  await expect.poll(
+    async () => Number(await arena.getAttribute("data-collector-pull-events")),
+  ).toBeGreaterThan(0);
   await expect(arena).toHaveAttribute("data-collector-beacon-count", "0");
   await expect(arena).toHaveAttribute("data-rival-remains-count", "1");
   await expect(arena).toHaveAttribute("data-collision-head-radius", headRadiusBefore ?? "missing");
   await expect(arena).toHaveAttribute("data-collision-body-radius", bodyRadiusBefore ?? "missing");
   await page.screenshot({ path: "proof/browser/multiplayer/04-collector-active.png", fullPage: true });
 
-  // The fixture keeps publishing authoritative active-Collector frames with no
+  // The fixture keeps publishing authoritative active-Loot-Compass frames with no
   // removal for the Rival Remains. The client must retain and render them.
   await page.waitForTimeout(180);
   await expect(arena).toHaveAttribute("data-rival-remains-count", "1");
+});
+
+test("a server-confirmed chain cut produces bounded live celebration feedback", async ({ page }) => {
+  const roomId = "live-cut-feedback-proof";
+  const playerId = "human-cut-proof";
+  const rivalId = "bot-cut-proof";
+  const collisionRadii = {
+    baseRadius: 8,
+    massRadiusFactor: 0.68,
+    bodyRadiusFactor: 0.98,
+  };
+  let tick = 400;
+  let cutSent = false;
+  let socketSend: ((data: string) => void) | undefined;
+  const ownPlayer: PublicPlayerState = {
+    id: playerId,
+    name: "Cut Proof",
+    kind: "human",
+    connected: true,
+    alive: true,
+    position: { x: 0, y: 0 },
+    direction: { x: 1, y: 0 },
+    body: [{ x: -22, y: 0 }, { x: -44, y: 0 }],
+    mass: 112,
+    kills: 1,
+    score: 640,
+    shieldTicksRemaining: 0,
+  };
+  const rival: PublicPlayerState = {
+    id: rivalId,
+    name: "Drama Llama",
+    kind: "bot",
+    connected: true,
+    alive: true,
+    position: { x: 90, y: 35 },
+    direction: { x: -1, y: 0 },
+    body: [{ x: 112, y: 35 }, { x: 134, y: 35 }, { x: 156, y: 35 }],
+    mass: 130,
+    kills: 0,
+    score: 520,
+    shieldTicksRemaining: 0,
+  };
+  const sendSnapshot = (cut = false) => {
+    const snapshot: SnapshotMessage = {
+      type: "snapshot",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId,
+      tick,
+      serverTimeMs: 30_000 + tick,
+      players: [ownPlayer, cut ? { ...rival, alive: false } : rival],
+      dropUpserts: [],
+      removedDropIds: [],
+      events: cut ? [{
+        type: "playerDied",
+        tick,
+        playerId: rivalId,
+        killerId: playerId,
+        cause: "collision",
+        collisionTime: 0.42,
+      }] : [],
+    };
+    socketSend?.(JSON.stringify(snapshot));
+  };
+
+  await page.routeWebSocket("ws://live-cut-feedback.test/arena", (socket) => {
+    socketSend = (data) => socket.send(data);
+    socket.onMessage((raw) => {
+      const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as {
+        type?: string;
+        direction?: { y?: number };
+      };
+      if (message.type === "join") {
+        const welcome: WelcomeMessage = {
+          type: "welcome",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          playerId,
+          reconnectToken: "cut-feedback-reconnect-token-0001",
+          reconnected: false,
+          tick,
+          fixedStepSeconds: 1 / 30,
+          lastAcceptedSequence: -1,
+        };
+        const world: WorldMessage = {
+          type: "world",
+          protocolVersion: PROTOCOL_VERSION,
+          authority: "server",
+          roomId,
+          tick,
+          arenaRadius: 1_200,
+          collisionRadii,
+          drops: [],
+        };
+        socket.send(JSON.stringify(welcome));
+        socket.send(JSON.stringify(world));
+        sendSnapshot();
+        return;
+      }
+      if (message.type !== "input" || cutSent || (message.direction?.y ?? 0) < 0.7) return;
+      cutSent = true;
+      tick += 2;
+      sendSnapshot(true);
+    });
+  });
+
+  await page.goto(`/?room=${roomId}&arena_ws=${encodeURIComponent("ws://live-cut-feedback.test/arena")}`);
+  await page.getByLabel("Your arena name").fill("Cut Proof");
+  await page.getByTestId("live-lab-button").click();
+  const arena = page.getByTestId("live-arena-canvas");
+  await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
+  await page.keyboard.press("ArrowDown");
+  const cutCallout = page.getByTestId("live-action-callout");
+  await expect(cutCallout).toContainText("CHAIN CUT · Drama Llama RELEASED");
+  await expect(cutCallout).toHaveCSS("opacity", "1", { timeout: 1_000 });
+  await expect.poll(
+    async () => Number(await arena.getAttribute("data-live-particle-count")),
+  ).toBeGreaterThan(20);
+  await page.screenshot({ path: "proof/browser/multiplayer/08-live-chain-cut-celebration.png", fullPage: true });
 });
 
 test("live lesson uses touch anchor, score rank, real Sprint spend, and honest respawn copy", async ({ page }) => {
@@ -270,9 +809,9 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   const rivalId = "bot-live-rival";
   const sparkId = "live-tutorial-spark";
   const collisionRadii = {
-    baseRadius: 9,
-    massRadiusFactor: 0.42,
-    bodyRadiusFactor: 0.88,
+    baseRadius: 8,
+    massRadiusFactor: 0.68,
+    bodyRadiusFactor: 0.98,
   };
   let tick = 200;
   let mass = 100;
@@ -482,9 +1021,11 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   await expect(arena).toHaveAttribute("data-tutorial-stage", "collision");
   await expect(arena).toHaveAttribute("data-player-alive", "false");
   await expect(page.getByTestId("live-death-notice")).toContainText("YOUR HEAD HIT RANK RIVAL'S CREW");
+  await expect(page.getByTestId("room-identity")).toContainText(`LIVE ROOM #${roomId.toUpperCase()}`);
+  await expect(page.getByTestId("pirate-radar")).toContainText("RESPAWNING");
   await page.screenshot({ path: "proof/browser/multiplayer/06-live-mobile-death.png", fullPage: true });
   await expect(arena).toHaveAttribute("data-player-alive", "true", { timeout: 2_000 });
-  await expect(page.getByTestId("live-death-notice")).toContainText("DOTTED HALO = SHORT SPAWN GRACE");
+  await expect(page.getByTestId("live-death-notice")).toContainText("HEAD SAFE 1.5S · EVERY CREW BODY STAYS LETHAL");
 });
 
 test("an unreachable socket never receives a LIVE label", async ({ page }) => {

@@ -8,6 +8,8 @@ import type {
   ServerMessage,
   WelcomeMessage,
 } from "../../src/protocol.ts";
+import { PROTOCOL_VERSION } from "../../src/protocol.ts";
+import { SERVER_BUILD_REVISION } from "../../src/build-info.ts";
 import {
   AuthoritativeArenaServer,
   type AuthoritativeServerOptions,
@@ -166,10 +168,14 @@ test("the global connection ceiling rejects excess sockets and recovers capacity
     const healthResponse = await fetch(`${httpUrl}/healthz`);
     const health = await healthResponse.json() as {
       ok?: boolean;
+      protocolVersion?: number;
+      buildRevision?: string;
       connections?: number;
       maxConnections?: number;
     };
     assert.equal(health.ok, true);
+    assert.equal(health.protocolVersion, PROTOCOL_VERSION);
+    assert.equal(health.buildRevision, SERVER_BUILD_REVISION);
     assert.equal(health.connections, 1);
     assert.equal(health.maxConnections, 1);
 

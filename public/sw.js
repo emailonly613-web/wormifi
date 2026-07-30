@@ -1,5 +1,12 @@
 const CACHE_PREFIX = "wormifi-app-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v4`;
+const CACHE_NAME = `${CACHE_PREFIX}v6`;
+const CANONICAL_PAGE_URLS = [
+  "/",
+  "/how-to-play.html",
+  "/multiplayer.html",
+  "/pirate-treasure.html",
+  "/privacy.html",
+];
 const STATIC_URLS = [
   "/manifest.webmanifest",
   "/icon.svg",
@@ -40,15 +47,18 @@ async function cacheShellUrl(cache, pathname) {
 
 async function cacheBuiltShell() {
   const cache = await caches.open(CACHE_NAME);
-  const shellRequest = new Request(new URL("/", self.location.origin).href, {
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-  const shellResponse = await fetch(shellRequest);
-  if (!shellResponse.ok) throw new Error(`App shell returned ${shellResponse.status}`);
-  const html = await shellResponse.clone().text();
-  await cache.put(cacheKey("/"), shellResponse);
-  const buildAssets = discoverBuildAssets(html);
+  const buildAssets = new Set();
+  await Promise.all(CANONICAL_PAGE_URLS.map(async (pathname) => {
+    const pageRequest = new Request(new URL(pathname, self.location.origin).href, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const pageResponse = await fetch(pageRequest);
+    if (!pageResponse.ok) throw new Error(`${pathname} returned ${pageResponse.status}`);
+    const html = await pageResponse.clone().text();
+    for (const asset of discoverBuildAssets(html)) buildAssets.add(asset);
+    await cache.put(cacheKey(pathname), pageResponse);
+  }));
   await Promise.all(
     [...STATIC_URLS, ...buildAssets].map((pathname) => cacheShellUrl(cache, pathname)),
   );
@@ -75,16 +85,20 @@ self.addEventListener("activate", (event) => {
 });
 
 async function navigationResponse(request) {
+  const pathname = new URL(request.url).pathname;
+  const canonicalPage = CANONICAL_PAGE_URLS.includes(pathname);
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && canonicalPage) {
       const cache = await caches.open(CACHE_NAME);
-      await cache.put(cacheKey("/"), response.clone());
+      await cache.put(cacheKey(pathname), response.clone());
     }
     return response;
   } catch {
-    const cached = await caches.match(cacheKey("/"), { ignoreVary: true });
-    return cached || new Response("Wormifi is unavailable offline until one online visit completes.", {
+    const cached = canonicalPage
+      ? await caches.match(cacheKey(pathname), { ignoreVary: true })
+      : undefined;
+    return cached || new Response("This Wormifi page is unavailable offline until one online visit completes.", {
       status: 503,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });

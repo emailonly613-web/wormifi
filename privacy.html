@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Read Wormifi's privacy and analytics choices, including what optional GA4 measurement can collect and what the game deliberately excludes." />
+    <meta property="og:title" content="Wormifi Privacy &amp; Analytics Choices" />
+    <meta property="og:description" content="Clear information about optional analytics consent, excluded player and room data, local storage, and how to withdraw permission." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://wormifi.com/privacy.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wormifi Privacy &amp; Analytics Choices" />
+    <meta name="twitter:description" content="Optional analytics consent, excluded data, local storage, and withdrawal choices explained." />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/privacy.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": "https://wormifi.com/privacy.html#page",
+        "url": "https://wormifi.com/privacy.html",
+        "name": "Wormifi Privacy and Analytics Choices",
+        "isPartOf": { "@id": "https://wormifi.com/#website" },
+        "inLanguage": "en-US"
+      }
+    </script>
+    <title>Wormifi Privacy &amp; Analytics Choices</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/pirate-treasure.html">Treasure</a>
+        <a href="/privacy.html" aria-current="page">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Last updated July 30, 2026</span>
+        <h1>Privacy and analytics choices</h1>
+        <p class="seo-lede">Wormifi's analytics layer is optional. It stays off unless a real Google Analytics 4 Measurement ID is configured and you choose to allow analytics.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>What optional analytics can measure</h2>
+          <p>If you allow analytics after it is configured, Wormifi can send page views, acquisition source and campaign fields, selected control type, game-mode starts, confirmed live connections, tutorial progress, numeric solo-run results, replay use, and share-button attempts.</p>
+          <p>Google Analytics may also process standard browser, device, session, referring-site, and approximate location information as described in Google's own Analytics privacy documentation.</p>
+        </section>
+        <section>
+          <h2>What Wormifi deliberately does not send</h2>
+          <ul>
+            <li>Your arena or player name.</li>
+            <li>A room number or reconnect token.</li>
+            <li>A challenge token.</li>
+            <li>The full query string or URL fragment.</li>
+            <li>User-provided profile data, email addresses, or uploaded photos.</li>
+            <li>Advertising-personalization or Google Signals permission from the game code.</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Your choice</h2>
+          <p>The choice is stored in your browser under <code>wormifi.analytics-consent.v1</code>. Wormifi also respects a browser Do Not Track signal by leaving analytics off.</p>
+          <button class="seo-button secondary" id="disable-wormifi-analytics" type="button">Withdraw analytics permission</button>
+          <p id="analytics-choice-result" role="status" aria-live="polite"></p>
+        </section>
+        <section class="seo-note">
+          <h2>Current activation boundary</h2>
+          <p>The source code contains a consent-gated integration, but no Measurement ID is stored in this repository. The site owner must configure the property, publish a verified contact method and retention settings, and validate the deployed data stream before treating analytics as active.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · privacy choices</span>
+      <a href="/">Return to the game</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

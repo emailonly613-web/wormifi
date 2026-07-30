@@ -2,13 +2,17 @@ import { createServer, type Server as HttpServer } from "node:http";
 import { performance } from "node:perf_hooks";
 import { WebSocketServer, type WebSocket } from "ws";
 
+import { getGameBoardProfile } from "../../src/game/chargingStations.ts";
+
 import {
+  PROTOCOL_VERSION,
   parseInputMessage,
   parseJoinMessage,
   parseJsonMessage,
   type ErrorMessage,
   type ServerMessage,
 } from "./protocol.ts";
+import { SERVER_BUILD_REVISION } from "./build-info.ts";
 import { ArenaRoom, type ArenaRoomOptions } from "./room.ts";
 
 const DEFAULT_MAX_CONNECTIONS = 256;
@@ -100,11 +104,14 @@ export class AuthoritativeArenaServer {
     );
     this.roomOptions = {
       targetPopulation: options.targetPopulation,
+      maxHumanPlayers: options.maxHumanPlayers,
       fixedStepHz: options.fixedStepHz,
       snapshotHz: options.snapshotHz,
       reconnectGraceMs: options.reconnectGraceMs,
       arenaRadius: options.arenaRadius,
       targetDropCount: options.targetDropCount,
+      board: options.board,
+      heatRing: options.heatRing,
       now: options.now,
     };
   }
@@ -118,6 +125,8 @@ export class AuthoritativeArenaServer {
         response.end(JSON.stringify({
           ok: true,
           authority: "server",
+          protocolVersion: PROTOCOL_VERSION,
+          buildRevision: SERVER_BUILD_REVISION,
           rooms: this.rooms.size,
           connections: this.connections.size,
           maxConnections: this.maxConnections,
@@ -276,12 +285,35 @@ export class AuthoritativeArenaServer {
       const roomId = join.value.roomId ?? "public-1";
       let room = this.rooms.get(roomId);
       let createdRoom = false;
+      const requestedBoard = join.value.boardId
+        ? getGameBoardProfile(join.value.boardId)
+        : undefined;
+      if (join.value.boardId && !requestedBoard) {
+        this.send(socket, {
+          type: "error",
+          code: "UNKNOWN_BOARD",
+          message: `Unknown board: ${join.value.boardId}.`,
+        });
+        return;
+      }
+      if (room && requestedBoard && room.state.board.id !== requestedBoard.id) {
+        this.send(socket, {
+          type: "error",
+          code: "ROOM_BOARD_MISMATCH",
+          message: `Room ${roomId} already uses ${room.state.board.name}.`,
+        });
+        return;
+      }
       if (!room) {
         if (this.rooms.size >= this.maxRooms) {
           this.send(socket, { type: "error", code: "RATE_LIMITED", message: "Room capacity is temporarily full." });
           return;
         }
-        room = new ArenaRoom(roomId, this.roomOptions, (idleRoom) => this.retireIdleRoom(idleRoom));
+        room = new ArenaRoom(
+          roomId,
+          { ...this.roomOptions, board: requestedBoard ?? this.roomOptions.board },
+          (idleRoom) => this.retireIdleRoom(idleRoom),
+        );
         createdRoom = true;
       }
 

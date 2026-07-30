@@ -3,7 +3,9 @@ import {
   advanceGame,
   calculateScore,
   createGameState,
+  getBodyRadius,
   getPlayerRank,
+  getPlayerRadius,
   getRankings,
   spawnDrop,
   spawnPlayer,
@@ -84,6 +86,49 @@ describe("deterministic game core", () => {
     expect(first.randomState).toBe(second.randomState);
   });
 
+  it("reuses same-player history buffers without changing captured geometry", () => {
+    const state = createGameState("history-buffer-reuse", {
+      arenaRadius: 10_000,
+    });
+    const player = spawnPlayer(state, {
+      id: "buffered",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 30,
+    });
+    const previousPosition = player.previousPosition;
+    const previousSegments = [...player.previousBody];
+    const beforeFirstStep = {
+      position: { ...player.position },
+      body: player.body.map((point) => ({ ...point })),
+    };
+
+    stepGame(state, {
+      buffered: { sequence: 1, direction: { x: 0.5, y: 1 }, boost: false },
+    });
+
+    expect(player.previousPosition).toBe(previousPosition);
+    expect(player.previousBody).toHaveLength(previousSegments.length);
+    expect(player.previousBody.every((point, index) => point === previousSegments[index]))
+      .toBe(true);
+    expect(player.previousPosition).toEqual(beforeFirstStep.position);
+    expect(player.previousBody).toEqual(beforeFirstStep.body);
+
+    const beforeSecondStep = {
+      position: { ...player.position },
+      body: player.body.map((point) => ({ ...point })),
+    };
+    stepGame(state, {
+      buffered: { sequence: 2, direction: { x: -0.5, y: 1 }, boost: false },
+    });
+
+    expect(player.previousPosition).toBe(previousPosition);
+    expect(player.previousBody.every((point, index) => point === previousSegments[index]))
+      .toBe(true);
+    expect(player.previousPosition).toEqual(beforeSecondStep.position);
+    expect(player.previousBody).toEqual(beforeSecondStep.body);
+  });
+
   it("collects drops, grows mass, and adds body segments at thresholds", () => {
     const state = createGameState("growth", { baseSpeed: 0 });
     const player = spawnPlayer(state, {
@@ -113,6 +158,101 @@ describe("deterministic game core", () => {
       dropId: "meal",
       mass: state.config.massPerSegment,
     });
+  });
+
+  it("starts as a compact three-follower chain and makes the first four Spark pickups visible", () => {
+    const state = createGameState("small-start-visible-growth", { baseSpeed: 0 });
+    const player = spawnPlayer(state, {
+      id: "grower",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const initialRadius = getPlayerRadius(player, state.config);
+    const initialTailDistance = Math.hypot(
+      player.position.x - player.body.at(-1)!.x,
+      player.position.y - player.body.at(-1)!.y,
+    );
+
+    expect(player.mass).toBe(48);
+    expect(player.body).toHaveLength(3);
+    const initialBodyRadius = getBodyRadius(player, state.config);
+    expect(initialRadius).toBeGreaterThanOrEqual(12);
+    expect(initialBodyRadius / initialRadius).toBeGreaterThanOrEqual(0.97);
+    expect(initialTailDistance).toBeLessThan(65);
+
+    const segmentCounts: number[] = [];
+    const radii: number[] = [];
+    for (let pickup = 1; pickup <= 4; pickup += 1) {
+      spawnDrop(state, {
+        id: `early-spark-${pickup}`,
+        position: { ...player.position },
+        mass: 4.5,
+        radius: 7.5,
+      });
+      const result = stepGame(state, {
+        grower: { sequence: pickup, direction: { x: 1, y: 0 }, boost: false },
+      });
+      expect(result.events.filter((event) => event.type === "dropCollected")).toHaveLength(1);
+      segmentCounts.push(player.body.length);
+      radii.push(getPlayerRadius(player, state.config));
+    }
+
+    expect(segmentCounts).toEqual([3, 4, 5, 6]);
+    expect(radii.every((radius, index) =>
+      radius > (index === 0 ? initialRadius : radii[index - 1])
+    )).toBe(true);
+    expect(radii.at(-1)! / initialRadius).toBeGreaterThan(1.05);
+    expect(player.mass).toBe(66);
+  });
+
+  it("grows from a short plump spawn into a materially longer and thicker worm", () => {
+    const state = createGameState("plump-growth-contract", { baseSpeed: 0 });
+    const player = spawnPlayer(state, {
+      id: "growth-contract",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const startHeadRadius = getPlayerRadius(player, state.config);
+    const startBodyRadius = getBodyRadius(player, state.config);
+    const startLength = player.body.length;
+
+    player.mass = 300;
+    spawnDrop(state, {
+      id: "growth-sync",
+      position: { ...player.position },
+      mass: state.config.massPerSegment,
+      radius: state.config.dropRadius,
+    });
+    stepGame(state, {
+      "growth-contract": { sequence: 1, direction: { x: 1, y: 0 }, boost: false },
+    });
+
+    expect(player.body.length).toBeGreaterThan(startLength * 4);
+    expect(getPlayerRadius(player, state.config)).toBeGreaterThan(startHeadRadius * 1.5);
+    expect(getBodyRadius(player, state.config)).toBeGreaterThan(startBodyRadius * 1.5);
+  });
+
+  it("places compact spawns clear of every existing head-to-crew path", () => {
+    const state = createGameState("whole-chain-spawn-clearance", {
+      arenaRadius: 1_850,
+      baseSpeed: 0,
+      boostSpeed: 0,
+    });
+    for (let index = 0; index < 24; index += 1) {
+      spawnPlayer(state, { id: `spawn-${index}`, shieldSeconds: 0 });
+    }
+
+    stepGame(state);
+
+    expect(Object.values(state.players).every((player) => player.alive)).toBe(true);
+  });
+
+  it("rejects non-finite and fractional body caps before simulation", () => {
+    expect(() => createGameState("nan-cap", { maximumBodySegments: Number.NaN })).toThrow();
+    expect(() => createGameState("infinite-cap", { maximumBodySegments: Infinity })).toThrow();
+    expect(() => createGameState("fractional-cap", { maximumBodySegments: 72.5 })).toThrow();
   });
 
   it("boosts faster, sheds conserved mass into locked drops, and stops at the floor", () => {
@@ -191,7 +331,60 @@ describe("deterministic game core", () => {
     );
   });
 
-  it("makes a spawn shield protect both its owner and approaching players", () => {
+  it("kills a boosted head crossing the visible link between separated body samples", () => {
+    const state = createGameState("body-link-gap", {
+      fixedStepSeconds: 1,
+      arenaRadius: 1_000,
+      startMass: 70,
+      minimumBoostMass: 60,
+      baseSpeed: 0,
+      boostSpeed: 20,
+      boostMassPerSecond: 10,
+      shedDropMass: 100,
+      baseRadius: 2,
+      massRadiusFactor: 0,
+      bodyRadiusFactor: 1,
+      segmentSpacingFactor: 3.75,
+      startingBodySegments: 3,
+      minimumBodySegments: 3,
+      massPerSegment: 1_000,
+    });
+    const owner = spawnPlayer(state, {
+      id: "owner",
+      position: { x: 0, y: 30 },
+      direction: { x: 0, y: 1 },
+      shieldSeconds: 0,
+    });
+    const attacker = spawnPlayer(state, {
+      id: "attacker",
+      position: { x: -10, y: 7.5 },
+      direction: { x: 1, y: 0 },
+      mass: 70,
+      shieldSeconds: 0,
+    });
+
+    // The two nearest follower centers are 7.5px away and their combined
+    // solid radii are only 4px. A point-only body test misses this visibly
+    // connected neck; the shared swept-link law must not.
+    expect(Math.abs(owner.body[0].y - attacker.position.y)).toBe(7.5);
+    expect(Math.abs(owner.body[1].y - attacker.position.y)).toBe(7.5);
+    expect(getPlayerRadius(attacker, state.config) + getBodyRadius(owner, state.config)).toBe(4);
+
+    const result = stepGame(state, {
+      attacker: { sequence: 1, direction: { x: 1, y: 0 }, boost: true },
+      owner: { sequence: 1, direction: { x: 0, y: 1 }, boost: false },
+    });
+
+    expect(attacker.alive).toBe(false);
+    expect(attacker.killedBy).toBe(owner.id);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "playerDied",
+      playerId: attacker.id,
+      killerId: owner.id,
+    }));
+  });
+
+  it("protects only the spawning head while its visible body stays lethal", () => {
     const { state, attacker, owner } = collisionFixture(2);
 
     stepGame(state, {
@@ -199,8 +392,47 @@ describe("deterministic game core", () => {
       owner: { sequence: 1, direction: { x: 0, y: 1 }, boost: false },
     });
 
-    expect(attacker.alive).toBe(true);
+    expect(attacker.alive).toBe(false);
+    expect(attacker.killedBy).toBe(owner.id);
     expect(owner.alive).toBe(true);
+  });
+
+  it("keeps spawn grace exact and makes the body lethal on the first unshielded tick", () => {
+    const state = createGameState("exact-spawn-grace", {
+      fixedStepSeconds: 0.25,
+      arenaRadius: 1_000,
+      baseSpeed: 0,
+      boostSpeed: 0,
+      spawnShieldSeconds: 1,
+    });
+    const owner = spawnPlayer(state, {
+      id: "owner",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const protectedPlayer = spawnPlayer(state, {
+      id: "protected",
+      position: { ...owner.body[0] },
+      // Trail away from the owner so the now-continuous protected neck cannot
+      // kill the unshielded fixture owner before this head-grace check expires.
+      direction: { x: 1, y: 0 },
+    });
+
+    expect(protectedPlayer.shieldTicksRemaining).toBe(4);
+    for (let protectedTick = 1; protectedTick <= 4; protectedTick += 1) {
+      stepGame(state);
+      expect(protectedPlayer.alive).toBe(true);
+      expect(protectedPlayer.shieldTicksRemaining).toBe(4 - protectedTick);
+    }
+
+    const lethalTick = stepGame(state);
+    expect(protectedPlayer.alive).toBe(false);
+    expect(lethalTick.events).toContainEqual(expect.objectContaining({
+      type: "playerDied",
+      playerId: protectedPlayer.id,
+      killerId: owner.id,
+    }));
   });
 
   it("lets a bot provide the same sequenced input packet as a network client", () => {

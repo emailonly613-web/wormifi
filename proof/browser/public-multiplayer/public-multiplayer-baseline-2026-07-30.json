@@ -1,0 +1,48 @@
+{
+  "capturedAt": "2026-07-30T01:23:22.2574351-04:00",
+  "target": "https://wormifi.com/",
+  "roomId": "codex-live-ms72h8xn",
+  "verdict": "WORKING_PUBLIC_MULTIPLAYER_BASELINE_LIMITED_BETA_ONLY",
+  "clients": [
+    {
+      "name": "Public Proof Alice",
+      "authority": "server-confirmed",
+      "reportedActors": 12,
+      "reportedHumans": 2,
+      "observedOtherHuman": "Public Proof Bob",
+      "screenshot": "01-public-alice.png"
+    },
+    {
+      "name": "Public Proof Bob",
+      "authority": "server-confirmed",
+      "reportedActors": 12,
+      "reportedHumans": 2,
+      "observedOtherHuman": "Public Proof Alice",
+      "screenshot": "02-public-bob.png"
+    }
+  ],
+  "healthDuringProof": {
+    "ok": true,
+    "authority": "server",
+    "rooms": 1,
+    "connections": 2,
+    "reportedMaxConnections": 256
+  },
+  "claimBoundary": {
+    "allowed": "Working public server-authoritative multiplayer beta",
+    "notYetAllowed": [
+      "production-scale multiplayer",
+      "massively multiplayer",
+      "Wormate-scale or Wormate-parity",
+      "proven lag-free under public load"
+    ]
+  },
+  "remainingProof": [
+    "cross-device external-human session",
+    "movement and collision synchronization recording",
+    "death, loot and score reconciliation across clients",
+    "reconnect and room-isolation proof on the deployed build",
+    "matchmaking and friend-room journey",
+    "multi-instance routing, failover and sustained public load"
+  ]
+}

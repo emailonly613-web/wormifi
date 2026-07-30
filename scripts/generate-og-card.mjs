@@ -7,7 +7,7 @@ import { createServer } from "vite";
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
 const templatePath = path.join(scriptDirectory, "og-card.template.html");
-const outputPath = path.join(projectRoot, "public", "og-wormifi.png");
+const outputPath = path.join(projectRoot, "public", "og-wormifi-sea-serpent-v2.png");
 
 let server;
 let browser;
@@ -32,7 +32,13 @@ try {
     baseUrl = `http://127.0.0.1:${address.port}`;
   }
 
-  browser = await chromium.launch({ headless: true });
+  // This Windows/headless Chromium host can intermittently composite animated
+  // canvas tiles over higher-z DOM bands. CPU composition produces the same
+  // page pixels without the capture-only band corruption.
+  browser = await chromium.launch({
+    headless: true,
+    args: ["--disable-gpu", "--disable-gpu-compositing"],
+  });
   const gameplayContext = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -41,16 +47,18 @@ try {
   const gameplayPage = await gameplayContext.newPage();
   await gameplayPage.goto(baseUrl, { waitUntil: "networkidle" });
   await gameplayPage.getByLabel("Your arena name").fill("YOU");
-  await gameplayPage.getByRole("button", { name: /play now/i }).click();
+  await gameplayPage.getByTestId("solo-run-button").click();
   await gameplayPage.getByTestId("player-chain").waitFor({ state: "visible" });
   await gameplayPage.keyboard.press("ArrowRight");
+  // Prefer the first Loot Compass beat, but never leave social-card generation
+  // waiting forever if a deterministic bot reaches the relic first. Either
+  // path still captures real, moving gameplay with the tutorial visible.
   await gameplayPage.waitForFunction(() => {
     const arena = document.querySelector('[data-testid="arena-canvas"]');
     const collectorSeconds = Number(arena?.getAttribute("data-collector-seconds"));
-    const tutorial = document.querySelector('[data-testid="tutorial-coach"]');
-    const tutorialStage = arena?.getAttribute("data-tutorial-stage");
-    return collectorSeconds > 0 && collectorSeconds <= 11.5 && tutorial !== null && tutorialStage === "steer";
-  });
+    return collectorSeconds > 0 && collectorSeconds <= 11.5;
+  }, undefined, { timeout: 5_000 }).catch(() => undefined);
+  await gameplayPage.waitForTimeout(500);
   const gameplayPng = await gameplayPage.screenshot({ type: "png" });
   await gameplayContext.close();
 

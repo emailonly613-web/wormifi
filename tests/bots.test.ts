@@ -20,13 +20,13 @@ function contextFor(state: GameState, self: PlayerState, tick: number): BotInput
 }
 
 describe("deterministic legal bot roster", () => {
-  it("spawns 24 uniquely named bots with legal PlayerInput providers", () => {
+  it("supports the 28-name arena roster and spawns unique legal bot providers", () => {
     const state = createGameState("full-roster");
     const roster = spawnBotRoster(state, 24);
 
     expect(roster.ids).toHaveLength(24);
     expect(new Set(roster.ids).size).toBe(24);
-    expect(BOT_NAMES).toHaveLength(24);
+    expect(BOT_NAMES).toHaveLength(28);
     expect(Object.keys(roster.providers)).toEqual(roster.ids);
 
     for (const id of roster.ids) {
@@ -86,6 +86,33 @@ describe("deterministic legal bot roster", () => {
     ).toEqual(
       emptyRoster.providers[emptyBot.id]?.nextInput(contextFor(withoutFarDrop, emptyBot, 1)),
     );
+  });
+
+  it("keeps lexicographic equal-score drop selection independent of array order", () => {
+    const first = createGameState("drop-order");
+    const second = createGameState("drop-order");
+    const firstRoster = spawnBotRoster(first, 1);
+    const secondRoster = spawnBotRoster(second, 1);
+    const firstBot = first.players[firstRoster.ids[0]];
+    const secondBot = second.players[secondRoster.ids[0]];
+    for (const bot of [firstBot, secondBot]) {
+      bot.position = { x: 0, y: 0 };
+      bot.direction = { x: 0, y: 1 };
+    }
+    spawnDrop(first, { id: "a-treasure", position: { x: 100, y: 0 }, mass: 5 });
+    spawnDrop(first, { id: "z-treasure", position: { x: -100, y: 0 }, mass: 5 });
+    spawnDrop(second, { id: "z-treasure", position: { x: -100, y: 0 }, mass: 5 });
+    spawnDrop(second, { id: "a-treasure", position: { x: 100, y: 0 }, mass: 5 });
+
+    const firstInput = firstRoster.providers[firstBot.id]?.nextInput(
+      contextFor(first, firstBot, 1),
+    );
+    const secondInput = secondRoster.providers[secondBot.id]?.nextInput(
+      contextFor(second, secondBot, 1),
+    );
+
+    expect(secondInput).toEqual(firstInput);
+    expect(firstInput?.direction.x).toBeGreaterThan(0.99);
   });
 
   it("escapes the boundary before pursuing food or rivals", () => {

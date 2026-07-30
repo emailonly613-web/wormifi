@@ -1,35 +1,102 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-US">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#071326" />
-    <meta name="description" content="Wormifi — build a living chain, outsmart rivals, and turn every escape into a story." />
-    <meta property="og:title" content="Wormifi — Every Chain Has a Story" />
-    <meta property="og:description" content="Collect living sparks. Grow your crew. Make rivals crash. Play instantly." />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="googlebot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Play Wormifi, an original pirate treasure worm arena game for your browser. Grow a living crew in solo play or join the live multiplayer preview." />
+
+    <meta property="og:title" content="Wormifi — Pirate Treasure Worm Arena Game" />
+    <meta property="og:description" content="Collect pirate treasure, grow a mighty sea-serpent crew, and outmaneuver rival captains in solo play or the live multiplayer preview." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://wormifi.com/" />
     <meta property="og:site_name" content="Wormifi" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:image" content="https://wormifi.com/og-wormifi.png" />
-    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi.png" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Wormifi living-chain arena shown using actual rendered gameplay." />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Wormifi — Every Chain Has a Story" />
-    <meta name="twitter:description" content="Collect living sparks. Grow your crew. Make rivals crash. Play instantly." />
-    <meta name="twitter:image" content="https://wormifi.com/og-wormifi.png" />
-    <meta name="twitter:image:alt" content="Wormifi living-chain arena shown using actual rendered gameplay." />
+    <meta name="twitter:title" content="Wormifi — Pirate Treasure Worm Arena Game" />
+    <meta name="twitter:description" content="Collect pirate treasure, grow a mighty sea-serpent crew, and outmaneuver rival captains in solo play or the live multiplayer preview." />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+
     <link rel="canonical" href="https://wormifi.com/" />
+    <link rel="alternate" hreflang="en-US" href="https://wormifi.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://wormifi.com/" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
-    <title>Wormifi — Living Chain Arena</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://wormifi.com/#website",
+            "url": "https://wormifi.com/",
+            "name": "Wormifi",
+            "description": "An original pirate treasure worm arena game for web browsers.",
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": ["VideoGame", "SoftwareApplication"],
+            "@id": "https://wormifi.com/#game",
+            "name": "Wormifi",
+            "url": "https://wormifi.com/",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "description": "Collect pirate treasure, grow a mighty sea-serpent crew, and outmaneuver rivals in solo play or a live multiplayer preview.",
+            "applicationCategory": "GameApplication",
+            "applicationSubCategory": "Action arena game",
+            "operatingSystem": "Any modern web browser",
+            "browserRequirements": "Requires JavaScript and a modern browser with Canvas support.",
+            "gamePlatform": ["Web browser", "Desktop", "Mobile"],
+            "playMode": ["SinglePlayer", "MultiPlayer"],
+            "genre": ["Action", "Arcade"],
+            "inLanguage": "en-US",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "availability": "https://schema.org/OnlineOnly"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            }
+          }
+        ]
+      }
+    </script>
+    <title>Wormifi — Pirate Treasure Worm Arena Game</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="min-height:100dvh;padding:clamp(36px,8vw,96px);color:#effffd;background:#071326;font:600 18px/1.55 system-ui,sans-serif">
+        <h1 style="margin:0 0 16px;font-size:clamp(42px,9vw,88px);line-height:1">Wormifi</h1>
+        <p style="max-width:720px">An original pirate treasure worm arena game. Collect recognizable treasure, grow a mighty sea-serpent crew, and outmaneuver labeled AI in solo play or join the live multiplayer preview.</p>
+        <nav aria-label="Wormifi guides" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:28px">
+          <a href="/how-to-play.html" style="color:#8affea">How to play</a>
+          <a href="/multiplayer.html" style="color:#8affea">Multiplayer preview</a>
+          <a href="/pirate-treasure.html" style="color:#8affea">Treasure and rewards</a>
+          <a href="/privacy.html" style="color:#8affea">Privacy</a>
+        </nav>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

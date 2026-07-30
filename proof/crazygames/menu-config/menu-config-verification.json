@@ -1,0 +1,67 @@
+{
+  "verified_at": "2026-07-30",
+  "deployment_changed": false,
+  "public_default": {
+    "menu_mode": "off",
+    "rewarded_ads_enabled": false,
+    "iap_authorized": false,
+    "currency_store_layout": "disabled"
+  },
+  "configuration_contract": {
+    "switch": "VITE_CRAZYGAMES_MENU_MONETIZATION",
+    "allowed_values": ["off", "rewarded-skin", "currency-store"],
+    "mutually_exclusive": true,
+    "rewarded_skin_requires": "VITE_CRAZYGAMES_REWARDED_ENABLED=true",
+    "currency_store_requires": [
+      "VITE_CRAZYGAMES_IAP_AUTHORIZED=true",
+      "VITE_CRAZYGAMES_STORE_LAYOUT=currency-packs",
+      "verified purchase handler before buttons enable"
+    ]
+  },
+  "automated_checks": {
+    "unit_test_files": 33,
+    "unit_tests_passed": 159,
+    "unit_tests_failed": 0,
+    "menu_contract_test_files": 4,
+    "menu_contract_tests_passed": 17,
+    "typecheck": "PASS",
+    "owned_web_build": "PASS",
+    "crazygames_package": "PASS"
+  },
+  "browser_checks": {
+    "mobile": {
+      "viewport_css_px": [390, 844],
+      "store_bounds_css_px": {
+        "top": 6,
+        "left": 6,
+        "right": 384.4,
+        "bottom": 838
+      },
+      "active_game_canvas_css_px": [390, 844],
+      "store_present_during_gameplay": false
+    },
+    "desktop": {
+      "viewport_css_px": [1280, 720],
+      "active_game_canvas_css_px": [1280, 720],
+      "canvas_backing_px": [1600, 900],
+      "rewarded_menu_present_during_gameplay": false
+    }
+  },
+  "screenshots": [
+    "01-rewarded-skin-mobile.png",
+    "02-currency-store-desktop.png",
+    "03-currency-store-mobile.png",
+    "04-rewarded-skin-desktop.png",
+    "05-currency-mode-mobile-gameplay.png",
+    "06-rewarded-mode-desktop-gameplay.png",
+    "07-basic-launch-default-off-desktop.png",
+    "08-currency-store-open-desktop-current.png",
+    "09-rewarded-skin-desktop-current.png"
+  ],
+  "crazygames_zip": {
+    "path": "D:\\wormifi\\Wormifi_CrazyGames_Ready.zip",
+    "files": 21,
+    "size_mb": 4.044,
+    "sha256": "78216df0b333bb08a2d8c97a0c0df76b343dac973c832d1a2988760f99e7ba88"
+  }
+}

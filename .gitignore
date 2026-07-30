@@ -3,10 +3,13 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+Wormifi_CrazyGames_Ready/
+Wormifi_CrazyGames_Ready.zip
 
 # Test output (proof selected for release should be copied intentionally to proof/)
 coverage/
 playwright-report/
+playwright-*-report/
 blob-report/
 test-results/
 test-results-*/
@@ -15,6 +18,7 @@ test-results-*/
 .env
 .env.*
 !.env.example
+!.env.crazygames
 *.local
 
 # Logs and package-manager noise

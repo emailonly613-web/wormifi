@@ -14,7 +14,7 @@ test("captures the first-screen and live-arena proof", async ({ page }, testInfo
   });
 
   await page.getByLabel("Your arena name").fill("Review Player");
-  await page.getByRole("button", { name: /play now/i }).click();
+  await page.getByTestId("solo-run-button").click();
   await expect(page.getByTestId("tutorial-coach")).toBeVisible();
   await page.waitForTimeout(450);
   await page.keyboard.press("ArrowDown");

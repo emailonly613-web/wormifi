@@ -5,12 +5,14 @@ const localBaseUrl = "http://127.0.0.1:4173";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testIgnore: ["multiplayer-lab.spec.ts", "pwa-offline.spec.ts"],
+  testIgnore: ["multiplayer-lab.spec.ts", "pwa-offline.spec.ts", "performance-gate.spec.ts"],
   outputDir: "test-results",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Canvas-heavy browser cases verify behavior, not browser-process load.
+  // Keep that separate from the dedicated load and smoothness harnesses.
+  workers: process.env.CI ? 1 : 4,
   reporter: [
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],

@@ -9,8 +9,24 @@ test("rebuilds and visibly advances the finished local run", async ({ page }, te
   );
   test.setTimeout(35_000);
 
+  await page.addInitScript(() => {
+    const originalClearRect = CanvasRenderingContext2D.prototype.clearRect;
+    Object.defineProperty(window, "__wormifiCanvasClearCount", {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+    CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+      const instrumentedWindow = window as typeof window & {
+        __wormifiCanvasClearCount: number;
+      };
+      instrumentedWindow.__wormifiCanvasClearCount += 1;
+      return originalClearRect.apply(this, args);
+    };
+  });
+
   await page.goto("/");
-  await page.getByRole("button", { name: /play now/i }).click();
+  await page.getByTestId("solo-run-button").click();
   const arena = page.getByTestId("arena-canvas");
   await expect(arena).toBeVisible();
   await page.keyboard.press("ArrowDown");
@@ -18,6 +34,16 @@ test("rebuilds and visibly advances the finished local run", async ({ page }, te
   // The default sanitized input points right; the deterministic Rush boundary
   // ends this proof run without a private test-only simulation shortcut.
   await expect(page.getByTestId("results-panel")).toBeVisible({ timeout: 22_000 });
+  await page.waitForTimeout(200);
+  const finishedFrameClearCount = await page.evaluate(() => (
+    window as typeof window & { __wormifiCanvasClearCount: number }
+  ).__wormifiCanvasClearCount);
+  await page.waitForTimeout(500);
+  const frozenResultClearCount = await page.evaluate(() => (
+    window as typeof window & { __wormifiCanvasClearCount: number }
+  ).__wormifiCanvasClearCount);
+  expect(frozenResultClearCount).toBe(finishedFrameClearCount);
+
   await page.getByTestId("watch-local-replay").click();
 
   await expect(page.getByTestId("local-replay-panel")).toContainText(
@@ -26,6 +52,9 @@ test("rebuilds and visibly advances the finished local run", async ({ page }, te
   await expect(arena).toHaveAttribute("data-replay-state", "playing", {
     timeout: 8_000,
   });
+  await expect.poll(async () => page.evaluate(() => (
+    window as typeof window & { __wormifiCanvasClearCount: number }
+  ).__wormifiCanvasClearCount)).toBeGreaterThan(frozenResultClearCount);
 
   const firstTick = Number(await arena.getAttribute("data-replay-tick"));
   const firstPosition = [
@@ -75,7 +104,7 @@ test("offers the same verified replay and honest actions after Endless", async (
 
   await page.goto("/");
   await page.getByRole("button", { name: /endless/i }).click();
-  await page.getByRole("button", { name: /play now/i }).click();
+  await page.getByTestId("solo-run-button").click();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByTestId("results-panel")).toBeVisible({ timeout: 35_000 });
   await expect(page.getByTestId("watch-local-replay")).toContainText("WATCH FINAL 6S");

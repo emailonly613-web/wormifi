@@ -52,10 +52,13 @@ async function expectLauncher(page: Page) {
   await expect(page.getByLabel("Your arena name")).toBeEditable();
   await expect(page.getByRole("button", { name: /90s rush/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /endless/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /play now/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /play live/i })).toBeVisible();
+  await expect(page.getByTestId("solo-run-button")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /practice with labeled bots/i }),
   ).toBeVisible();
+  await expect(page.getByTestId("friend-room-card")).toBeVisible();
+  await expect(page.getByTestId("lobby-room-identity")).toContainText("ROOM #");
 }
 
 async function expectActiveArena(page: Page) {
@@ -87,7 +90,7 @@ test.describe("first Wormifi session", () => {
     const rush = page.getByRole("button", { name: /90s rush/i });
     await rush.click();
     await expect(rush).toHaveClass(/active/);
-    await page.getByRole("button", { name: /play now/i }).click();
+    await page.getByTestId("solo-run-button").click();
 
     await expectActiveArena(page);
     await expect(page.getByTestId(gameContract.tutorial)).toBeVisible();
@@ -126,9 +129,12 @@ test.describe("first Wormifi session", () => {
     const startY = Number(await arena.getAttribute("data-player-y"));
     await page.keyboard.press("ArrowDown");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
-    await page.waitForTimeout(140);
-    const movedY = Number(await arena.getAttribute("data-player-y"));
-    expect(movedY).toBeGreaterThan(startY + 1);
+    await expect
+      .poll(async () => Number(await arena.getAttribute("data-player-y")), {
+        message: "the player should visibly move after the accepted steering input",
+        timeout: 1_000,
+      })
+      .toBeGreaterThan(startY + 1);
 
     await steerToHighlightedSpark(page);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "sprint");
@@ -147,15 +153,64 @@ test.describe("first Wormifi session", () => {
     expect(browserErrors).toEqual([]);
   });
 
-  test("labels Practice bots honestly before and during play", async ({ page }) => {
+  test("labels Practice bots honestly before and during play", async ({ page }, testInfo) => {
     await expectLauncher(page);
     await page.getByRole("button", { name: /practice with labeled bots/i }).click();
 
     await expectActiveArena(page);
     await expect(page.getByText(/practice.*labeled bots/i)).toBeVisible();
-    await expect(page.getByLabel("AI size leaderboard")).toBeVisible();
+    const leaderboard = page.getByLabel("AI size leaderboard");
+    if (testInfo.project.name.includes("mobile")) {
+      await expect(leaderboard).toBeHidden();
+    } else {
+      await expect(leaderboard).toBeVisible();
+    }
     await expect(page.getByRole("heading", { name: "SIZE RANK · AI", includeHidden: true })).toHaveCount(1);
     await expect(page.getByText("LIVE ARENA")).toHaveCount(0);
+    await expect(page.getByTestId("room-identity")).toHaveText(/PRACTICE — NO LIVE ROOM/u);
+    const radar = page.getByTestId("pirate-radar");
+    await expect(radar).toBeVisible();
+    await expect(radar).toHaveAttribute("data-room-id", "none");
+    await expect(radar).toHaveAttribute("data-human-player-count", "0");
+    const practiceCrewCounts = await radar.evaluate((element) => ({
+      other: Number(element.getAttribute("data-other-player-count")),
+      rivals: Number(element.getAttribute("data-rival-marker-count")),
+      ai: Number(element.getAttribute("data-ai-player-count")),
+    }));
+    expect(practiceCrewCounts.other).toBeGreaterThan(0);
+    expect(practiceCrewCounts.rivals).toBe(practiceCrewCounts.other);
+    expect(practiceCrewCounts.ai).toBe(practiceCrewCounts.other);
+    await expect(radar).toHaveAttribute("data-hazard-count", "0");
+    await expect(radar).toHaveAttribute("data-station-count", "0");
+    await expect(radar).toHaveAttribute(
+      "data-fair-intel",
+      "arena-bounds,self-heading,coarse-players,collector,public-hazard,stations",
+    );
+    await expect(radar.getByTestId("radar-other-player").first()).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) {
+      const radarBox = await radar.boundingBox();
+      expect(radarBox).not.toBeNull();
+      expect(radarBox!.width).toBeLessThanOrEqual(92);
+      expect(radarBox!.height).toBeLessThanOrEqual(112);
+    }
+  });
+
+  test("makes a friend room code and its clean invite link obvious before play", async ({ page }) => {
+    await page.goto("/?room=crew-246810&arena_ws=ws%3A%2F%2Flocalhost%3A9999&c=discard-me");
+    await expect(page.getByTestId("lobby-room-identity")).toHaveText("ROOM #CREW-246810");
+    await expect(page.getByLabel("Room number or code")).toHaveValue("crew-246810");
+
+    await page.getByTestId("lobby-invite").click();
+    const dialog = page.getByTestId("room-invite-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("ROOM #CREW-246810");
+    const inviteUrl = new URL(await page.getByTestId("room-invite-url").inputValue());
+    expect(inviteUrl.searchParams.get("room")).toBe("crew-246810");
+    expect(inviteUrl.searchParams.has("arena_ws")).toBe(false);
+    expect(inviteUrl.searchParams.has("c")).toBe(false);
+
+    await page.getByRole("button", { name: "CLOSE" }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test("accepts a same-seed rivalry challenge and shows its target", async ({ page }) => {
@@ -179,7 +234,7 @@ test.describe("first Wormifi session", () => {
 
   test("retargets a Spark missed by the turn arc and still completes Grow", async ({ page }) => {
     test.setTimeout(25_000);
-    await page.getByRole("button", { name: /play now/i }).click();
+    await page.getByTestId("solo-run-button").click();
     const arena = page.getByTestId(gameContract.arena);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
 
@@ -206,7 +261,7 @@ test.describe("first Wormifi session", () => {
 
   test("shows a real one-thumb steering anchor on touch", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.name.includes("mobile"), "Touch proof runs on the mobile project.");
-    await page.getByRole("button", { name: /play now/i }).click();
+    await page.getByTestId("solo-run-button").click();
     await expectActiveArena(page);
 
     const session = await page.context().newCDPSession(page);
@@ -227,5 +282,47 @@ test.describe("first Wormifi session", () => {
 
     await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await expect(page.getByTestId("touch-guide")).toHaveCount(0);
+  });
+
+  test("persists a handed pirate helm and mirrors Sprint to the free hand", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes("mobile"), "Handed helm proof runs on mobile.");
+    await page.getByTestId("control-right-helm").click();
+    await expect(page.getByTestId("control-right-helm")).toHaveAttribute("aria-pressed", "true");
+    await page.reload();
+    await expect(page.getByTestId("control-right-helm")).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByTestId("solo-run-button").click();
+    const arena = page.getByTestId(gameContract.arena);
+    await expect(arena).toHaveAttribute("data-control-scheme", "right-helm");
+    const idleHelm = page.getByTestId("fixed-touch-guide");
+    await expect(idleHelm).toBeVisible();
+    const helmBox = await idleHelm.boundingBox();
+    const sprintBox = await page.getByTestId("boost-control").boundingBox();
+    expect(helmBox).not.toBeNull();
+    expect(sprintBox).not.toBeNull();
+    expect(helmBox!.x).toBeGreaterThan(page.viewportSize()!.width / 2);
+    expect(sprintBox!.x + sprintBox!.width).toBeLessThan(page.viewportSize()!.width / 2);
+
+    const session = await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 48, y: 240, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
+    });
+    await expect(page.getByTestId("touch-guide")).toHaveCount(0);
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+    const helmX = helmBox!.x + helmBox!.width / 2;
+    const helmY = helmBox!.y + helmBox!.height / 2;
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: helmX, y: helmY, radiusX: 4, radiusY: 4, force: 1, id: 2 }],
+    });
+    await expect(page.getByTestId("touch-guide")).toBeVisible();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: helmX, y: helmY - 52, radiusX: 4, radiusY: 4, force: 1, id: 2 }],
+    });
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(page.getByTestId("fixed-touch-guide")).toBeVisible();
   });
 });

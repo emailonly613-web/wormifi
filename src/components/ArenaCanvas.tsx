@@ -5,18 +5,25 @@ import {
   SPRINT_SIZE_COST_PER_SECOND,
   useArenaTutorial,
 } from "./ArenaTutorial";
+import { ChargingStationStatus } from "./ChargingStationStatus";
+import { RelicStatus } from "./RelicStatus";
 import {
+  drawChargingStationField,
+  selectChargingStationPresentation,
+  type ChargingStationPresentation,
+} from "../game/chargingStationRender";
+import {
+  DEFAULT_GAME_CONFIG,
   calculateScore,
   getPlayerRank,
   getPlayerRadius,
   getBodyRadius,
   getRankings,
-  getSpecialistSecondsRemaining,
-  isSpecialistActive,
 } from "../game/core";
 import {
   LOCAL_BOT_COUNT,
   LOCAL_PLAYER_ID,
+  LOCAL_TARGET_DROP_COUNT,
   advanceLocalReplayPreparation,
   buildLocalArena,
   checksumLocalArena,
@@ -32,6 +39,7 @@ import {
   type ChallengePayload,
 } from "../game/replay";
 import type {
+  ActiveSpecialist,
   BotInputProviderMap,
   DropState,
   GameEvent,
@@ -39,9 +47,69 @@ import type {
   PlayerState,
   Vec2,
 } from "../game/types";
+import {
+  ARENA_CANVAS_CONTEXT_OPTIONS,
+  arenaBackingScale,
+  drawArenaFloor,
+  drawArenaVignette,
+  drawFacetedGem,
+  drawFacetedGemField,
+  drawContinuousPirateWorm,
+  drawNauticalChart,
+  drawPirateShipBackdrop,
+  drawRivalHoardGem,
+  drawTreasureChest,
+  drawTreasureShard,
+} from "../game/treasureRender";
+import {
+  commonTreasureSprite,
+  drawGroundTreasureSpriteField,
+  drawPirateAtlasSprite,
+  type GroundTreasureSpriteItem,
+} from "../game/pirateSpriteAtlas";
+import {
+  createActiveRelicCanvasModel,
+  drawGroundRelicPickup,
+  drawRelicCarrierBadge,
+  drawRelicCarrierEffect,
+} from "../game/relicCanvasRender";
+import {
+  createRelicStatusModel,
+  getGroundRelicPresentation,
+  resolveRelicPresentation,
+} from "../game/relicPresentation";
+import {
+  getSpyglassDangerBearings,
+  type SpyglassDangerBearing,
+} from "../game/relics";
+import {
+  fixedHelmAnchor,
+  touchStartsHelm,
+  type ControlScheme,
+} from "../game/controlScheme";
+import {
+  PirateRadar,
+  type RadarLandmark,
+  type RadarPlayerMarker,
+  type RadarStation,
+} from "./PirateRadar";
+import {
+  GILDED_CORSAIR_PALETTE,
+  isRewardedCorsairSkinEquipped,
+} from "../game/rewardedSkin";
+import {
+  drawPhotoSkinCanvas,
+  type PhotoSkinCanvasAppearance,
+} from "../game/photoSkinCanvas";
+import type { GameBoardId } from "../game/boardPreference";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
+const groundTreasureItemCache = new WeakMap<DropState, GroundTreasureSpriteItem>();
+const groundTreasureFieldScratch: GroundTreasureSpriteItem[] = [];
+const chainPointPool: Vec2[] = [];
+const chainPointScratch: Vec2[] = [];
+const chainBodyPointScratch: Vec2[] = [];
 const RUSH_SECONDS = 90;
 
 const palettes = [
@@ -60,9 +128,14 @@ interface ArenaCanvasProps {
   mode: GameMode;
   challenge: ChallengePayload | null;
   running: boolean;
+  paused: boolean;
   session: number;
+  boardId: GameBoardId;
+  photoSkin?: PhotoSkinCanvasAppearance;
+  controlScheme: ControlScheme;
   onExit: () => void;
   onRestart: () => void;
+  onRunEnded: () => void;
 }
 
 interface HudState {
@@ -73,7 +146,10 @@ interface HudState {
   remaining: number;
   leaderboard: ReturnType<typeof getRankings>;
   position: Vec2;
-  collectorRemaining: number;
+  activeRelic?: ActiveSpecialist;
+  currentTick: number;
+  fixedStepSeconds: number;
+  chargingStation?: ChargingStationPresentation;
 }
 
 interface ResultState {
@@ -96,6 +172,7 @@ interface Particle {
   maxLife: number;
   radius: number;
   color: string;
+  label?: string;
 }
 
 interface ArenaRenderRuntime {
@@ -104,6 +181,7 @@ interface ArenaRenderRuntime {
   particles: Particle[];
   impactUntil: number;
   shakeUntil: number;
+  reducedMotion: boolean;
   debugHitboxes: boolean;
   tutorialSparkId?: string;
   tutorialRetargetCount?: number;
@@ -115,6 +193,7 @@ interface ArenaRenderRuntime {
 interface ArenaRuntime extends ArenaRenderRuntime {
   providers: BotInputProviderMap;
   startTick: number;
+  lastHudTick: number;
   lastFrame: number;
   accumulatorSeconds: number;
   resultCommitted: boolean;
@@ -159,6 +238,60 @@ interface TouchGuide {
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
+}
+
+export interface LocalRadarIntel {
+  visiblePlayers: RadarPlayerMarker[];
+  dangerBearings: SpyglassDangerBearing[];
+}
+
+/** Keeps ordinary radar knowledge inside the current camera envelope. */
+export function createLocalRadarIntel(
+  state: Pick<GameState, "players" | "tick">,
+  playerId: string,
+  visibleRadius: number,
+): LocalRadarIntel {
+  const carrier = state.players[playerId];
+  if (!carrier || !Number.isFinite(visibleRadius) || visibleRadius <= 0) {
+    return { visiblePlayers: [], dangerBearings: [] };
+  }
+  const rivals = Object.values(state.players)
+    .filter((player) => player.id !== playerId);
+  const visiblePlayers = rivals
+    .filter((player) =>
+      player.alive &&
+      Math.hypot(
+        player.position.x - carrier.position.x,
+        player.position.y - carrier.position.y,
+      ) <= visibleRadius
+    )
+    .map((player) => ({
+      id: player.id,
+      kind: player.kind,
+      position: player.position,
+      alive: player.alive,
+    }));
+  return {
+    visiblePlayers,
+    dangerBearings: getSpyglassDangerBearings(
+      carrier,
+      rivals,
+      state.tick,
+      visibleRadius,
+    ),
+  };
+}
+
+function localRadarVisibleRadius(
+  canvas: HTMLCanvasElement | null,
+  mass: number,
+): number {
+  const width = canvas?.clientWidth ?? 0;
+  const height = canvas?.clientHeight ?? 0;
+  if (width <= 0 || height <= 0) return 0;
+  const baseZoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9;
+  const massZoom = clamp(1 - Math.max(0, mass - 100) / 2_800, 0.67, 1);
+  return Math.hypot(width, height) / (2 * baseZoom * massZoom);
 }
 
 function stableNumber(text: string) {
@@ -245,13 +378,16 @@ function formatClock(seconds: number) {
 function getInitialHud(): HudState {
   return {
     score: 0,
-    mass: 100,
-    length: 8,
+    mass: DEFAULT_GAME_CONFIG.startMass,
+    length: DEFAULT_GAME_CONFIG.startingBodySegments,
     rank: BOT_COUNT + 1,
     remaining: RUSH_SECONDS,
     leaderboard: [],
     position: { x: 0, y: 0 },
-    collectorRemaining: 0,
+    activeRelic: undefined,
+    currentTick: 0,
+    fixedStepSeconds: DEFAULT_GAME_CONFIG.fixedStepSeconds,
+    chargingStation: undefined,
   };
 }
 
@@ -260,9 +396,14 @@ export function ArenaCanvas({
   mode,
   challenge,
   running,
+  paused,
   session,
+  boardId,
+  photoSkin,
+  controlScheme,
   onExit,
   onRestart,
+  onRunEnded,
 }: ArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -272,6 +413,10 @@ export function ArenaCanvas({
   const boostRef = useRef(false);
   const touchGuideRef = useRef<TouchGuide | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  const restartButtonRef = useRef<HTMLButtonElement>(null);
+  const onRunEndedRef = useRef(onRunEnded);
+  const photoSkinRef = useRef(photoSkin);
+  photoSkinRef.current = photoSkin;
   const [hud, setHud] = useState<HudState>(getInitialHud);
   const [result, setResult] = useState<ResultState | null>(null);
   const [boosting, setBoosting] = useState(false);
@@ -279,16 +424,57 @@ export function ArenaCanvas({
   const [touchGuide, setTouchGuide] = useState<TouchGuide | null>(null);
   const [actionCallout, setActionCallout] = useState<string | null>(null);
   const [localReplay, setLocalReplay] = useState<LocalReplayUiState | null>(null);
-  const tutorial = useArenaTutorial(running && !result, `${session}:${mode}`);
+  const [reducedMotion, setReducedMotion] = useState(
+    () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  );
+  const tutorial = useArenaTutorial(running && !paused && !result, `${session}:${mode}`);
+
+  useEffect(() => {
+    onRunEndedRef.current = onRunEnded;
+  }, [onRunEnded]);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setReducedMotion(preference.matches);
+    updatePreference();
+    preference.addEventListener("change", updatePreference);
+    return () => preference.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    const frame = window.requestAnimationFrame(() => {
+      stageRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [running, session]);
+
+  useEffect(() => {
+    if (!result || localReplay) return;
+    const frame = window.requestAnimationFrame(() => {
+      restartButtonRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [localReplay, result]);
 
   const ensureAudio = useCallback(() => {
-    if (!running) return;
+    if (!running || paused) return;
     const AudioContextCtor = window.AudioContext ||
       (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextCtor) return;
     audioRef.current ??= new AudioContextCtor();
     if (audioRef.current.state === "suspended") void audioRef.current.resume();
-  }, [running]);
+  }, [paused, running]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || audio.state === "closed") return;
+    if (paused && audio.state === "running") {
+      void audio.suspend();
+      return;
+    }
+    if (!paused && running && audio.state === "suspended") void audio.resume();
+  }, [paused, running]);
 
   const playTone = useCallback((frequency: number, duration = 0.07, gainValue = 0.035) => {
     const audio = audioRef.current;
@@ -337,10 +523,11 @@ export function ArenaCanvas({
     const seed = running
       ? challenge?.seed ?? `wormifi-${session}-${mode}`
       : "wormifi-living-title";
-    const built = buildLocalArena(seed, playerName, mode);
+    const built = buildLocalArena(seed, playerName, mode, boardId);
     runtimeRef.current = {
       ...built,
       startTick: built.state.tick,
+      lastHudTick: -1,
       lastFrame: performance.now(),
       accumulatorSeconds: 0,
       camera: { x: 0, y: 0 },
@@ -351,13 +538,14 @@ export function ArenaCanvas({
       lastPickupTick: -10_000,
       impactUntil: 0,
       shakeUntil: 0,
+      reducedMotion,
       debugHitboxes: new URLSearchParams(window.location.search).get("hitboxes") === "1",
       tutorialSparkId: undefined,
       tutorialRetargetCount: 0,
       tutorialRetargetReason: undefined,
       tutorialTargetTrackingId: undefined,
       tutorialTargetClosestDistance: undefined,
-      recording: { seed, mode, playerName: playerName || "Guest", inputs: [] },
+      recording: { seed, mode, playerName: playerName || "Guest", boardId, inputs: [] },
     };
     replayRuntimeRef.current = null;
     directionRef.current = { x: 1, y: 0 };
@@ -369,11 +557,16 @@ export function ArenaCanvas({
     setResult(null);
     setLocalReplay(null);
     setHud(getInitialHud());
-  }, [challenge, mode, playerName, running, session]);
+  }, [boardId, challenge, mode, playerName, running, session]);
+
+  useEffect(() => {
+    if (runtimeRef.current) runtimeRef.current.reducedMotion = reducedMotion;
+    if (replayRuntimeRef.current) replayRuntimeRef.current.reducedMotion = reducedMotion;
+  }, [reducedMotion]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!running || result) return;
+      if (!running || paused || result) return;
       const keyDirections: Record<string, Vec2> = {
         ArrowUp: { x: 0, y: -1 },
         w: { x: 0, y: -1 },
@@ -408,7 +601,7 @@ export function ArenaCanvas({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [ensureAudio, pressSprint, recordMeaningfulSteer, releaseSprint, result, running]);
+  }, [ensureAudio, paused, pressSprint, recordMeaningfulSteer, releaseSprint, result, running]);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -435,10 +628,11 @@ export function ArenaCanvas({
           : `RUN FINISH · ${cause}`,
         recording,
       });
+      onRunEndedRef.current();
       boostRef.current = false;
       setBoosting(false);
       playTone(125, 0.24, 0.08);
-      navigator.vibrate?.([35, 25, 80]);
+      if (!runtime.reducedMotion) navigator.vibrate?.([35, 25, 80]);
     };
 
     const handleEvents = (runtime: ArenaRuntime, events: readonly GameEvent[]) => {
@@ -451,30 +645,50 @@ export function ArenaCanvas({
           player
         ) {
           tutorial.collectedSpark(event.dropId, runtime.tutorialSparkId ?? null);
-          runtime.pickupCombo = runtime.state.tick - runtime.lastPickupTick < 16
+          runtime.pickupCombo = runtime.state.tick - runtime.lastPickupTick < 21
             ? Math.min(8, runtime.pickupCombo + 1)
             : 1;
           runtime.lastPickupTick = runtime.state.tick;
           const color = foodColors[runtime.pickupCombo % foodColors.length];
-          for (let index = 0; index < 5; index += 1) {
-            const angle = (index / 5) * Math.PI * 2 + runtime.state.tick * 0.17;
+          if (!runtime.reducedMotion) {
+            const particleCount = event.mass >= 5.35 ? 9 : 5;
+            for (let index = 0; index < particleCount; index += 1) {
+              const angle = (index / particleCount) * Math.PI * 2 + runtime.state.tick * 0.17;
+              runtime.particles.push({
+                x: player.position.x,
+                y: player.position.y,
+                vx: Math.cos(angle) * (65 + index * 8),
+                vy: Math.sin(angle) * (65 + index * 8),
+                life: 0.4,
+                maxLife: 0.4,
+                radius: 4 + index * 0.4,
+                color,
+              });
+            }
             runtime.particles.push({
               x: player.position.x,
               y: player.position.y,
-              vx: Math.cos(angle) * (65 + index * 8),
-              vy: Math.sin(angle) * (65 + index * 8),
-              life: 0.4,
-              maxLife: 0.4,
-              radius: 4 + index * 0.4,
-              color,
+              vx: 0,
+              vy: -44,
+              life: 0.72,
+              maxLife: 0.72,
+              radius: 0,
+              color: event.mass >= 5.35 ? "#fff1a1" : "#eafffb",
+              label: `+${Number(event.mass.toFixed(1))} SIZE`,
             });
           }
           if (runtime.pickupCombo <= 5 || runtime.pickupCombo === 8) {
             playTone(280 + runtime.pickupCombo * 55, 0.055, 0.022);
           }
+          const collectedPopCluster = event.mass >= 5.35;
+          if (collectedPopCluster && runtime.pickupCombo !== 6 && runtime.pickupCombo !== 8) {
+            if (!runtime.reducedMotion) navigator.vibrate?.(12);
+            setActionCallout("TREASURE CHEST · JACKPOT");
+            window.setTimeout(() => setActionCallout(null), 750);
+          }
           if (runtime.pickupCombo === 6 || runtime.pickupCombo === 8) {
-            navigator.vibrate?.(8);
-            setActionCallout(`SPARK STREAK ×${runtime.pickupCombo}`);
+            if (!runtime.reducedMotion) navigator.vibrate?.(8);
+            setActionCallout(`${collectedPopCluster ? "CHEST · " : ""}TREASURE STREAK ×${runtime.pickupCombo}`);
             window.setTimeout(() => setActionCallout(null), 650);
           }
         }
@@ -485,21 +699,23 @@ export function ArenaCanvas({
 
         if (event.type === "specialistActivated" && event.playerId === PLAYER_ID) {
           tutorial.sawCollector();
-          setActionCallout("COLLECTOR ON · PULLS SPARKS + YOUR SPRINT DROPS");
+          const relic = resolveRelicPresentation(event.relicKind);
+          setActionCallout(`${relic.label.toUpperCase()} ON · ${relic.effectText}`);
           window.setTimeout(() => setActionCallout(null), 900);
           playTone(520, 0.11, 0.035);
           window.setTimeout(() => playTone(760, 0.14, 0.03), 80);
-          navigator.vibrate?.([12, 24, 22]);
+          if (!runtime.reducedMotion) navigator.vibrate?.([12, 24, 22]);
         }
 
         if (event.type === "specialistExpired" && event.playerId === PLAYER_ID) {
-          setActionCallout("COLLECTOR OFF · FIND ANOTHER BEACON");
+          const relic = resolveRelicPresentation(event.relicKind);
+          setActionCallout(`${relic.label.toUpperCase()} SPENT · FIND ANOTHER RELIC`);
           window.setTimeout(() => setActionCallout(null), 800);
         }
 
         if (event.type === "playerDied") {
           const victim = runtime.state.players[event.playerId];
-          if (victim) {
+          if (victim && !runtime.reducedMotion) {
             const palette = paletteFor(victim.id);
             for (let index = 0; index < 42; index += 1) {
               const angle = (index / 42) * Math.PI * 2;
@@ -517,16 +733,18 @@ export function ArenaCanvas({
             }
           }
           if (event.killerId === PLAYER_ID && event.playerId !== PLAYER_ID) {
-            runtime.shakeUntil = performance.now() + 180;
+            if (!runtime.reducedMotion) runtime.shakeUntil = performance.now() + 180;
             setActionCallout(`CHAIN CUT · ${victim?.name ?? "RIVAL"} RELEASED`);
             window.setTimeout(() => setActionCallout(null), 1_050);
             playTone(510, 0.11, 0.055);
-            navigator.vibrate?.([12, 18, 22]);
+            if (!runtime.reducedMotion) navigator.vibrate?.([12, 18, 22]);
           }
           if (event.playerId === PLAYER_ID && victim) {
             runtime.runEnded = true;
-            runtime.impactUntil = performance.now() + 280;
-            runtime.shakeUntil = performance.now() + 440;
+            if (!runtime.reducedMotion) {
+              runtime.impactUntil = performance.now() + 280;
+              runtime.shakeUntil = performance.now() + 440;
+            }
             const killer = event.killerId ? runtime.state.players[event.killerId] : undefined;
             const cause = event.cause === "boundary"
               ? "The arena edge caught your Core."
@@ -547,6 +765,17 @@ export function ArenaCanvas({
       }
 
       const replay = replayRuntimeRef.current;
+      if (paused) {
+        runtime.lastFrame = now;
+        runtime.accumulatorSeconds = 0;
+        if (replay) {
+          replay.lastFrame = now;
+          replay.accumulatorSeconds = 0;
+        }
+        renderArena(canvas, replay ?? runtime, now, photoSkinRef.current);
+        return;
+      }
+
       if (replay) {
         const replayDelta = clamp((now - replay.lastFrame) / 1_000, 0, 0.06);
         replay.lastFrame = now;
@@ -589,12 +818,14 @@ export function ArenaCanvas({
               if (event.killerId === PLAYER_ID && event.playerId !== PLAYER_ID) {
                 const victim = replay.state.players[event.playerId];
                 replay.context = `CHAIN CUT · ${victim?.name ?? "RIVAL"} RELEASED`;
-                replay.shakeUntil = now + 180;
+                if (!replay.reducedMotion) replay.shakeUntil = now + 180;
               }
               if (event.playerId === PLAYER_ID) {
                 replay.context = replay.terminalContext;
-                replay.impactUntil = now + 280;
-                replay.shakeUntil = now + 440;
+                if (!replay.reducedMotion) {
+                  replay.impactUntil = now + 280;
+                  replay.shakeUntil = now + 440;
+                }
               }
             }
           }
@@ -630,7 +861,19 @@ export function ArenaCanvas({
         }
 
         updateParticles(replay.particles, replayDelta);
-        renderArena(canvas, replay, now);
+        renderArena(canvas, replay, now, photoSkinRef.current);
+        animationFrame = requestAnimationFrame(frame);
+        return;
+      }
+
+      // The finished frame is already the exact visual state we want behind
+      // the results dialog. Repainting that large canvas under a translucent
+      // backdrop needlessly asks the browser to composite the same scene on
+      // every display frame. Keep the scheduler alive so replay/restart state
+      // can take over immediately, but leave the completed frame frozen.
+      if (runtime.resultCommitted) {
+        runtime.lastFrame = now;
+        runtime.accumulatorSeconds = 0;
         animationFrame = requestAnimationFrame(frame);
         return;
       }
@@ -639,11 +882,13 @@ export function ArenaCanvas({
       runtime.lastFrame = now;
       if (!runtime.runEnded) {
         const waitingForFirstTurn = running && tutorial.stageRef.current === "steer";
-        if (waitingForFirstTurn) runtime.accumulatorSeconds = 0;
+        const pausedForReducedPreview = !running && runtime.reducedMotion;
+        if (waitingForFirstTurn || pausedForReducedPreview) runtime.accumulatorSeconds = 0;
         else runtime.accumulatorSeconds += deltaSeconds;
         const fixedStep = runtime.state.config.fixedStepSeconds;
         while (
           !waitingForFirstTurn &&
+          !pausedForReducedPreview &&
           runtime.accumulatorSeconds + 1e-9 >= fixedStep &&
           !runtime.runEnded
         ) {
@@ -726,9 +971,18 @@ export function ArenaCanvas({
       }
 
       updateParticles(runtime.particles, deltaSeconds);
-      renderArena(canvas, runtime, now);
+      renderArena(canvas, runtime, now, photoSkinRef.current);
 
-      if (runtime.state.tick % 5 === 0 && currentPlayer) {
+      if (
+        runtime.state.tick % 5 === 0 &&
+        runtime.state.tick !== runtime.lastHudTick &&
+        currentPlayer
+      ) {
+        runtime.lastHudTick = runtime.state.tick;
+        const chargingViews = runtime.state.board.chargingStations.map((station) => ({
+          station,
+          state: runtime.state.chargingStations[station.id],
+        }));
         setHud({
           score: calculateScore(currentPlayer, runtime.state.config),
           mass: Math.round(currentPlayer.mass),
@@ -737,10 +991,16 @@ export function ArenaCanvas({
           remaining,
           leaderboard: getRankings(runtime.state).slice(0, 6),
           position: { ...currentPlayer.position },
-          collectorRemaining: getSpecialistSecondsRemaining(
-            runtime.state,
-            currentPlayer,
-            "collector",
+          activeRelic: currentPlayer.specialist
+            ? { ...currentPlayer.specialist }
+            : undefined,
+          currentTick: runtime.state.tick,
+          fixedStepSeconds: runtime.state.config.fixedStepSeconds,
+          chargingStation: selectChargingStationPresentation(
+            chargingViews,
+            runtime.state.config.fixedStepSeconds,
+            PLAYER_ID,
+            currentPlayer.position,
           ),
         });
       }
@@ -756,6 +1016,7 @@ export function ArenaCanvas({
   }, [
     challenge,
     mode,
+    paused,
     playTone,
     running,
     session,
@@ -766,6 +1027,7 @@ export function ArenaCanvas({
   ]);
 
   const setPointerDirection = (clientX: number, clientY: number) => {
+    if (paused) return;
     const rect = stageRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = clientX - (rect.left + rect.width / 2);
@@ -778,7 +1040,7 @@ export function ArenaCanvas({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!running || result) return;
+    if (!running || paused || result) return;
     const guide = touchGuideRef.current;
     if (event.pointerType === "touch" && guide?.pointerId === event.pointerId) {
       const rect = stageRef.current?.getBoundingClientRect();
@@ -798,22 +1060,29 @@ export function ArenaCanvas({
       }
       return;
     }
+    if (event.pointerType === "touch") return;
     setPointerDirection(event.clientX, event.clientY);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!running || result) return;
+    if (!running || paused || result) return;
     if ((event.target as HTMLElement).closest("button")) return;
     ensureAudio();
     if (event.pointerType === "touch") {
       const rect = stageRef.current?.getBoundingClientRect();
       if (!rect) return;
+      const touch = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      const fixedAnchor = fixedHelmAnchor(rect.width, rect.height, controlScheme);
+      if (!touchStartsHelm(touch, fixedAnchor)) return;
       const guide: TouchGuide = {
         pointerId: event.pointerId,
-        anchorX: event.clientX - rect.left,
-        anchorY: event.clientY - rect.top,
-        currentX: event.clientX - rect.left,
-        currentY: event.clientY - rect.top,
+        anchorX: fixedAnchor?.x ?? touch.x,
+        anchorY: fixedAnchor?.y ?? touch.y,
+        currentX: touch.x,
+        currentY: touch.y,
       };
       touchGuideRef.current = guide;
       setTouchGuide(guide);
@@ -852,6 +1121,7 @@ export function ArenaCanvas({
         particles: [],
         impactUntil: 0,
         shakeUntil: 0,
+        reducedMotion,
         debugHitboxes: false,
         context: `FINAL MOMENTS · ${result.replayContext}`,
         terminalContext: result.replayContext,
@@ -930,19 +1200,72 @@ export function ArenaCanvas({
   const tutorialSpark = runtimeRef.current?.state.drops.find(
     (drop) => drop.id === runtimeRef.current?.tutorialSparkId,
   );
+  const radarRuntime = replayRuntimeRef.current ?? runtimeRef.current;
+  const radarPlayer = radarRuntime?.state.players[PLAYER_ID];
+  const radarLandmarks: RadarLandmark[] = radarRuntime
+    ? radarRuntime.state.drops
+      .filter((drop) => drop.specialist === "collector")
+      .map((drop) => ({
+        id: drop.id,
+        kind: "collector" as const,
+        position: drop.position,
+      }))
+    : [];
+  const radarIntel = radarRuntime && radarPlayer
+    ? createLocalRadarIntel(
+        radarRuntime.state,
+        PLAYER_ID,
+        localRadarVisibleRadius(canvasRef.current, radarPlayer.mass),
+      )
+    : { visiblePlayers: [], dangerBearings: [] };
+  const radarStations: RadarStation[] = radarRuntime
+    ? radarRuntime.state.board.chargingStations.map((station) => {
+        const state = radarRuntime.state.chargingStations[station.id];
+        return {
+          id: station.id,
+          position: station.position,
+          active: state?.phase === "charging" || state?.phase === "interrupted",
+        };
+      })
+    : [];
+  const relicStatus = createRelicStatusModel(
+    hud.activeRelic,
+    hud.currentTick,
+    hud.fixedStepSeconds,
+  );
 
   return (
     <div
       ref={stageRef}
-      className="arena-stage"
+      className={`arena-stage controls-${controlScheme}`}
       data-testid="arena-canvas"
-      aria-label={running ? "Active Wormifi living-chain arena" : "Living Wormifi arena preview"}
+      role="region"
+      aria-label={running ? "Active Wormifi pirate sea-serpent arena" : "Wormifi pirate sea-serpent arena preview"}
+      aria-describedby={running ? "arena-keyboard-help" : undefined}
       tabIndex={running ? 0 : -1}
+      data-reduced-motion={reducedMotion ? "true" : "false"}
+      data-control-scheme={controlScheme}
+      data-board-id={boardId}
+      data-theme-id={photoSkin?.renderPlan.theme.id ?? ""}
+      data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
+      data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
+      data-platform-paused={paused ? "true" : "false"}
+      data-sensory-motion={reducedMotion ? "essential-only" : "full"}
       data-player-x={Math.round(hud.position.x)}
       data-player-y={Math.round(hud.position.y)}
       data-player-mass={hud.mass}
+      data-player-length={hud.length}
       data-boosting={boosting ? "true" : "false"}
-      data-collector-seconds={hud.collectorRemaining.toFixed(1)}
+      data-relic-kind={relicStatus?.presentation.relicKind ?? ""}
+      data-relic-seconds={relicStatus?.remainingSeconds.toFixed(1) ?? "0.0"}
+      data-collector-seconds={
+        relicStatus?.presentation.relicKind === "loot-compass"
+          ? relicStatus.remainingSeconds.toFixed(1)
+          : "0.0"
+      }
+      data-charging-station-id={hud.chargingStation?.stationId ?? ""}
+      data-charging-station-phase={hud.chargingStation?.phase ?? "none"}
+      data-charging-station-progress={hud.chargingStation?.progressRatio ?? 0}
       data-tutorial-stage={tutorial.stage}
       data-tutorial-target-id={tutorialSpark?.id ?? ""}
       data-tutorial-target-x={tutorialSpark?.position.x ?? ""}
@@ -961,22 +1284,57 @@ export function ArenaCanvas({
       onPointerCancel={releasePointer}
     >
       <canvas ref={canvasRef} aria-hidden="true" />
+      {running && radarRuntime && radarPlayer && (
+        <PirateRadar
+          scopeLabel={mode === "practice" ? "PRACTICE" : challenge ? "RIVALRY" : "SOLO"}
+          arenaRadius={radarRuntime.state.config.arenaRadius}
+          position={radarPlayer.position}
+          direction={radarPlayer.direction}
+          alive={radarPlayer.alive}
+          landmarks={radarLandmarks}
+          otherPlayers={radarIntel.visiblePlayers}
+          stations={radarStations}
+          dangerBearings={radarIntel.dangerBearings}
+          downLabel={localReplay ? "REPLAY · LAST POSITION" : result ? "RUN ENDED" : "CHAIN RELEASED"}
+        />
+      )}
       {running && !localReplay && (
         <>
           <span className="sr-only" data-testid="player-chain">Player living chain is active</span>
+          <p className="sr-only" id="arena-keyboard-help">
+            Use Arrow keys or W A S D to steer. Hold Space or Shift to sprint.
+            Press Tab to reach the Exit and Sprint controls.
+          </p>
           <div className="game-hud">
             <div className="hud-top">
-              <div className="hud-pill hud-rank" data-testid="hud-rank">
+              <div
+                className="hud-pill hud-rank"
+                data-testid="hud-rank"
+                aria-label={`Size rank ${hud.rank}`}
+              >
                 <small>SIZE RANK</small><strong>#{hud.rank}</strong>
               </div>
-              <div className="hud-pill hud-size" data-testid="hud-score">
+              <div
+                className="hud-pill hud-size"
+                data-testid="hud-score"
+                aria-label={`Score ${hud.score}`}
+              >
                 <small>SCORE</small><strong>{hud.score.toLocaleString()}</strong>
               </div>
-              <div className="hud-pill" data-testid="hud-length">
-                <small>SIZE</small><strong>{hud.mass}</strong>
+              <div
+                className="hud-pill"
+                data-testid="hud-length"
+                aria-label={`Size ${hud.mass}`}
+              >
+                <small>SIZE · {hud.length} CREW</small>
+                <strong className="size-value-pop" key={`${hud.mass}:${hud.length}`}>{hud.mass}</strong>
               </div>
               {mode === "rush" && (
-                <div className={`rush-clock ${hud.remaining <= 10 ? "urgent" : ""}`}>
+                <div
+                  className={`rush-clock ${hud.remaining <= 10 ? "urgent" : ""}`}
+                  role="timer"
+                  aria-label={`${Math.ceil(hud.remaining)} seconds remaining`}
+                >
                   {formatClock(hud.remaining)}
                 </div>
               )}
@@ -997,23 +1355,23 @@ export function ArenaCanvas({
               </ol>
             </aside>
 
-            <div
-              className={`specialist-status ${hud.collectorRemaining > 0 ? "active" : ""}`}
-              data-testid="collector-status"
-              data-active={hud.collectorRemaining > 0 ? "true" : "false"}
-            >
-              <span className="specialist-icon">C</span>
-              <span>
-                <small>COLLECTOR</small>
-                <strong>
-                  {hud.collectorRemaining > 0
-                    ? `${hud.collectorRemaining.toFixed(1)}S · PULLS SPARKS + YOUR SPRINT DROPS`
-                    : "FIND THE CYAN BEACON"}
-                </strong>
-              </span>
-            </div>
+            <RelicStatus
+              active={hud.activeRelic}
+              currentTick={hud.currentTick}
+              fixedStepSeconds={hud.fixedStepSeconds}
+              reducedMotion={reducedMotion}
+              className="specialist-status active"
+              testId="relic-status"
+            />
 
-            <ArenaTutorial stage={tutorial.stage} size={hud.mass} />
+            {hud.chargingStation && (
+              <ChargingStationStatus
+                status={hud.chargingStation}
+                testId="charging-station-status"
+              />
+            )}
+
+            <ArenaTutorial stage={tutorial.stage} size={hud.mass} controlScheme={controlScheme} />
 
             {challenge && (
               <div className="challenge-target" data-testid="challenge-target">
@@ -1039,17 +1397,26 @@ export function ArenaCanvas({
               />
             </div>
           )}
+          {!touchGuide && controlScheme !== "drag-anywhere" && (
+            <div
+              className={`touch-guide touch-guide-idle ${controlScheme}`}
+              data-testid="fixed-touch-guide"
+              aria-hidden="true"
+            >
+              <span />
+            </div>
+          )}
 
           <button className="exit-button" data-testid="exit-button" aria-label="Exit to Wormifi menu" onClick={onExit}>×</button>
           <button
             className={`boost-control ${boosting ? "active" : ""}`}
             data-testid="boost-control"
-            disabled={hud.mass <= 61 || Boolean(result)}
+            disabled={paused || hud.mass <= DEFAULT_GAME_CONFIG.minimumBoostMass || Boolean(result)}
             onPointerDown={(event) => {
               event.stopPropagation();
               ensureAudio();
               pressSprint();
-              navigator.vibrate?.(8);
+              if (!reducedMotion) navigator.vibrate?.(8);
             }}
             onPointerUp={(event) => {
               event.stopPropagation();
@@ -1066,10 +1433,17 @@ export function ArenaCanvas({
 
       {result && !localReplay && (
         <div className="results-backdrop">
-          <section className="results-panel" data-testid="results-panel" aria-labelledby="result-heading">
+          <section
+            className="results-panel"
+            data-testid="results-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="result-heading"
+            aria-describedby="result-cause"
+          >
             <span className="results-kicker">RIVALRY LINK READY</span>
             <h2 id="result-heading">{result.heading}</h2>
-            <p className="death-cause">{result.cause}</p>
+            <p className="death-cause" id="result-cause">{result.cause}</p>
             <dl className="result-stats">
               <div><dt>SCORE</dt><dd>{result.score.toLocaleString()}</dd></div>
               <div><dt>PEAK SIZE</dt><dd>{result.peakMass}</dd></div>
@@ -1084,7 +1458,14 @@ export function ArenaCanvas({
               <span>WATCH FINAL 6S</span>
               <small>LOCAL REPLAY · RECORDED INPUTS</small>
             </button>
-            <button className="restart-button" data-testid="restart-button" onClick={onRestart}>PLAY AGAIN</button>
+            <button
+              ref={restartButtonRef}
+              className="restart-button"
+              data-testid="restart-button"
+              onClick={onRestart}
+            >
+              PLAY AGAIN
+            </button>
             <button className="share-button" onClick={() => void shareChallenge()}>SHARE CHALLENGE</button>
             <button className="menu-button" onClick={onExit}>CHANGE MODE</button>
           </section>
@@ -1133,7 +1514,9 @@ export function ArenaCanvas({
         </section>
       )}
 
-      {actionCallout && <div className="action-callout" aria-live="polite">{actionCallout}</div>}
+      {running && actionCallout && (
+        <div className="action-callout" role="status" aria-live="polite">{actionCallout}</div>
+      )}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
@@ -1160,11 +1543,20 @@ function renderArena(
   canvas: HTMLCanvasElement,
   runtime: ArenaRenderRuntime,
   now: number,
+  photoSkin: PhotoSkinCanvasAppearance | undefined,
 ) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   if (width <= 0 || height <= 0) return;
-  const pixelRatio = Math.min(1.75, window.devicePixelRatio || 1);
+  const pixelRatio = arenaBackingScale(
+    width,
+    height,
+    window.devicePixelRatio || 1,
+    // Use the mode's stable design density, not the momentary count. Death
+    // fountains can push the field across a threshold for a few ticks; canvas
+    // backing stores must never resize mid-fight because of that transient.
+    LOCAL_TARGET_DROP_COUNT,
+  );
   const targetWidth = Math.round(width * pixelRatio);
   const targetHeight = Math.round(height * pixelRatio);
   if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
@@ -1172,11 +1564,15 @@ function renderArena(
     canvas.height = targetHeight;
   }
 
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext(
+    "2d",
+    ARENA_CANVAS_CONTEXT_OPTIONS,
+  ) as CanvasRenderingContext2D | null;
   if (!context) return;
+  const effectTime = runtime.reducedMotion ? 0 : now;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
-  if (runtime.shakeUntil > now) {
+  if (!runtime.reducedMotion && runtime.shakeUntil > now) {
     const intensity = clamp((runtime.shakeUntil - now) / 440, 0, 1) * 9;
     context.translate(
       Math.sin(now * 0.19) * intensity,
@@ -1184,12 +1580,7 @@ function renderArena(
     );
   }
 
-  const background = context.createRadialGradient(width * 0.45, height * 0.42, 0, width * 0.5, height * 0.5, Math.max(width, height));
-  background.addColorStop(0, "#102b4a");
-  background.addColorStop(0.52, "#091b35");
-  background.addColorStop(1, "#030a18");
-  context.fillStyle = background;
-  context.fillRect(0, 0, width, height);
+  drawArenaFloor(context, width, height, "#102b4a");
 
   const player = runtime.state.players[PLAYER_ID];
   const focus = player?.alive ? player.position : runtime.camera;
@@ -1197,17 +1588,44 @@ function renderArena(
   runtime.camera.x += (focus.x - runtime.camera.x) * cameraSmoothing;
   runtime.camera.y += (focus.y - runtime.camera.y) * cameraSmoothing;
   const minDimension = Math.min(width, height);
-  const baseZoom = clamp(minDimension / 760, 0.68, 1.12);
+  // Encounter-close framing makes the starter creature readable and gives
+  // growth real screen presence. Radar preserves global orientation.
+  const baseZoom = clamp(minDimension / 760, 0.68, 1.12) * 1.9;
   const massZoom = player ? clamp(1 - Math.max(0, player.mass - 100) / 2_800, 0.67, 1) : 1;
   const zoom = baseZoom * massZoom;
-  const worldToScreen = (point: Vec2): Vec2 => ({
-    x: width / 2 + (point.x - runtime.camera.x) * zoom,
-    y: height / 2 + (point.y - runtime.camera.y) * zoom,
-  });
+  const worldToScreen = (point: Vec2, output: Vec2 = { x: 0, y: 0 }): Vec2 => {
+    output.x = width / 2 + (point.x - runtime.camera.x) * zoom;
+    output.y = height / 2 + (point.y - runtime.camera.y) * zoom;
+    return output;
+  };
 
-  drawArenaTexture(context, width, height, runtime.camera, zoom, now);
-  drawBoundary(context, runtime.state, worldToScreen, zoom, now);
-  drawDrops(context, runtime.state, worldToScreen, zoom, width, height, now, runtime.tutorialSparkId);
+  drawArenaTexture(context, width, height, runtime.camera, zoom, effectTime);
+  drawPirateShipBackdrop(context, width, height);
+  drawBoundary(context, runtime.state, worldToScreen, zoom, effectTime, width, height);
+  drawChargingStationField(context, {
+    views: runtime.state.board.chargingStations.map((station) => ({
+      station,
+      state: runtime.state.chargingStations[station.id],
+    })),
+    worldToScreen,
+    zoom,
+    width,
+    height,
+    fixedStepSeconds: runtime.state.config.fixedStepSeconds,
+    viewerPlayerId: PLAYER_ID,
+    now: effectTime,
+  });
+  drawDrops(
+    context,
+    runtime.state,
+    worldToScreen,
+    runtime.camera,
+    zoom,
+    width,
+    height,
+    effectTime,
+    runtime.tutorialSparkId,
+  );
 
   const players = Object.values(runtime.state.players)
     .filter((entry) => entry.alive)
@@ -1221,32 +1639,49 @@ function renderArena(
       zoom,
       width,
       height,
-      now,
+      effectTime,
       runtime.debugHitboxes,
+      entry.id === PLAYER_ID ? photoSkin : undefined,
     );
   }
 
   for (const particle of runtime.particles) {
     const screen = worldToScreen(particle);
+    if (
+      screen.x < -40 ||
+      screen.y < -40 ||
+      screen.x > width + 40 ||
+      screen.y > height + 40
+    ) continue;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
     context.globalAlpha = alpha;
-    context.fillStyle = particle.color;
-    context.shadowColor = particle.color;
-    context.shadowBlur = 12;
-    context.beginPath();
-    context.arc(screen.x, screen.y, Math.max(1.5, particle.radius * zoom * alpha), 0, Math.PI * 2);
-    context.fill();
+    if (particle.label) {
+      context.fillStyle = particle.color;
+      context.shadowColor = particle.color;
+      context.shadowBlur = 12;
+      context.font = `900 ${clamp(15 * zoom, 12, 19)}px "Baloo 2", sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(particle.label, screen.x, screen.y);
+      continue;
+    }
+    // A label's glow must not leak onto every following shard in this frame.
+    context.shadowBlur = 0;
+    drawTreasureShard(
+      context,
+      screen.x,
+      screen.y,
+      Math.max(1.8, particle.radius * zoom * alpha),
+      particle.color,
+      particle.life * 7 + particle.x * 0.013,
+    );
   }
   context.globalAlpha = 1;
   context.shadowBlur = 0;
 
-  const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.32, width / 2, height / 2, Math.max(width, height) * 0.7);
-  vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(1, "rgba(0,4,14,0.48)");
-  context.fillStyle = vignette;
-  context.fillRect(0, 0, width, height);
+  drawArenaVignette(context, width, height);
 
-  if (runtime.impactUntil > now) {
+  if (!runtime.reducedMotion && runtime.impactUntil > now) {
     const alpha = clamp((runtime.impactUntil - now) / 280, 0, 1);
     context.fillStyle = `rgba(255, 67, 121, ${alpha * 0.28})`;
     context.fillRect(0, 0, width, height);
@@ -1261,18 +1696,7 @@ function drawArenaTexture(
   zoom: number,
   now: number,
 ) {
-  const spacing = 92 * zoom;
-  const offsetX = ((-camera.x * zoom) % spacing + spacing) % spacing;
-  const offsetY = ((-camera.y * zoom) % spacing + spacing) % spacing;
-  context.fillStyle = "rgba(103, 203, 255, 0.07)";
-  for (let x = offsetX; x < width; x += spacing) {
-    for (let y = offsetY; y < height; y += spacing) {
-      const pulse = 1.2 + Math.sin(now * 0.0008 + x * 0.02 + y * 0.014) * 0.55;
-      context.beginPath();
-      context.arc(x, y, pulse, 0, Math.PI * 2);
-      context.fill();
-    }
-  }
+  drawNauticalChart(context, width, height, camera, zoom, now);
 }
 
 function drawBoundary(
@@ -1281,14 +1705,26 @@ function drawBoundary(
   worldToScreen: (point: Vec2) => Vec2,
   zoom: number,
   now: number,
+  width: number,
+  height: number,
 ) {
   const center = worldToScreen({ x: 0, y: 0 });
   const radius = state.config.arenaRadius * zoom;
+  const lineWidth = Math.max(9, 28 * zoom);
+  const shadowBlur = 26;
+  if (!arenaBoundaryIntersectsViewport(
+    center,
+    radius,
+    lineWidth,
+    shadowBlur,
+    width,
+    height,
+  )) return;
   context.save();
   context.strokeStyle = `rgba(255, 89, 130, ${0.38 + Math.sin(now * 0.004) * 0.1})`;
-  context.lineWidth = Math.max(9, 28 * zoom);
+  context.lineWidth = lineWidth;
   context.shadowColor = "#ff4d83";
-  context.shadowBlur = 26;
+  context.shadowBlur = shadowBlur;
   context.setLineDash([28 * zoom, 18 * zoom]);
   context.beginPath();
   context.arc(center.x, center.y, radius, 0, Math.PI * 2);
@@ -1296,97 +1732,85 @@ function drawBoundary(
   context.restore();
 }
 
-function drawCollectorFace(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  timerRatio = 1,
-) {
-  if (radius < 3) return;
-  context.save();
-  context.translate(x, y);
-  context.beginPath();
-  context.arc(0, 0, radius, 0, Math.PI * 2);
-  context.clip();
-
-  const gradient = context.createRadialGradient(
-    -radius * 0.3,
-    -radius * 0.38,
-    radius * 0.05,
-    0,
-    0,
-    radius,
-  );
-  gradient.addColorStop(0, "#e9fff8");
-  gradient.addColorStop(0.22, "#71ffe2");
-  gradient.addColorStop(1, "#159d9c");
-  context.fillStyle = gradient;
-  context.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-  context.strokeStyle = "rgba(3, 43, 55, .78)";
-  context.lineWidth = Math.max(0.7, radius * 0.1);
-  context.beginPath();
-  context.moveTo(-radius * 0.48, -radius * 0.46);
-  context.lineTo(-radius * 0.13, -radius * 0.38);
-  context.moveTo(radius * 0.48, -radius * 0.46);
-  context.lineTo(radius * 0.13, -radius * 0.38);
-  context.stroke();
-
-  context.fillStyle = "rgba(255,255,255,.97)";
-  context.beginPath();
-  context.ellipse(-radius * 0.29, -radius * 0.16, radius * 0.22, radius * 0.28, 0, 0, Math.PI * 2);
-  context.ellipse(radius * 0.29, -radius * 0.16, radius * 0.22, radius * 0.28, 0, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = "#042333";
-  context.beginPath();
-  context.arc(-radius * 0.24, -radius * 0.12, radius * 0.09, 0, Math.PI * 2);
-  context.arc(radius * 0.34, -radius * 0.12, radius * 0.09, 0, Math.PI * 2);
-  context.fill();
-
-  context.strokeStyle = "rgba(3, 36, 48, .88)";
-  context.lineWidth = Math.max(0.8, radius * 0.1);
-  context.beginPath();
-  context.arc(0, radius * 0.18, radius * 0.34, 0.12 * Math.PI, 0.88 * Math.PI);
-  context.stroke();
-
-  context.strokeStyle = "rgba(229, 255, 249, .95)";
-  context.lineWidth = Math.max(0.9, radius * 0.1);
-  context.beginPath();
-  context.arc(
-    0,
-    0,
-    radius * 0.83,
-    -Math.PI / 2,
-    -Math.PI / 2 + Math.PI * 2 * clamp(timerRatio, 0, 1),
-  );
-  context.stroke();
-
-  if (radius >= 5.5) {
-    context.fillStyle = "#06364a";
-    context.beginPath();
-    context.arc(0, radius * 0.66, radius * 0.19, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#dffff8";
-    context.font = `900 ${Math.max(4, radius * 0.28)}px "Baloo 2", sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("C", 0, radius * 0.68);
-  }
-  context.restore();
-}
-
 function drawDrops(
   context: CanvasRenderingContext2D,
   state: GameState,
   worldToScreen: (point: Vec2) => Vec2,
+  camera: Readonly<Vec2>,
   zoom: number,
   width: number,
   height: number,
   now: number,
   tutorialSparkId?: string,
 ) {
+  // Reuse both the list and each stable ground-item descriptor. Practice can
+  // hold 1,050 drops, so rebuilding these objects every frame creates GC
+  // pauses even when the actual Canvas callback is inexpensive.
+  const fieldItems = groundTreasureFieldScratch;
+  fieldItems.length = 0;
   for (const drop of state.drops) {
+    if (
+      drop.id === tutorialSparkId ||
+      getGroundRelicPresentation(drop) ||
+      drop.source === "boost" ||
+      drop.source === "death" ||
+      drop.mass >= 5.35
+    ) continue;
+    // Use the exact camera transform directly for the dense ordinary field.
+    // Returning a {x,y} object here for every one of 1,050 drops on every
+    // frame was the last large source of short-lived Practice allocations.
+    const screenX = width / 2 + (drop.position.x - camera.x) * zoom;
+    const screenY = height / 2 + (drop.position.y - camera.y) * zoom;
+    const cullMargin = 64;
+    if (
+      screenX < -cullMargin ||
+      screenY < -cullMargin ||
+      screenX > width + cullMargin ||
+      screenY > height + cullMargin
+    ) continue;
+    let item = groundTreasureItemCache.get(drop);
+    if (!item) {
+      item = {
+        id: drop.id,
+        position: drop.position,
+        radius: drop.radius,
+        seed: stableNumber(drop.id),
+      };
+      groundTreasureItemCache.set(drop, item);
+    }
+    // Refresh mutable geometry so this cache stays correct if a later arena
+    // update retains the DropState object but changes its fields.
+    if (item.id !== drop.id) {
+      item.id = drop.id;
+      item.seed = stableNumber(drop.id);
+    }
+    item.position = drop.position;
+    item.radius = drop.radius;
+    item.screenX = screenX;
+    item.screenY = screenY;
+    fieldItems.push(item);
+  }
+  drawGroundTreasureSpriteField(
+    context,
+    fieldItems,
+    worldToScreen,
+    zoom,
+    width,
+    height,
+    now,
+  );
+
+  for (const drop of state.drops) {
+    const groundRelic = getGroundRelicPresentation(drop);
+    if (
+      drop.id !== tutorialSparkId &&
+      !groundRelic &&
+      drop.source !== "boost" &&
+      drop.source !== "death" &&
+      drop.mass < 5.35
+    ) {
+      continue;
+    }
     const screen = worldToScreen(drop.position);
     const pulse = 0.92 + Math.sin(now * 0.004 + stableNumber(drop.id)) * 0.08;
     const radius = Math.max(2.2, drop.radius * zoom * pulse);
@@ -1412,37 +1836,17 @@ function drawDrops(
       context.fillStyle = "#eafffb";
       context.shadowColor = "rgba(0,0,0,.9)";
       context.shadowBlur = 5;
-      context.fillText("SPARK · GROW", 0, -Math.max(18, radius * 3.1));
+      context.fillText("RINGED TREASURE · GROW", 0, -Math.max(18, radius * 3.1));
     }
 
-    if (drop.specialist === "collector") {
+    if (groundRelic) {
       const beaconRadius = Math.max(10, radius * 1.25);
-      const spin = now * 0.0012;
-      context.shadowColor = color;
-      context.shadowBlur = 24;
-      context.fillStyle = "rgba(11, 46, 67, 0.96)";
-      context.strokeStyle = color;
-      context.lineWidth = Math.max(2, beaconRadius * 0.14);
-      context.beginPath();
-      context.arc(0, 0, beaconRadius, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-      context.shadowBlur = 0;
-      context.save();
-      context.rotate(spin);
-      context.setLineDash([beaconRadius * 0.55, beaconRadius * 0.24]);
-      context.strokeStyle = "rgba(184, 255, 244, 0.88)";
-      context.lineWidth = Math.max(1.2, beaconRadius * 0.09);
-      context.beginPath();
-      context.arc(0, 0, beaconRadius * 1.42, 0, Math.PI * 2);
-      context.stroke();
-      context.restore();
-      drawCollectorFace(context, 0, 0, beaconRadius * 0.78);
-      context.font = `900 ${clamp(9 * zoom, 8, 11)}px Inter, sans-serif`;
-      context.fillStyle = "#cafff5";
-      context.shadowColor = "rgba(0,0,0,.9)";
-      context.shadowBlur = 5;
-      context.fillText("COLLECTOR · 12S", 0, -beaconRadius * 2.05);
+      drawGroundRelicPickup(context, drop, {
+        beaconRadius,
+        zoom,
+        now,
+        fixedStepSeconds: state.config.fixedStepSeconds,
+      });
       context.restore();
       continue;
     }
@@ -1477,63 +1881,34 @@ function drawDrops(
     }
 
     if (drop.source === "death") {
-      // Rival Echoes retain their defeated player's color as a readable memory.
-      context.shadowColor = color;
-      context.shadowBlur = 17;
-      context.fillStyle = color;
-      context.beginPath();
-      for (let point = 0; point < 12; point += 1) {
-        const angle = (point / 12) * Math.PI * 2 + now * 0.00035;
-        const radial = point % 2 === 0 ? radius * 1.3 : radius * 0.64;
-        const x = Math.cos(angle) * radial;
-        const y = Math.sin(angle) * radial;
-        if (point === 0) context.moveTo(x, y); else context.lineTo(x, y);
-      }
-      context.closePath();
-      context.fill();
-      context.shadowBlur = 0;
-      context.strokeStyle = "rgba(255,255,255,.58)";
-      context.lineWidth = Math.max(0.8, radius * 0.11);
-      context.setLineDash([radius * 0.55, radius * 0.34]);
-      context.beginPath();
-      context.arc(0, 0, radius * 1.7, 0, Math.PI * 2);
-      context.stroke();
-      context.setLineDash([]);
-      context.fillStyle = "rgba(4, 19, 35, .72)";
-      context.beginPath();
-      context.arc(0, 0, radius * 0.32, 0, Math.PI * 2);
-      context.fill();
+      // Real defeated-chain mass becomes a marked rival-hoard jewel.
+      drawRivalHoardGem(context, radius, color, now, stableNumber(drop.id));
       context.restore();
       continue;
     }
 
-    // Neutral Pulse Motes use a small energy-diamond silhouette: readable at
-    // speed, abstract, and visually separate from every player-produced Echo.
-    context.rotate(Math.PI / 4 + Math.sin(now * 0.0015 + stableNumber(drop.id)) * 0.08);
-    context.shadowColor = color;
-    context.shadowBlur = 9;
-    context.fillStyle = color;
-    context.beginPath();
-    context.moveTo(0, -radius);
-    context.quadraticCurveTo(radius * 0.7, -radius * 0.7, radius, 0);
-    context.quadraticCurveTo(radius * 0.7, radius * 0.7, 0, radius);
-    context.quadraticCurveTo(-radius * 0.7, radius * 0.7, -radius, 0);
-    context.quadraticCurveTo(-radius * 0.7, -radius * 0.7, 0, -radius);
-    context.closePath();
-    context.fill();
-    context.shadowBlur = 0;
-    context.fillStyle = "rgba(255,255,255,.78)";
-    context.beginPath();
-    context.moveTo(0, -radius * 0.55);
-    context.lineTo(radius * 0.18, -radius * 0.08);
-    context.lineTo(radius * 0.55, 0);
-    context.lineTo(radius * 0.18, radius * 0.08);
-    context.lineTo(0, radius * 0.55);
-    context.lineTo(-radius * 0.18, radius * 0.08);
-    context.lineTo(-radius * 0.55, 0);
-    context.lineTo(-radius * 0.18, -radius * 0.08);
-    context.closePath();
-    context.fill();
+    if (drop.mass >= 5.35) {
+      // One authoritative collider is rendered as a high-value treasure chest.
+      if (!drawPirateAtlasSprite(context, "treasure-chest", {
+        x: 0,
+        y: 0,
+        size: Math.max(28, radius * 3.4),
+        rotation: Math.sin(now * 0.0014 + stableNumber(drop.id)) * 0.035,
+      })) {
+        drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
+      }
+      context.restore();
+      continue;
+    }
+
+    if (!drawPirateAtlasSprite(context, commonTreasureSprite(stableNumber(drop.id)), {
+      x: 0,
+      y: 0,
+      size: Math.max(12, radius * 2.08),
+      rotation: ((stableNumber(drop.id) % 17) - 8) * 0.035,
+    })) {
+      drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
+    }
     context.restore();
   }
 }
@@ -1542,101 +1917,108 @@ function drawLivingChain(
   context: CanvasRenderingContext2D,
   player: PlayerState,
   state: GameState,
-  worldToScreen: (point: Vec2) => Vec2,
+  worldToScreen: (point: Vec2, output?: Vec2) => Vec2,
   zoom: number,
   width: number,
   height: number,
   now: number,
   debugHitboxes: boolean,
+  photoSkin: PhotoSkinCanvasAppearance | undefined,
 ) {
-  const headScreen = worldToScreen(player.position);
   const margin = 240;
-  const hasVisibleSegment = player.body.some((segment) => {
-    const screen = worldToScreen(segment);
-    return screen.x > -margin && screen.y > -margin && screen.x < width + margin && screen.y < height + margin;
-  });
-  if (!hasVisibleSegment && (headScreen.x < -margin || headScreen.y < -margin || headScreen.x > width + margin || headScreen.y > height + margin)) return;
+  const pointCount = player.body.length + 1;
+  while (chainPointPool.length < pointCount) chainPointPool.push({ x: 0, y: 0 });
+  chainPointScratch.length = pointCount;
+  chainBodyPointScratch.length = player.body.length;
+  const headScreen = worldToScreen(player.position, chainPointPool[0]);
+  chainPointScratch[0] = headScreen;
+  let hasVisiblePoint =
+    headScreen.x > -margin && headScreen.y > -margin &&
+    headScreen.x < width + margin && headScreen.y < height + margin;
+  for (let index = 0; index < player.body.length; index += 1) {
+    const screen = worldToScreen(player.body[index], chainPointPool[index + 1]);
+    chainPointScratch[index + 1] = screen;
+    chainBodyPointScratch[index] = screen;
+    if (
+      screen.x > -margin && screen.y > -margin &&
+      screen.x < width + margin && screen.y < height + margin
+    ) hasVisiblePoint = true;
+  }
+  if (!hasVisiblePoint) return;
 
-  const palette = paletteFor(player.id);
+  const palette = photoSkin
+    ? [...photoSkin.renderPlan.theme.palette]
+    : player.id === PLAYER_ID && isRewardedCorsairSkinEquipped()
+      ? [...GILDED_CORSAIR_PALETTE]
+      : paletteFor(player.id);
   const headRadius = getPlayerRadius(player, state.config) * zoom;
   const followerRadius = getBodyRadius(player, state.config) * zoom;
   const identity = stableNumber(player.id);
   const shielded = player.shieldTicksRemaining > 0;
-  const points = [player.position, ...player.body].map(worldToScreen);
+  const points = chainPointScratch;
+  const activeRelic = createActiveRelicCanvasModel(player.specialist, state.tick);
+
+  if (activeRelic?.presentation.relicKind === "loot-compass") {
+    drawCollectorField(context, headScreen, headRadius, now, palette[0]);
+  } else if (activeRelic) {
+    drawRelicCarrierEffect(context, activeRelic, headScreen, headRadius, now);
+  }
 
   context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.globalAlpha = shielded ? 0.72 : 0.92;
-  context.strokeStyle = palette[0];
-  context.lineWidth = Math.max(3, followerRadius * 0.46);
-  context.shadowColor = palette[0];
-  context.shadowBlur = 12;
-  context.beginPath();
-  context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    const previous = points[index - 1];
-    const point = points[index];
-    context.quadraticCurveTo(previous.x, previous.y, (previous.x + point.x) / 2, (previous.y + point.y) / 2);
-  }
-  context.stroke();
-  context.shadowBlur = 0;
+  drawContinuousPirateWorm(context, {
+    points,
+    headRadius,
+    bodyRadius: followerRadius,
+    palette,
+    direction: player.direction,
+    shielded,
+    identity,
+    now,
+  });
 
-  for (let index = player.body.length - 1; index >= 0; index -= 1) {
-    const screen = points[index + 1];
-    const lean = Math.sin(now * 0.006 + index * 0.85) * followerRadius * 0.05;
-    drawCreature(
-      context,
-      screen.x,
-      screen.y + lean,
-      followerRadius,
-      palette,
-      index,
-      player.direction,
-      false,
-      shielded,
-      identity,
-    );
+  if (photoSkin && points.length > 2) {
+    drawPhotoSkinCanvas(context, {
+      points: chainBodyPointScratch,
+      bodyRadius: followerRadius,
+      direction: player.direction,
+      decodedImages: photoSkin.decodedImages,
+      renderPlan: photoSkin.renderPlan,
+    });
   }
 
-  if (isSpecialistActive(state, player, "collector") && points[1]) {
-    // The specialist is painted entirely inside an existing solid segment.
-    // It changes pickup reach only; the crew silhouette and hitbox stay exact.
-    const specialist = player.specialist!;
-    const remainingTicks = Math.max(0, specialist.expiresAtTick - state.tick);
-    const timerRatio = remainingTicks / specialist.durationTicks;
+  if (activeRelic && points[1]) {
+    // Relic paint stays entirely inside an existing solid segment. It changes
+    // presentation only; the crew silhouette and hitbox stay exact.
     const crew = points[1];
-    drawCollectorFace(
+    drawRelicCarrierBadge(
       context,
+      activeRelic,
       crew.x,
       crew.y,
       followerRadius * 0.82,
-      timerRatio,
+      now,
     );
   }
 
-  drawCreature(
-    context,
-    headScreen.x,
-    headScreen.y,
-    headRadius,
-    palette,
-    0,
-    player.direction,
-    true,
-    shielded,
-    identity,
-  );
-
   if (debugHitboxes) {
     context.save();
+    context.globalAlpha = 0.18;
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = followerRadius * 2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(points[0].x, points[0].y);
+    for (const point of chainBodyPointScratch) context.lineTo(point.x, point.y);
+    context.stroke();
+    context.globalAlpha = 1;
     context.setLineDash([3, 3]);
     context.strokeStyle = "rgba(255,255,255,0.76)";
     context.lineWidth = 1;
     context.beginPath();
     context.arc(headScreen.x, headScreen.y, headRadius, 0, Math.PI * 2);
     context.stroke();
-    for (const point of points.slice(1)) {
+    for (const point of chainBodyPointScratch) {
       context.beginPath();
       context.arc(point.x, point.y, followerRadius, 0, Math.PI * 2);
       context.stroke();
@@ -1644,6 +2026,7 @@ function drawLivingChain(
     context.restore();
   }
 
+  context.globalAlpha = 1;
   if (shielded) {
     context.strokeStyle = "rgba(185, 252, 255, 0.82)";
     context.lineWidth = 2;
@@ -1652,129 +2035,105 @@ function drawLivingChain(
     context.arc(headScreen.x, headScreen.y, headRadius * 1.42, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-  }
-
-  context.globalAlpha = 1;
-  context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
-  context.textAlign = "center";
-  context.fillStyle = player.id === PLAYER_ID ? "#eaffff" : "rgba(230,244,255,0.84)";
-  context.shadowColor = "rgba(0,0,0,0.85)";
-  context.shadowBlur = 5;
-  const label = `${player.name}${player.kind === "bot" ? " · AI" : ""}`;
-  context.fillText(label, headScreen.x, headScreen.y - headRadius * 1.65);
-  context.restore();
-}
-
-function drawCreature(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  palette: string[],
-  index: number,
-  direction: Vec2,
-  head: boolean,
-  shielded: boolean,
-  identity: number,
-) {
-  if (radius < 1.5) return;
-  const primary = palette[index % 2];
-  context.save();
-  context.translate(x, y);
-  context.rotate(Math.atan2(direction.y, direction.x) * 0.07);
-  context.shadowColor = primary;
-  context.shadowBlur = head ? 18 : 10;
-  const gradient = context.createRadialGradient(-radius * 0.34, -radius * 0.42, radius * 0.05, 0, 0, radius * 1.2);
-  gradient.addColorStop(0, palette[2]);
-  gradient.addColorStop(0.25, primary);
-  gradient.addColorStop(1, palette[(index + 1) % 2]);
-  context.fillStyle = gradient;
-  const variant = (identity + index * 7 + (head ? 3 : 0)) % 5;
-  context.beginPath();
-  drawCreatureSilhouette(context, radius, variant);
-  context.fill();
-  context.shadowBlur = 0;
-
-  if (radius >= 5.5) {
-    const eyeOffsetX = radius * 0.34;
-    const eyeY = -radius * 0.13;
-    const pupilX = direction.x * radius * 0.08;
-    const pupilY = direction.y * radius * 0.08;
-    context.fillStyle = "rgba(255,255,255,0.94)";
-    context.beginPath();
-    context.ellipse(-eyeOffsetX, eyeY, radius * 0.25, radius * 0.31, 0, 0, Math.PI * 2);
-    context.ellipse(eyeOffsetX, eyeY, radius * 0.25, radius * 0.31, 0, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#061326";
-    context.beginPath();
-    context.arc(-eyeOffsetX + pupilX, eyeY + pupilY, radius * 0.105, 0, Math.PI * 2);
-    context.arc(eyeOffsetX + pupilX, eyeY + pupilY, radius * 0.105, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#fff";
-    context.beginPath();
-    context.arc(-eyeOffsetX + pupilX - radius * 0.025, eyeY + pupilY - radius * 0.035, radius * 0.03, 0, Math.PI * 2);
-    context.arc(eyeOffsetX + pupilX - radius * 0.025, eyeY + pupilY - radius * 0.035, radius * 0.03, 0, Math.PI * 2);
-    context.fill();
-
-    context.strokeStyle = "rgba(4,22,36,0.82)";
-    context.lineWidth = Math.max(1.1, radius * 0.09);
-    context.lineCap = "round";
-    context.beginPath();
-    if (shielded) {
-      context.arc(0, radius * 0.19, radius * 0.18, 0.15 * Math.PI, 0.85 * Math.PI, true);
-    } else if (head) {
-      context.arc(0, radius * 0.15, radius * 0.28, 0.12 * Math.PI, 0.88 * Math.PI);
-    } else {
-      context.moveTo(-radius * 0.16, radius * 0.23);
-      context.quadraticCurveTo(0, radius * 0.32, radius * 0.16, radius * 0.23);
+    if (player.id === PLAYER_ID || width >= 520) {
+      const graceSeconds = player.shieldTicksRemaining * state.config.fixedStepSeconds;
+      context.font = `900 ${clamp(9 * zoom, 8, 12)}px Inter, sans-serif`;
+      context.textAlign = "center";
+      context.fillStyle = "rgba(211, 255, 250, 0.96)";
+      context.shadowColor = "rgba(0, 8, 22, 0.95)";
+      context.shadowBlur = 5;
+      context.fillText(
+        `HEAD SAFE · ${graceSeconds.toFixed(1)}S`,
+        headScreen.x,
+        headScreen.y + headRadius * 2.15,
+      );
     }
-    context.stroke();
+  }
 
-    // Limbs stay fully inside the collision silhouette to keep the hitbox honest.
-    context.strokeStyle = "rgba(4,24,39,0.55)";
-    context.lineWidth = Math.max(1, radius * 0.07);
-    context.beginPath();
-    context.moveTo(-radius * 0.76, radius * 0.18);
-    context.lineTo(-radius * 0.53, radius * 0.03);
-    context.moveTo(radius * 0.76, radius * 0.18);
-    context.lineTo(radius * 0.53, radius * 0.03);
-    context.stroke();
+  const focusedMobileLabel = Math.hypot(
+    headScreen.x - width / 2,
+    headScreen.y - height / 2,
+  ) <= Math.min(width, height) * 0.48;
+  const insideMobileLabelSafeZone =
+    headScreen.x >= 48 && headScreen.x <= width - 48 &&
+    headScreen.y >= 124 && headScreen.y <= height - 224;
+  if (
+    player.id === PLAYER_ID ||
+    width >= 520 ||
+    (focusedMobileLabel && insideMobileLabelSafeZone)
+  ) {
+    context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
+    context.textAlign = "center";
+    context.fillStyle = player.id === PLAYER_ID ? "#eaffff" : "rgba(230,244,255,0.84)";
+    context.shadowColor = "rgba(0,0,0,0.85)";
+    context.shadowBlur = 5;
+    const label = `${player.name}${player.kind === "bot" ? " · AI" : ""}`;
+    context.fillText(label, headScreen.x, headScreen.y - headRadius * 2.05);
   }
   context.restore();
 }
 
-function drawCreatureSilhouette(
-  context: CanvasRenderingContext2D,
+export function arenaBoundaryIntersectsViewport(
+  center: Readonly<Vec2>,
   radius: number,
-  variant: number,
+  lineWidth: number,
+  shadowBlur: number,
+  width: number,
+  height: number,
 ) {
-  if (variant === 0) {
-    context.ellipse(0, 0, radius * 0.98, radius * 0.9, 0, 0, Math.PI * 2);
-    return;
-  }
-  if (variant === 1) {
-    context.roundRect(
-      -radius * 0.66,
-      -radius * 0.66,
-      radius * 1.32,
-      radius * 1.32,
-      radius * 0.34,
-    );
-    return;
-  }
+  // Canvas shadows have implementation-defined soft tails. The fixed guard is
+  // deliberately far larger than this 26px blur, antialiasing and the 9px
+  // shake: the boundary is skipped only when the expanded annulus misses.
+  const paintSpread = lineWidth / 2 + Math.max(128, shadowBlur * 3 + Math.SQRT2 * 9);
+  const innerRadius = Math.max(0, radius - paintSpread);
+  const outerRadius = radius + paintSpread;
+  const closestX = clamp(center.x, 0, width);
+  const closestY = clamp(center.y, 0, height);
+  const closestDeltaX = center.x - closestX;
+  const closestDeltaY = center.y - closestY;
+  const minimumDistanceSquared = closestDeltaX ** 2 + closestDeltaY ** 2;
+  const farthestDeltaX = Math.max(Math.abs(center.x), Math.abs(center.x - width));
+  const farthestDeltaY = Math.max(Math.abs(center.y), Math.abs(center.y - height));
+  const maximumDistanceSquared = farthestDeltaX ** 2 + farthestDeltaY ** 2;
+  return minimumDistanceSquared <= outerRadius ** 2 &&
+    (innerRadius === 0 || maximumDistanceSquared >= innerRadius ** 2);
+}
+function drawCollectorField(
+  context: CanvasRenderingContext2D,
+  head: Vec2,
+  headRadius: number,
+  now: number,
+  color: string,
+) {
+  const fieldRadius = Math.max(30, headRadius * 2.65);
+  context.save();
+  context.translate(head.x, head.y);
+  context.globalCompositeOperation = "lighter";
+  context.strokeStyle = color;
+  context.shadowColor = "#79ffe6";
+  context.shadowBlur = 12;
+  for (let ring = 0; ring < 3; ring += 1) {
+    const phase = now * (0.0012 + ring * 0.00018) + ring * 2.1;
+    const radius = fieldRadius * (0.48 + ring * 0.24);
+    context.globalAlpha = 0.32 - ring * 0.065;
+    context.lineWidth = Math.max(1.1, headRadius * (0.12 - ring * 0.015));
+    context.beginPath();
+    context.arc(0, 0, radius, phase, phase + Math.PI * (0.92 + ring * 0.13));
+    context.stroke();
 
-  const points = variant === 2 ? 6 : variant === 3 ? 5 : 8;
-  const innerFactor = variant === 3 ? 0.58 : variant === 4 ? 0.72 : 1;
-  const pointCount = innerFactor < 1 ? points * 2 : points;
-  for (let point = 0; point < pointCount; point += 1) {
-    const angle = -Math.PI / 2 + (point / pointCount) * Math.PI * 2;
-    const radial = point % 2 === 1 && innerFactor < 1
-      ? radius * innerFactor
-      : radius * 0.94;
-    const x = Math.cos(angle) * radial;
-    const y = Math.sin(angle) * radial;
-    if (point === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
   }
-  context.closePath();
+  for (let mote = 0; mote < 5; mote += 1) {
+    const angle = now * 0.0015 + mote * (Math.PI * 2 / 5);
+    const orbit = fieldRadius * (0.58 + (mote % 2) * 0.22);
+    context.globalAlpha = 0.55;
+    drawTreasureShard(
+      context,
+      Math.cos(angle) * orbit,
+      Math.sin(angle) * orbit,
+      Math.max(1.8, headRadius * 0.12),
+      mote % 2 === 0 ? "#ffe89d" : color,
+      angle,
+    );
+  }
+  context.restore();
 }

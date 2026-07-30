@@ -15,11 +15,14 @@
   <circle cx="256" cy="256" r="196" fill="none" stroke="#66f7e0" stroke-opacity=".1" stroke-width="8"/>
   <path d="M159 260c25-68 130-89 196-36 39 31 47 88 14 120-29 28-82 20-88-16-5-31 28-50 56-31" fill="none" stroke="url(#mask-chain)" stroke-width="60" stroke-linecap="round"/>
   <circle cx="164" cy="252" r="58" fill="#69ffe0"/>
+  <path d="M119 224Q137 188 164 199Q191 188 209 224Q186 236 164 221Q142 236 119 224Z" fill="#5b1b2d" stroke="#ffd66b" stroke-width="6" stroke-linejoin="round"/>
   <circle cx="145" cy="241" r="12" fill="#071326"/>
   <circle cx="181" cy="238" r="12" fill="#071326"/>
   <circle cx="141" cy="236" r="4" fill="#fff"/>
   <circle cx="177" cy="233" r="4" fill="#fff"/>
   <path d="M144 271c13 14 29 14 42 0" fill="none" stroke="#071326" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="374" cy="348" r="13" fill="#ffd164"/>
-  <circle cx="398" cy="303" r="9" fill="#ff69a8"/>
+  <path d="M374 332l14 8 1 16-15 10-15-10 1-16z" fill="#ffd164" stroke="#fff0a4" stroke-width="4"/>
+  <path d="M360 340l14 6 14-6m-14 6v20" fill="none" stroke="#7a4718" stroke-width="3"/>
+  <path d="M398 290l11 7-1 13-10 8-10-8-1-13z" fill="#ff69a8" stroke="#ffd7e5" stroke-width="3"/>
+  <path d="M388 297l10 4 11-4m-11 4v17" fill="none" stroke="#75203f" stroke-width="2"/>
 </svg>

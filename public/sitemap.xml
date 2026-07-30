@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://wormifi.com/</loc>
+    <image:image>
+      <image:loc>https://wormifi.com/og-wormifi-sea-serpent-v2.png</image:loc>
+      <image:title>Wormifi pirate treasure arena</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wormifi.com/how-to-play.html</loc>
+  </url>
+  <url>
+    <loc>https://wormifi.com/multiplayer.html</loc>
+  </url>
+  <url>
+    <loc>https://wormifi.com/pirate-treasure.html</loc>
+  </url>
+  <url>
+    <loc>https://wormifi.com/privacy.html</loc>
+  </url>
+</urlset>

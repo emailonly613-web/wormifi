@@ -265,7 +265,10 @@ describe("approved deterministic ground loop", () => {
     const rivalEchoes = deathState.drops.filter((drop) => drop.source === "death");
     expect(defeated.alive).toBe(false);
     expect(rivalEchoes.every((drop) => drop.originPlayerId === defeated.id)).toBe(true);
-    expect(rivalEchoes.reduce((sum, drop) => sum + drop.mass, 0)).toBeCloseTo(100.75, 8);
+    expect(rivalEchoes.reduce((sum, drop) => sum + drop.mass, 0)).toBeCloseTo(
+      deathState.config.startMass + 0.75,
+      8,
+    );
   });
 
   it("does not alter top speed, solid radii, or lethal collision behavior", () => {

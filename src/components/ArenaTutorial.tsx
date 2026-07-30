@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ControlScheme } from "../game/controlScheme";
 import type { Vec2 } from "../game/types";
 
 export type ArenaTutorialStage =
@@ -113,30 +114,43 @@ interface ArenaTutorialProps {
   stage: ArenaTutorialStage;
   size: number;
   alreadyMoving?: boolean;
+  controlScheme?: ControlScheme;
 }
 
-export function ArenaTutorial({ stage, size, alreadyMoving = false }: ArenaTutorialProps) {
+export function ArenaTutorial({
+  stage,
+  size,
+  alreadyMoving = false,
+  controlScheme = "drag-anywhere",
+}: ArenaTutorialProps) {
   if (stage === "complete") return null;
   const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
 
   return (
     <section
+      id="arena-tutorial"
       className={`tutorial-coach tutorial-${stage}`}
       data-testid="tutorial-coach"
       data-stage={stage}
+      role="status"
       aria-live="polite"
+      aria-atomic="true"
     >
       {stage === "steer" && (
         <>
           <small>STEP 1 OF 4 · STEER</small>
           <strong>
-            {alreadyMoving
-              ? touch ? "YOU'RE MOVING · DRAG TO TURN" : "YOU'RE MOVING · TURN NOW"
-              : touch ? "DRAG ANYWHERE TO START" : "MOVE YOUR POINTER TO START"}
+            {touch && controlScheme !== "drag-anywhere"
+              ? `USE THE ${controlScheme === "left-helm" ? "LEFT" : "RIGHT"} HELM TO TURN`
+              : alreadyMoving
+                ? touch ? "YOU'RE MOVING · DRAG TO TURN" : "YOU'RE MOVING · TURN NOW"
+                : touch ? "DRAG ANYWHERE TO START" : "MOVE YOUR POINTER TO START"}
           </strong>
           <span>
-            {touch
-              ? "The thumb ring starts where you touch."
+            {touch && controlScheme !== "drag-anywhere"
+              ? "Move the fixed brass helm knob; the Sprint button mirrors to your free hand."
+              : touch
+                ? "The thumb ring starts where you touch."
               : alreadyMoving ? "Your glowing HEAD follows your pointer." : "You stay safe here until you turn."}
           </span>
         </>
@@ -144,8 +158,8 @@ export function ArenaTutorial({ stage, size, alreadyMoving = false }: ArenaTutor
       {stage === "spark" && (
         <>
           <small>STEP 2 OF 4 · GROW</small>
-          <strong>GRAB THE RINGED SPARK</strong>
-          <span>Touch the glowing diamond to add SIZE.</span>
+          <strong>GRAB THE RINGED GEM</strong>
+          <span>Touch the cut jewel to add SIZE and grow your crew.</span>
         </>
       )}
       {(stage === "sprint" || stage === "sprint-release") && (
@@ -157,7 +171,7 @@ export function ArenaTutorial({ stage, size, alreadyMoving = false }: ArenaTutor
       )}
       {stage === "collision" && (
         <>
-          <small>STEP 4 OF 4 · 2-SECOND GHOST LESSON</small>
+          <small>STEP 4 OF 4 · COLLISION LAW</small>
           <strong>HEAD SAFE · THEIR HEAD INTO YOUR CREW</strong>
           <div className="collision-lesson" aria-label="Keep your head safe and make a rival head hit your crew">
             <span className="lesson-rival-head">THEIR HEAD</span>
@@ -165,15 +179,15 @@ export function ArenaTutorial({ stage, size, alreadyMoving = false }: ArenaTutor
             <span className="lesson-crew"><i /><i /><i /> YOUR CREW</span>
           </div>
           <span className="collision-law">
-            Dotted halo = short spawn grace. After it fades, every HEAD-into-CREW hit is lethal.
+            Dotted HEAD SAFE halo lasts 1.5s. Every visible CREW body remains lethal—even during that grace.
           </span>
         </>
       )}
       {stage === "collector" && (
         <>
-          <small>BONUS · COLLECTOR</small>
-          <strong>GRAB THE CYAN C</strong>
-          <span>For 12s it pulls nearby Sparks + your Sprint Drops. Rival Remains stay put.</span>
+          <small>BONUS · LOOT COMPASS</small>
+          <strong>GRAB THE BRASS COMPASS</strong>
+          <span>For 12s it pulls nearby gems + your wake loot. Rival hoards stay put.</span>
         </>
       )}
     </section>

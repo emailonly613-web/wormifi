@@ -22,7 +22,7 @@ export function hashSeed(seed: string | number): number {
 }
 
 /** Pure xorshift32 step. Keeping RNG state in GameState makes replays portable. */
-export function nextRandom(state: number): RandomResult<number> {
+export function nextRandomState(state: number): number {
   let nextState = state >>> 0;
   if (nextState === 0) nextState = NON_ZERO_FALLBACK;
 
@@ -30,6 +30,13 @@ export function nextRandom(state: number): RandomResult<number> {
   nextState ^= nextState >>> 17;
   nextState ^= nextState << 5;
   nextState >>>= 0;
+
+  return nextState;
+}
+
+/** Pure xorshift32 step. Keeping RNG state in GameState makes replays portable. */
+export function nextRandom(state: number): RandomResult<number> {
+  const nextState = nextRandomState(state);
 
   return {
     value: nextState / 0x1_0000_0000,

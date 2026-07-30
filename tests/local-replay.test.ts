@@ -5,20 +5,26 @@ import {
   buildLocalArena,
   checksumLocalArena,
   finalizeLocalRun,
+  getLocalRunBoardId,
   createLocalReplayPreparation,
   prepareLocalReplay,
   rebuildLocalRun,
   sanitizeLocalInput,
   stepLocalArena,
   type LocalRunDraft,
+  type LegacyLocalRunRecording,
 } from "../src/game/localArena";
+import type { GameBoardId } from "../src/game/chargingStations";
 
-function recordDeterministicRun(maximumTicks = 210) {
+function recordDeterministicRun(
+  maximumTicks = 210,
+  boardId: GameBoardId = "open-seas",
+) {
   const seed = "local-replay-proof-seed";
   const mode = "practice" as const;
   const playerName = "Replay Proof";
-  const session = buildLocalArena(seed, playerName, mode);
-  const draft: LocalRunDraft = { seed, mode, playerName, inputs: [] };
+  const session = buildLocalArena(seed, playerName, mode, boardId);
+  const draft: LocalRunDraft = { seed, mode, playerName, boardId, inputs: [] };
 
   for (let tick = 1; tick <= maximumTicks; tick += 1) {
     const player = session.state.players[LOCAL_PLAYER_ID];
@@ -42,6 +48,39 @@ function recordDeterministicRun(maximumTicks = 210) {
 }
 
 describe("deterministic local run replay", () => {
+  it("selects only known boards and preserves Open Seas as the default", () => {
+    const openSeas = buildLocalArena("board-default", "Board Proof", "practice");
+    expect(openSeas.boardId).toBe("open-seas");
+    expect(openSeas.state.board).toMatchObject({
+      id: "open-seas",
+      chargingStations: [],
+    });
+
+    const relay = buildLocalArena(
+      "board-relay",
+      "Board Proof",
+      "practice",
+      "black-pearl-relay",
+    );
+    expect(relay.boardId).toBe("black-pearl-relay");
+    expect(relay.state.board.id).toBe("black-pearl-relay");
+    expect(relay.state.board.chargingStations.map((station) => station.id)).toEqual([
+      "port-capstan",
+      "starboard-capstan",
+    ]);
+    expect(Object.keys(relay.state.chargingStations).sort()).toEqual([
+      "port-capstan",
+      "starboard-capstan",
+    ]);
+
+    expect(() => buildLocalArena(
+      "board-invalid",
+      "Board Proof",
+      "practice",
+      "unknown-board" as GameBoardId,
+    )).toThrow(/unknown local arena board/i);
+  });
+
   it("stores finite normalized per-tick input and fails safely to the prior direction", () => {
     const normalized = sanitizeLocalInput(
       1,
@@ -80,6 +119,63 @@ describe("deterministic local run replay", () => {
       run.originalState.players[LOCAL_PLAYER_ID].position,
     );
     expect(first.state.randomState).toBe(run.originalState.randomState);
+    expect(run.recording).toMatchObject({ version: 2, boardId: "open-seas" });
+  }, 20_000);
+
+  it("records Black Pearl identity and cannot silently replay it on Open Seas", () => {
+    const run = recordDeterministicRun(120, "black-pearl-relay");
+    expect(run.recording).toMatchObject({
+      version: 2,
+      boardId: "black-pearl-relay",
+    });
+    expect(getLocalRunBoardId(run.recording)).toBe("black-pearl-relay");
+
+    const rebuilt = rebuildLocalRun(run.recording);
+    expect(rebuilt.boardId).toBe("black-pearl-relay");
+    expect(rebuilt.state.board).toEqual(run.originalState.board);
+    expect(rebuilt.state.chargingStations).toEqual(run.originalState.chargingStations);
+    expect(rebuilt.checksum).toBe(run.recording.terminalChecksum);
+
+    const prepared = createLocalReplayPreparation(run.recording, 2);
+    expect(prepared.boardId).toBe("black-pearl-relay");
+    expect(prepared.state.board.id).toBe("black-pearl-relay");
+
+    const silentlySwitched = {
+      ...run.recording,
+      boardId: "open-seas" as const,
+    };
+    expect(() => rebuildLocalRun(silentlySwitched)).toThrow(
+      /checksum mismatch.*open-seas/i,
+    );
+  });
+
+  it("replays legacy version-1 recordings as Open Seas with their original checksum", () => {
+    const run = recordDeterministicRun(90);
+    const legacy: LegacyLocalRunRecording = {
+      version: 1,
+      seed: run.recording.seed,
+      mode: run.recording.mode,
+      playerName: run.recording.playerName,
+      inputs: run.recording.inputs.map((input) => ({
+        ...input,
+        direction: { ...input.direction },
+      })),
+      terminalTick: run.recording.terminalTick,
+      terminalChecksum: run.recording.terminalChecksum,
+    };
+
+    expect(getLocalRunBoardId(legacy)).toBe("open-seas");
+    const rebuilt = rebuildLocalRun(legacy);
+    expect(rebuilt.boardId).toBe("open-seas");
+    expect(rebuilt.state.board.id).toBe("open-seas");
+    expect(rebuilt.checksum).toBe(legacy.terminalChecksum);
+    const prepared = createLocalReplayPreparation(legacy, 2);
+    expect(prepared.boardId).toBe("open-seas");
+    expect(prepared.recording).toMatchObject({
+      version: 2,
+      boardId: "open-seas",
+      terminalChecksum: legacy.terminalChecksum,
+    });
   });
 
   it("fast-forwards through the same simulation, then verifies the final replay window", () => {

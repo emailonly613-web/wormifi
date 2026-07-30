@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-07-30T13:17:42.226Z",
+  "status": "PASS",
+  "platform": "CrazyGames HTML5 SDK v3",
+  "distributionRuntime": "crazygames-v3",
+  "fileCount": 23,
+  "totalBytes": 6316117,
+  "totalMegabytes": 6.024,
+  "underCrazyGamesMobileHomepageTarget": true,
+  "sdkLifecycle": [
+    "loadingStart",
+    "loadingStop",
+    "gameplayStart",
+    "gameplayStop"
+  ],
+  "ads": {
+    "api": "SDK.ad.requestAd(\"midgame\" | \"rewarded\", callbacks)",
+    "rewardedEnabledInBasicLaunchBuild": false,
+    "externalAdSdks": 0
+  },
+  "analytics": "CrazyGames SDK/dashboard; owned-site GA4 intentionally excluded",
+  "files": [
+    {
+      "path": "art/cut-jewel-v1.png",
+      "bytes": 947946,
+      "sha256": "79d516438b16bbbbc20d3bfbd506d63a7a78217200e94c543d1c01814acbebdd"
+    },
+    {
+      "path": "art/treasure-chest-v3.png",
+      "bytes": 1131400,
+      "sha256": "83673c7ff6908ca539657fd0767ef3b30fdfb2ad47f84bdc9e09930eb53c8aad"
+    },
+    {
+      "path": "assets/game-BriEU3NK.css",
+      "bytes": 54270,
+      "sha256": "a8a3e2bec5edccd2e325bd9fbe57265a1fca6c82e0daab9635baf3b736354191"
+    },
+    {
+      "path": "assets/game-MJqdGhjw.js",
+      "bytes": 395291,
+      "sha256": "60e0ba4f2925f465d51876d8e1623e7da69e4bcb718cfaf4842781f3eae75bf7"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/doubloon-stack.png",
+      "bytes": 108324,
+      "sha256": "a40e589da37b26915f167216eb6e55195d8ebba7afc5ff70f46482491b518118"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/emerald-spyglass.png",
+      "bytes": 106024,
+      "sha256": "a987189739705e03ca74946ff5753b30256ed9307e2cf2ea79eb72f1a2abff8f"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-rotations-1x.png",
+      "bytes": 396628,
+      "sha256": "974932ca8d3c0745cea53933284fc87191248e6a58f9753c07185885b25c997d"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-rotations-2x.png",
+      "bytes": 1351302,
+      "sha256": "ba7950f1b6dbd8f215d4e8eb60847efb1c6d5931fb2cab898ed2da08fe7c940a"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/loot-compass.png",
+      "bytes": 140675,
+      "sha256": "4fac71254ae610eab53734b99fcc6cd4cc27eb74085348ef980fdfd8323278ca"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ornate-key.png",
+      "bytes": 62967,
+      "sha256": "826a393ccfa77b1976a75f41c85d4232cf4158c18486854d73f3bab8519d49b4"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/pearl-shell.png",
+      "bytes": 142417,
+      "sha256": "4ba6ff743f0eee1166989225d224f52f29a791faaa6c54746bde115119c56b3d"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/pepper-cutlass.png",
+      "bytes": 113943,
+      "sha256": "86ea94fe3178d1b2f8abea7e1ea9871575eaa037cbb723b84f8eba86a7197954"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ruby-skull.png",
+      "bytes": 86923,
+      "sha256": "68f7c3a6354afe2fc222f43ff153d654fd320842452a5d96945e413e78b1bc00"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/sapphire-anchor.png",
+      "bytes": 76908,
+      "sha256": "e875789bf3fd289bc3611ae4303a902e9e4938fef17be3a096f10efb1c65844d"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/serpent-body-porthole.png",
+      "bytes": 148439,
+      "sha256": "8466df720dde536c8a702c03f0c5d96b286cf78b26b134f08c278f98944a4e5c"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/serpent-body-sash.png",
+      "bytes": 151140,
+      "sha256": "508967a3035390bb051ba87487bc53550d2d5f85bd2097ebe7e1c145641646b8"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/serpent-head.png",
+      "bytes": 180170,
+      "sha256": "f974904a5252e451c8b947568eef290a2e46278ccfb6af572b0e93ff7bd37a55"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/serpent-tail.png",
+      "bytes": 105980,
+      "sha256": "f90d4743b3af8bf8c4998408c38c74d17b7235d25285eff12da1ec26021c837e"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/shipwheel-shield.png",
+      "bytes": 167009,
+      "sha256": "e9378d12c1a84147455ab6e6cf4315b249a600a4cd75978f35657bceca4ec3fe"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-chest.png",
+      "bytes": 163578,
+      "sha256": "6c48849f7dc0fb91a78038fd61c3f06b03b5558718ea047f72e11dcffa274334"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-map.png",
+      "bytes": 129296,
+      "sha256": "eda22525eb17a3327895ca24560994b8354f89b9f70c54595302dc2eddaaf443"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/vortex-astrolabe.png",
+      "bytes": 154006,
+      "sha256": "1bdd6bdbcbb6d6fb4286ca539317e29a88a4e5b20a0cff90abdfd115e3957149"
+    },
+    {
+      "path": "index.html",
+      "bytes": 1481,
+      "sha256": "73268bca26f3ffcb127711dc192514816b1064b459fe8f962b6a49225dd51c7a"
+    }
+  ]
+}

@@ -12,11 +12,14 @@
   <rect width="512" height="512" rx="118" fill="url(#bg)"/>
   <path d="M101 221c36-82 169-102 249-43 47 35 70 106 24 157-36 39-103 34-119-5-16-40 24-74 68-53" fill="none" stroke="url(#body)" stroke-width="72" stroke-linecap="round"/>
   <circle cx="112" cy="213" r="69" fill="#66ffd8"/>
+  <path d="M58 181Q79 139 112 154Q145 139 166 181Q137 194 112 176Q87 194 58 181Z" fill="#5b1b2d" stroke="#ffd66b" stroke-width="7" stroke-linejoin="round"/>
   <ellipse cx="90" cy="202" rx="13" ry="18" fill="#071326"/>
   <ellipse cx="130" cy="198" rx="13" ry="18" fill="#071326"/>
   <circle cx="86" cy="196" r="4" fill="#fff"/>
   <circle cx="126" cy="192" r="4" fill="#fff"/>
   <path d="M88 234c15 16 34 16 49 0" fill="none" stroke="#071326" stroke-width="9" stroke-linecap="round"/>
-  <circle cx="386" cy="317" r="16" fill="#ffcb57"/>
-  <circle cx="423" cy="274" r="10" fill="#ff5f91"/>
+  <path d="M386 296l17 10 1 20-18 12-18-12 1-20z" fill="#ffcb57" stroke="#fff0a4" stroke-width="4"/>
+  <path d="M369 306l17 7 17-7m-17 7v25" fill="none" stroke="#7a4718" stroke-width="3"/>
+  <path d="M423 259l13 8-2 16-11 8-12-8-1-16z" fill="#ff5f91" stroke="#ffd7e5" stroke-width="3"/>
+  <path d="M411 267l12 5 13-5m-13 5v19" fill="none" stroke="#75203f" stroke-width="2"/>
 </svg>

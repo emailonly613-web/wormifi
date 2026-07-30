@@ -10,13 +10,14 @@ import {
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
 
-import type {
-  ErrorMessage,
-  PongMessage,
-  PublicDropState,
-  ServerMessage,
-  SnapshotMessage,
-  WelcomeMessage,
+import {
+  decodeSnapshotFromWire,
+  type ErrorMessage,
+  type PongMessage,
+  type PublicDropState,
+  type ServerMessage,
+  type SnapshotMessage,
+  type WelcomeMessage,
 } from "../../src/protocol.ts";
 import { AuthoritativeArenaServer } from "../../src/server.ts";
 
@@ -38,6 +39,9 @@ interface LoadConfiguration {
   reconnectClients: number;
   invalidBurstMessages: number;
   reconnectPauseMs: number;
+  bootstrapTimeoutMs: number;
+  joinBatchSize: number;
+  joinBatchDelayMs: number;
   allowCapacityMiss: boolean;
   reportPath: string;
 }
@@ -219,6 +223,12 @@ function loadConfiguration(): LoadConfiguration {
     ),
     invalidBurstMessages: integerEnvironment("WORMIFI_LOAD_INVALID_BURST", 250, 1),
     reconnectPauseMs: integerEnvironment("WORMIFI_LOAD_RECONNECT_PAUSE_MS", 150, 25),
+    bootstrapTimeoutMs: integerEnvironment("WORMIFI_LOAD_BOOTSTRAP_TIMEOUT_MS", 3_000, 500),
+    joinBatchSize: Math.min(
+      clients,
+      integerEnvironment("WORMIFI_LOAD_JOIN_BATCH_SIZE", clients, 1),
+    ),
+    joinBatchDelayMs: integerEnvironment("WORMIFI_LOAD_JOIN_BATCH_DELAY_MS", 0, 0),
     allowCapacityMiss: process.env.WORMIFI_LOAD_ALLOW_CAPACITY_MISS === "1",
     reportPath: resolve(process.env.WORMIFI_LOAD_REPORT ?? DEFAULT_REPORT_PATH),
   };
@@ -368,13 +378,18 @@ class SyntheticClient {
       reconnectToken?: string;
       startingSequence?: number;
       recordInitialJoin?: boolean;
+      bootstrapTimeoutMs?: number;
     },
   ): Promise<SyntheticClient> {
     const startedAt = performance.now();
     const socket = new WebSocket(url);
     const bootstrap = new BootstrapSocket(socket);
     await bootstrap.open();
-    const welcomePromise = bootstrap.next(isWelcome);
+    const welcomePromise = bootstrap.next(
+      isWelcome,
+      options.bootstrapTimeoutMs ?? 3_000,
+      `join welcome for ${options.name} in ${options.roomId}`,
+    );
     socket.send(JSON.stringify({
       type: "join",
       roomId: options.roomId,
@@ -412,7 +427,9 @@ class SyntheticClient {
   receive(raw: WebSocket.RawData): void {
     let message: ServerMessage;
     try {
-      message = JSON.parse(raw.toString()) as ServerMessage;
+      const decoded = decodeSnapshotFromWire(JSON.parse(raw.toString()));
+      if (decoded === null) return;
+      message = decoded as ServerMessage;
     } catch {
       return;
     }
@@ -431,7 +448,7 @@ class SyntheticClient {
     }
 
     if (message.type === "snapshot") {
-      this.lastSnapshot = message;
+      this.lastSnapshot = message as SnapshotMessage;
       if (message.roomId !== this.expectedRoom) this.metrics.roomContamination += 1;
       inspectGroundDropMetadata(message.dropUpserts, this.metrics);
       for (const player of message.players) {
@@ -594,7 +611,11 @@ class BootstrapSocket {
     });
   }
 
-  next<T extends ServerMessage>(predicate: MessagePredicate<T>, timeoutMs = 3_000): Promise<T> {
+  next<T extends ServerMessage>(
+    predicate: MessagePredicate<T>,
+    timeoutMs = 3_000,
+    description = "bootstrap message",
+  ): Promise<T> {
     for (const [index, raw] of this.queued.entries()) {
       const message = JSON.parse(raw.toString()) as ServerMessage;
       if (predicate(message)) {
@@ -614,7 +635,7 @@ class BootstrapSocket {
       const timer = setTimeout(() => {
         const index = this.waiters.indexOf(waiter);
         if (index >= 0) this.waiters.splice(index, 1);
-        rejectMessage(new Error("Timed out waiting for bootstrap message."));
+        rejectMessage(new Error(`Timed out waiting for ${description}.`));
       }, timeoutMs);
     });
   }
@@ -657,17 +678,29 @@ class UnjoinedProbe {
   }
 
   async nextError(code: ErrorMessage["code"]): Promise<ErrorMessage> {
-    const error = await this.bootstrap.next(isErrorCode(code));
+    const error = await this.bootstrap.next(
+      isErrorCode(code),
+      3_000,
+      `${code} safety response for ${this.name} in ${this.roomId}`,
+    );
     this.metrics.errorCounts.set(error.code, (this.metrics.errorCounts.get(error.code) ?? 0) + 1);
     return error;
   }
 
   nextWelcome(): Promise<WelcomeMessage> {
-    return this.bootstrap.next(isWelcome);
+    return this.bootstrap.next(
+      isWelcome,
+      3_000,
+      `safety-probe welcome for ${this.name} in ${this.roomId}`,
+    );
   }
 
   async nextPong(): Promise<PongMessage> {
-    return await this.bootstrap.next(isPong);
+    return await this.bootstrap.next(
+      isPong,
+      3_000,
+      `post-burst pong for ${this.name} in ${this.roomId}`,
+    );
   }
 
   async close(): Promise<void> {
@@ -852,6 +885,7 @@ async function reconnectSubset(
       reconnectToken: token,
       startingSequence: sequence,
       recordInitialJoin: false,
+      bootstrapTimeoutMs: configuration.bootstrapTimeoutMs,
     });
     metrics.reconnectMs.push(performance.now() - startedAt);
     assert.equal(replacement.playerId, priorPlayerId, "reconnect must recover the same player");
@@ -883,15 +917,25 @@ async function main(): Promise<void> {
 
   try {
     const startedServer = await server.start();
-    const clients = await Promise.all(
-      Array.from({ length: configuration.clients }, async (_, index) => {
+    const clients: SyntheticClient[] = [];
+    for (let batchStart = 0; batchStart < configuration.clients; batchStart += configuration.joinBatchSize) {
+      const batchEnd = Math.min(configuration.clients, batchStart + configuration.joinBatchSize);
+      const batch = await Promise.all(
+        Array.from({ length: batchEnd - batchStart }, async (_, batchIndex) => {
+          const index = batchStart + batchIndex;
         const roomIndex = index % configuration.rooms;
         return await SyntheticClient.connect(startedServer.websocketUrl, metrics, {
           roomId: `load-room-${roomIndex + 1}`,
           name: `Synthetic ${index + 1}`,
+          bootstrapTimeoutMs: configuration.bootstrapTimeoutMs,
         });
-      }),
-    );
+        }),
+      );
+      clients.push(...batch);
+      if (batchEnd < configuration.clients && configuration.joinBatchDelayMs > 0) {
+        await delay(configuration.joinBatchDelayMs);
+      }
+    }
     socketsToClose.push(...clients);
 
     const expectedHumansByRoom = new Map<string, number>();
@@ -911,6 +955,7 @@ async function main(): Promise<void> {
         );
       }),
       "every room to show its final human count and bot backfill",
+      configuration.bootstrapTimeoutMs,
     );
 
     const baselineMemory = process.memoryUsage();
@@ -1059,6 +1104,9 @@ async function main(): Promise<void> {
         reconnectClients: configuration.reconnectClients,
         invalidBurstMessages: configuration.invalidBurstMessages,
         reconnectPauseMs: configuration.reconnectPauseMs,
+        bootstrapTimeoutMs: configuration.bootstrapTimeoutMs,
+        joinBatchSize: configuration.joinBatchSize,
+        joinBatchDelayMs: configuration.joinBatchDelayMs,
         allowCapacityMiss: configuration.allowCapacityMiss,
       },
       measured: {

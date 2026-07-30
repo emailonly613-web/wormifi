@@ -1,7 +1,7 @@
 {
-  "name": "Wormifi — Living Chain Arena",
+  "name": "Wormifi — Pirate Treasure Arena",
   "short_name": "Wormifi",
-  "description": "Collect living sparks, grow your crew, and outsmart rival chains.",
+  "description": "Hunt rare treasure, grow your pirate crew, and cut rival captains.",
   "id": "/",
   "start_url": "/?source=pwa",
   "scope": "/",

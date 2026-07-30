@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PROTOCOL_VERSION } from "../../server/src/protocol";
+import { decodeSnapshotFromWire, PROTOCOL_VERSION } from "../../server/src/protocol";
 import type {
   ErrorMessage,
+  PublicHeatRingState,
   PublicDropState,
   PublicPlayerState,
   ServerMessage,
@@ -9,17 +10,96 @@ import type {
   WelcomeMessage,
   WorldMessage,
 } from "../../server/src/protocol";
-import { getBodyRadius, getPlayerRadius } from "../game/core";
-import type { CollisionRadiusConfig, Vec2 } from "../game/types";
+import { DEFAULT_GAME_CONFIG, getBodyRadius, getPlayerRadius } from "../game/core";
+import type {
+  ActiveSpecialist,
+  ChargingStationState,
+  CollisionRadiusConfig,
+  Vec2,
+} from "../game/types";
+import {
+  createLivePresentationBuffer,
+  getPresentedSnapshot,
+  pushAuthoritativeSnapshot,
+  resetLivePresentationBuffer,
+} from "../game/livePresentation";
 import {
   ArenaTutorial,
   SPRINT_SIZE_COST_PER_SECOND,
   useArenaTutorial,
 } from "./ArenaTutorial";
+import { ChargingStationStatus } from "./ChargingStationStatus";
+import { RelicStatus } from "./RelicStatus";
+import {
+  drawChargingStationField,
+  selectChargingStationPresentation,
+  type ChargingStationPresentation,
+} from "../game/chargingStationRender";
+import {
+  ARENA_CANVAS_CONTEXT_OPTIONS,
+  arenaBackingScale,
+  drawArenaFloor,
+  drawArenaVignette,
+  drawContinuousPirateWorm,
+  drawFacetedGem,
+  drawFacetedGemField,
+  drawNauticalChart,
+  drawPirateShipBackdrop,
+  drawRivalHoardGem,
+  drawTreasureChest,
+  drawTreasureShard,
+} from "../game/treasureRender";
+import {
+  commonTreasureSprite,
+  drawPirateAtlasSprite,
+} from "../game/pirateSpriteAtlas";
+import {
+  createActiveRelicCanvasModel,
+  drawGroundRelicPickup,
+  drawRelicCarrierBadge,
+  drawRelicCarrierEffect,
+} from "../game/relicCanvasRender";
+import {
+  createRelicStatusModel,
+  getActiveRelicPresentation,
+  getGroundRelicPresentation,
+  isPirateRelicKind,
+  resolveRelicPresentation,
+} from "../game/relicPresentation";
+import {
+  getSpyglassDangerBearings,
+  type SpyglassDangerBearing,
+} from "../game/relics";
+import {
+  fixedHelmAnchor,
+  touchStartsHelm,
+  type ControlScheme,
+} from "../game/controlScheme";
+import { roomIdentityLabel } from "../game/roomIdentity";
+import {
+  isGameBoardId,
+  type GameBoardId,
+} from "../game/boardPreference";
+import {
+  getCosmeticTheme,
+  isCosmeticThemeId,
+  type CosmeticThemeId,
+} from "../game/cosmeticThemes";
+import {
+  drawPhotoSkinCanvas,
+  type PhotoSkinCanvasAppearance,
+} from "../game/photoSkinCanvas";
+import {
+  PirateRadar,
+  type RadarLandmark,
+  type RadarPlayerMarker,
+  type RadarStation,
+} from "./PirateRadar";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
 const INPUT_INTERVAL_MS = 50;
+const HUD_REFRESH_INTERVAL_MS = 100;
 
 type ConnectionPhase =
   | "connecting"
@@ -32,6 +112,12 @@ interface LiveArenaCanvasProps {
   playerName: string;
   running: boolean;
   session: number;
+  roomId: string;
+  boardId?: GameBoardId;
+  themeId: CosmeticThemeId;
+  photoSkin?: PhotoSkinCanvasAppearance;
+  controlScheme: ControlScheme;
+  onBoardResolved?: (boardId: GameBoardId) => void;
   onExit: () => void;
 }
 
@@ -57,16 +143,21 @@ interface LiveUiState {
   nextRankGap?: number;
   leaderboard: LiveLeaderboardEntry[];
   position: Vec2;
+  direction: Vec2;
   exactMass: number;
   collisionHeadRadius: number;
   collisionBodyRadius: number;
   collisionRadii: CollisionRadiusConfig;
   alive: boolean;
-  collectorRemaining: number;
+  activeRelic?: ActiveSpecialist;
+  fixedStepSeconds: number;
   neutralSparks: number;
+  popClusters: number;
   sprintDrops: number;
   rivalRemains: number;
   collectorBeacons: number;
+  relicBeacons: number;
+  chargingStation?: ChargingStationPresentation;
   lastError?: string;
 }
 
@@ -85,6 +176,16 @@ interface LiveWorldState {
   fixedStepSeconds: number;
   collisionRadii: CollisionRadiusConfig;
   drops: Map<string, PublicDropState>;
+  board?: WorldMessage["board"];
+  chargingStations: Map<string, ChargingStationState>;
+  heatRing?: PublicHeatRingState;
+}
+
+interface HeatRingUiState {
+  phase: "idle" | "active" | "resolved" | "aborted";
+  botCount: number;
+  jewelCount: number;
+  totalMass: number;
 }
 
 interface TouchGuide {
@@ -93,6 +194,19 @@ interface TouchGuide {
   anchorY: number;
   currentX: number;
   currentY: number;
+}
+
+interface LiveParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  radius: number;
+  color: string;
+  streak?: boolean;
+  label?: string;
 }
 
 const palettes = [
@@ -108,6 +222,60 @@ const dropColors = ["#5af4d4", "#4ba7ff", "#ffcf58", "#ff6fa9", "#a9ff68", "#a77
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
+}
+
+export interface LiveRadarIntel {
+  visiblePlayers: RadarPlayerMarker[];
+  dangerBearings: SpyglassDangerBearing[];
+}
+
+/** Applies the same visible-contact boundary to authoritative snapshots. */
+export function createLiveRadarIntel(
+  snapshot: Pick<SnapshotMessage, "players" | "tick"> | null,
+  playerId: string | undefined,
+  visibleRadius: number,
+): LiveRadarIntel {
+  const carrier = snapshot?.players.find((player) => player.id === playerId);
+  if (!snapshot || !carrier || !Number.isFinite(visibleRadius) || visibleRadius <= 0) {
+    return { visiblePlayers: [], dangerBearings: [] };
+  }
+  const rivals = snapshot.players
+    .filter((player) => player.id !== playerId && player.connected);
+  const visiblePlayers = rivals
+    .filter((player) =>
+      player.alive &&
+      Math.hypot(
+        player.position.x - carrier.position.x,
+        player.position.y - carrier.position.y,
+      ) <= visibleRadius
+    )
+    .map((player) => ({
+      id: player.id,
+      kind: player.kind,
+      position: player.position,
+      alive: player.alive,
+    }));
+  return {
+    visiblePlayers,
+    dangerBearings: getSpyglassDangerBearings(
+      carrier,
+      rivals,
+      snapshot.tick,
+      visibleRadius,
+    ),
+  };
+}
+
+function liveRadarVisibleRadius(
+  canvas: HTMLCanvasElement | null,
+  mass: number,
+): number {
+  const width = canvas?.clientWidth ?? 0;
+  const height = canvas?.clientHeight ?? 0;
+  if (width <= 0 || height <= 0) return 0;
+  const zoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9 *
+    clamp(1 - Math.max(0, mass - 100) / 2_800, 0.67, 1);
+  return Math.hypot(width, height) / (2 * zoom);
 }
 
 function stableNumber(text: string) {
@@ -189,11 +357,6 @@ function configuredArenaUrl() {
   return `${socketProtocol}//${window.location.host}/arena`;
 }
 
-function configuredRoomId() {
-  const requested = new URLSearchParams(window.location.search).get("room") ?? "public-1";
-  return /^[a-z0-9-]{1,32}$/u.test(requested) ? requested : "public-1";
-}
-
 function reconnectStorageKey(url: string, roomId: string) {
   return `wormifi:arena-reconnect:${url}:${roomId}`;
 }
@@ -235,6 +398,7 @@ function isVec2(value: unknown): value is Vec2 {
 function isActiveCollector(value: unknown) {
   if (!isRecord(value)) return false;
   return value.kind === "collector" &&
+    (value.relicKind === undefined || isPirateRelicKind(value.relicKind)) &&
     typeof value.activatedAtTick === "number" && Number.isSafeInteger(value.activatedAtTick) && value.activatedAtTick >= 0 &&
     typeof value.expiresAtTick === "number" && Number.isSafeInteger(value.expiresAtTick) && value.expiresAtTick >= value.activatedAtTick &&
     typeof value.durationTicks === "number" && Number.isSafeInteger(value.durationTicks) && value.durationTicks > 0 &&
@@ -255,6 +419,7 @@ function isPublicPlayer(value: unknown): value is PublicPlayerState {
     typeof value.kills === "number" && Number.isFinite(value.kills) &&
     typeof value.score === "number" && Number.isFinite(value.score) &&
     typeof value.shieldTicksRemaining === "number" && Number.isFinite(value.shieldTicksRemaining) &&
+    (value.themeId === undefined || isCosmeticThemeId(value.themeId)) &&
     (value.specialist === undefined || isActiveCollector(value.specialist));
 }
 
@@ -267,6 +432,18 @@ function isPublicDrop(value: unknown): value is PublicDropState {
     (value.source === "arena" || value.source === "boost" || value.source === "death") &&
     (value.originPlayerId === undefined || (typeof value.originPlayerId === "string" && value.originPlayerId.length > 0));
   if (!baseValid) return false;
+  if (value.relicKind !== undefined) {
+    return isPirateRelicKind(value.relicKind) &&
+      value.source === "arena" &&
+      value.mass === 0 &&
+      value.originPlayerId === undefined &&
+      value.specialist === undefined &&
+      value.specialistDurationTicks === undefined &&
+      typeof value.relicDurationTicks === "number" &&
+      Number.isSafeInteger(value.relicDurationTicks) &&
+      value.relicDurationTicks > 0;
+  }
+  if (value.relicDurationTicks !== undefined) return false;
   if (value.specialist === "collector") {
     return value.source === "arena" && value.mass === 0 && value.originPlayerId === undefined &&
       typeof value.specialistDurationTicks === "number" &&
@@ -275,6 +452,82 @@ function isPublicDrop(value: unknown): value is PublicDropState {
   }
   if (value.specialist !== undefined || value.specialistDurationTicks !== undefined) return false;
   return value.source === "arena" ? value.originPlayerId === undefined : typeof value.originPlayerId === "string";
+}
+
+function isPublicHeatRing(value: unknown): value is PublicHeatRingState {
+  if (!isRecord(value)) return false;
+  const botIds = value.botIds;
+  const ticks = [value.startsAtTick, value.reverseAtTick, value.earliestResolveTick, value.deadlineTick];
+  if (!ticks.every((tick): tick is number =>
+    typeof tick === "number" && Number.isSafeInteger(tick) && tick >= 0
+  )) return false;
+  const [startsAtTick, reverseAtTick, earliestResolveTick, deadlineTick] = ticks;
+  return value.phase === "active" &&
+    value.theme === "corsair" &&
+    isVec2(value.center) &&
+    typeof value.radius === "number" && Number.isFinite(value.radius) && value.radius > 0 &&
+    typeof value.safeSpawnRadius === "number" && Number.isFinite(value.safeSpawnRadius) && value.safeSpawnRadius > 0 &&
+    Array.isArray(botIds) && botIds.length === 2 &&
+    botIds.every((id) => typeof id === "string" && id.length > 0) &&
+    botIds[0] !== botIds[1] &&
+    startsAtTick < reverseAtTick &&
+    reverseAtTick < earliestResolveTick &&
+    earliestResolveTick < deadlineTick;
+}
+
+function isStringTuple(value: unknown): value is [string, string] {
+  return Array.isArray(value) && value.length === 2 &&
+    value.every((entry) => typeof entry === "string" && entry.length > 0) &&
+    value[0] !== value[1];
+}
+
+function isAuthoritativeEvent(value: unknown) {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  const validTick = typeof value.tick === "number" && Number.isSafeInteger(value.tick) && value.tick >= 0;
+  if (!validTick) return false;
+  if (value.type === "playerSpawned") return typeof value.playerId === "string";
+  if (value.type === "massShed" || value.type === "dropCollected") {
+    return typeof value.playerId === "string" && typeof value.dropId === "string" &&
+      typeof value.mass === "number" && Number.isFinite(value.mass) && value.mass >= 0;
+  }
+  if (value.type === "specialistActivated") {
+    return typeof value.playerId === "string" && typeof value.dropId === "string" &&
+      value.specialist === "collector" &&
+      (value.relicKind === undefined || isPirateRelicKind(value.relicKind)) &&
+      typeof value.durationTicks === "number" && Number.isSafeInteger(value.durationTicks) && value.durationTicks > 0;
+  }
+  if (value.type === "specialistExpired") {
+    return typeof value.playerId === "string" &&
+      value.specialist === "collector" &&
+      (value.relicKind === undefined || isPirateRelicKind(value.relicKind));
+  }
+  if (value.type === "playerDied") {
+    return typeof value.playerId === "string" &&
+      (value.cause === "collision" || value.cause === "boundary") &&
+      (value.killerId === undefined || typeof value.killerId === "string") &&
+      typeof value.collisionTime === "number" && Number.isFinite(value.collisionTime);
+  }
+  if (value.type === "heatRingStarted") {
+    return isPublicHeatRing(value.heatRing);
+  }
+  if (value.type === "heatRingResolved") {
+    return isStringTuple(value.botIds) &&
+      Array.isArray(value.dropIds) && value.dropIds.length > 0 &&
+      value.dropIds.every((id) => typeof id === "string" && id.length > 0) &&
+      new Set(value.dropIds).size === value.dropIds.length &&
+      typeof value.totalMass === "number" && Number.isFinite(value.totalMass) && value.totalMass > 0;
+  }
+  if (value.type === "heatRingAborted") {
+    return isStringTuple(value.botIds) && [
+      "second-human",
+      "first-human-disconnected",
+      "unsafe-state",
+      "early-death",
+      "interrupted",
+      "timeout",
+    ].includes(String(value.reason));
+  }
+  return false;
 }
 
 function isWelcome(value: unknown): value is WelcomeMessage {
@@ -302,7 +555,14 @@ function isSnapshot(value: unknown): value is SnapshotMessage {
     Array.isArray(value.players) && value.players.every(isPublicPlayer) &&
     Array.isArray(value.dropUpserts) && value.dropUpserts.every(isPublicDrop) &&
     Array.isArray(value.removedDropIds) && value.removedDropIds.every((id) => typeof id === "string") &&
-    Array.isArray(value.events);
+    Array.isArray(value.events) && value.events.every(isAuthoritativeEvent);
+}
+
+function isPublicBoard(value: unknown): value is NonNullable<WorldMessage["board"]> {
+  return isRecord(value) &&
+    isGameBoardId(value.id) &&
+    typeof value.name === "string" &&
+    Array.isArray(value.chargingStations);
 }
 
 function isWorld(value: unknown): value is WorldMessage {
@@ -318,7 +578,9 @@ function isWorld(value: unknown): value is WorldMessage {
     typeof collisionRadii.baseRadius === "number" && Number.isFinite(collisionRadii.baseRadius) && collisionRadii.baseRadius > 0 &&
     typeof collisionRadii.massRadiusFactor === "number" && Number.isFinite(collisionRadii.massRadiusFactor) && collisionRadii.massRadiusFactor >= 0 &&
     typeof collisionRadii.bodyRadiusFactor === "number" && Number.isFinite(collisionRadii.bodyRadiusFactor) && collisionRadii.bodyRadiusFactor > 0 &&
-    Array.isArray(value.drops) && value.drops.every(isPublicDrop);
+    Array.isArray(value.drops) && value.drops.every(isPublicDrop) &&
+    (value.board === undefined || isPublicBoard(value.board)) &&
+    (value.heatRing === undefined || isPublicHeatRing(value.heatRing));
 }
 
 function isServerError(value: unknown): value is ErrorMessage {
@@ -336,22 +598,26 @@ function initialUi(roomId: string): LiveUiState {
     ai: 0,
     players: 0,
     score: 0,
-    mass: 100,
-    length: 0,
+    mass: DEFAULT_GAME_CONFIG.startMass,
+    length: DEFAULT_GAME_CONFIG.startingBodySegments,
     rank: 1,
     rankTotal: 1,
     leaderboard: [],
     position: { x: 0, y: 0 },
-    exactMass: 100,
+    direction: { x: 1, y: 0 },
+    exactMass: DEFAULT_GAME_CONFIG.startMass,
     collisionHeadRadius: 0,
     collisionBodyRadius: 0,
     collisionRadii: { baseRadius: 0, massRadiusFactor: 0, bodyRadiusFactor: 0 },
     alive: false,
-    collectorRemaining: 0,
+    activeRelic: undefined,
+    fixedStepSeconds: DEFAULT_GAME_CONFIG.fixedStepSeconds,
     neutralSparks: 0,
+    popClusters: 0,
     sprintDrops: 0,
     rivalRemains: 0,
     collectorBeacons: 0,
+    relicBeacons: 0,
   };
 }
 
@@ -359,14 +625,23 @@ export function LiveArenaCanvas({
   playerName,
   running,
   session,
+  roomId,
+  boardId,
+  themeId,
+  photoSkin,
+  controlScheme,
+  onBoardResolved,
   onExit,
 }: LiveArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const snapshotRef = useRef<SnapshotMessage | null>(null);
+  const presentationRef = useRef(createLivePresentationBuffer());
   const worldRef = useRef<LiveWorldState | null>(null);
   const handshakeRef = useRef<AuthorityHandshake | null>(null);
+  const photoSkinRef = useRef(photoSkin);
+  photoSkinRef.current = photoSkin;
   const directionRef = useRef<Vec2>({ x: 1, y: 0 });
   const boostRef = useRef(false);
   const touchGuideRef = useRef<TouchGuide | null>(null);
@@ -380,18 +655,85 @@ export function LiveArenaCanvas({
     closestDistance?: number;
   }>({});
   const deathNoticeTimerRef = useRef<number | undefined>(undefined);
+  const actionCalloutTimerRef = useRef<number | undefined>(undefined);
   const sequenceRef = useRef(-1);
+  const nextHudRefreshAtRef = useRef(0);
   const cameraRef = useRef<Vec2>({ x: 0, y: 0 });
+  const particlesRef = useRef<LiveParticle[]>([]);
+  const previousFrameAtRef = useRef<number | undefined>(undefined);
+  const pickupComboRef = useRef({ count: 0, lastTick: Number.NEGATIVE_INFINITY });
+  const collectorPullEventsRef = useRef(0);
+  const heatRingUiRef = useRef<HeatRingUiState>({
+    phase: "idle",
+    botCount: 0,
+    jewelCount: 0,
+    totalMass: 0,
+  });
+  const audioRef = useRef<AudioContext | null>(null);
+  const reducedMotionRef = useRef(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  );
   const debugHitboxesRef = useRef(new URLSearchParams(window.location.search).get("hitboxes") === "1");
   const [boosting, setBoosting] = useState(false);
   const [touchGuide, setTouchGuide] = useState<TouchGuide | null>(null);
   const [deathNotice, setDeathNotice] = useState<string | null>(null);
-  const roomId = configuredRoomId();
+  const [actionCallout, setActionCallout] = useState<string | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(reducedMotionRef.current);
   const arenaUrl = configuredArenaUrl();
   const [ui, setUi] = useState<LiveUiState>(() => initialUi(roomId));
   const tutorial = useArenaTutorial(running, `${session}:${roomId}`);
 
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => {
+      reducedMotionRef.current = preference.matches;
+      setReducedMotion(preference.matches);
+    };
+    updatePreference();
+    preference.addEventListener("change", updatePreference);
+    return () => preference.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    const frame = window.requestAnimationFrame(() => stageRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [running, session]);
+
+  const ensureAudio = useCallback(() => {
+    if (!running) return;
+    const AudioContextCtor = window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+    audioRef.current ??= new AudioContextCtor();
+    if (audioRef.current.state === "suspended") void audioRef.current.resume();
+  }, [running]);
+
+  const playTone = useCallback((frequency: number, duration = 0.07, gainValue = 0.03) => {
+    const audio = audioRef.current;
+    if (!audio || audio.state !== "running") return;
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.12, audio.currentTime + duration);
+    gain.gain.setValueAtTime(gainValue, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + duration);
+    oscillator.connect(gain).connect(audio.destination);
+    oscillator.start();
+    oscillator.stop(audio.currentTime + duration);
+  }, []);
+
+  const showActionCallout = useCallback((message: string, durationMs = 850) => {
+    setActionCallout(message);
+    if (actionCalloutTimerRef.current !== undefined) {
+      window.clearTimeout(actionCalloutTimerRef.current);
+    }
+    actionCalloutTimerRef.current = window.setTimeout(() => setActionCallout(null), durationMs);
+  }, []);
+
   const recordMeaningfulSteer = useCallback((direction: Vec2) => {
+    ensureAudio();
     const world = worldRef.current;
     const snapshot = snapshotRef.current;
     const playerId = handshakeRef.current?.playerId;
@@ -413,19 +755,30 @@ export function LiveArenaCanvas({
         )
         : undefined,
     };
-  }, [tutorial.meaningfulSteer]);
+  }, [ensureAudio, tutorial.meaningfulSteer]);
 
   useEffect(() => {
     tutorialSparkIdRef.current = null;
     tutorialRetargetRef.current = { count: 0 };
     tutorialTargetTrackingRef.current = {};
+    particlesRef.current = [];
+    pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
+    collectorPullEventsRef.current = 0;
+    heatRingUiRef.current = {
+      phase: "idle",
+      botCount: 0,
+      jewelCount: 0,
+      totalMass: 0,
+    };
+    nextHudRefreshAtRef.current = 0;
   }, [roomId, session]);
 
   const pressSprint = useCallback(() => {
+    ensureAudio();
     boostRef.current = true;
     setBoosting(true);
     tutorial.pressedSprint();
-  }, [tutorial.pressedSprint]);
+  }, [ensureAudio, tutorial.pressedSprint]);
 
   const releaseSprint = useCallback(() => {
     boostRef.current = false;
@@ -483,10 +836,14 @@ export function LiveArenaCanvas({
       : undefined;
     const collisionHeadRadius = ownPlayer ? getPlayerRadius(ownPlayer, world.collisionRadii) : 0;
     const collisionBodyRadius = ownPlayer ? getBodyRadius(ownPlayer, world.collisionRadii) : 0;
-    const collectorRemaining = ownPlayer?.specialist?.kind === "collector"
-      ? Math.max(0, ownPlayer.specialist.expiresAtTick - snapshot.tick) * world.fixedStepSeconds
-      : 0;
+    const activeRelic = ownPlayer?.specialist
+      ? { ...ownPlayer.specialist }
+      : undefined;
     const drops = [...world.drops.values()];
+    const chargingViews = world.board?.chargingStations.map((station) => ({
+      station,
+      state: world.chargingStations.get(station.id),
+    })) ?? [];
     setUi({
       phase: "authoritative",
       detail: "Server snapshot confirmed",
@@ -504,16 +861,36 @@ export function LiveArenaCanvas({
       nextRankGap,
       leaderboard,
       position: ownPlayer ? { ...ownPlayer.position } : { x: 0, y: 0 },
+      direction: ownPlayer ? { ...ownPlayer.direction } : { x: 1, y: 0 },
       exactMass: ownPlayer?.mass ?? 0,
       collisionHeadRadius,
       collisionBodyRadius,
       collisionRadii: world.collisionRadii,
       alive: ownPlayer?.alive ?? false,
-      collectorRemaining,
-      neutralSparks: drops.filter((drop) => drop.source === "arena" && !drop.specialist).length,
+      activeRelic,
+      fixedStepSeconds: world.fixedStepSeconds,
+      neutralSparks: drops.filter((drop) =>
+        drop.source === "arena" && !getGroundRelicPresentation(drop)
+      ).length,
+      popClusters: drops.filter((drop) =>
+        drop.source === "arena" &&
+        !getGroundRelicPresentation(drop) &&
+        drop.mass >= 5.35
+      ).length,
       sprintDrops: drops.filter((drop) => drop.source === "boost").length,
       rivalRemains: drops.filter((drop) => drop.source === "death").length,
-      collectorBeacons: drops.filter((drop) => drop.specialist === "collector").length,
+      collectorBeacons: drops.filter((drop) =>
+        getGroundRelicPresentation(drop)?.relicKind === "loot-compass"
+      ).length,
+      relicBeacons: drops.filter((drop) =>
+        Boolean(getGroundRelicPresentation(drop))
+      ).length,
+      chargingStation: selectChargingStationPresentation(
+        chargingViews,
+        world.fixedStepSeconds,
+        playerId,
+        ownPlayer?.position,
+      ),
     });
   }, []);
 
@@ -522,6 +899,7 @@ export function LiveArenaCanvas({
     let disposed = false;
     let reconnectTimer: number | undefined;
     let attempts = 0;
+    let roomBoardResolved = false;
     const storageKey = reconnectStorageKey(arenaUrl, roomId);
 
     const connect = () => {
@@ -551,13 +929,16 @@ export function LiveArenaCanvas({
       }
       socketRef.current = socket;
       let retriedWithoutToken = false;
+      let retriedWithoutBoard = false;
 
-      const sendJoin = (reconnectToken?: string) => {
+      const sendJoin = (reconnectToken?: string, includeBoard = true) => {
         socket.send(JSON.stringify({
           type: "join",
           roomId,
           name: playerName || "Guest",
           ...(reconnectToken ? { reconnectToken } : {}),
+          ...(includeBoard && !roomBoardResolved && boardId ? { boardId } : {}),
+          themeId,
         }));
       };
 
@@ -575,7 +956,8 @@ export function LiveArenaCanvas({
         if (disposed || socketRef.current !== socket || typeof event.data !== "string") return;
         let message: unknown;
         try {
-          message = JSON.parse(event.data) as ServerMessage;
+          message = decodeSnapshotFromWire(JSON.parse(event.data)) as ServerMessage | null;
+          if (message === null) throw new Error("Invalid packed snapshot");
         } catch {
           setUi((current) => ({
             ...current,
@@ -617,7 +999,23 @@ export function LiveArenaCanvas({
             fixedStepSeconds: handshake.fixedStepSeconds,
             collisionRadii: { ...message.collisionRadii },
             drops: new Map(message.drops.map((drop) => [drop.id, drop])),
+            board: message.board,
+            chargingStations: new Map(),
+            heatRing: message.heatRing,
           };
+          roomBoardResolved = true;
+          if (message.board && isGameBoardId(message.board.id)) {
+            onBoardResolved?.(message.board.id);
+          }
+          if (message.heatRing) {
+            heatRingUiRef.current = {
+              phase: "active",
+              botCount: message.heatRing.botIds.length,
+              jewelCount: 0,
+              totalMass: 0,
+            };
+            showActionCallout("CORSAIR HEAT RING · 2 LABELED AI DUEL AHEAD", 2_600);
+          }
           handshake.worldSynced = true;
           setUi((current) => ({
             ...current,
@@ -633,34 +1031,200 @@ export function LiveArenaCanvas({
           if (!handshake?.welcomed || !handshake.worldSynced || message.roomId !== handshake.roomId) return;
           if (!world || world.roomId !== message.roomId) return;
           if (!message.players.some((player) => player.id === handshake.playerId)) return;
+          const removedDrops = new Map<string, PublicDropState>();
+          for (const id of message.removedDropIds) {
+            const drop = world.drops.get(id);
+            if (drop) removedDrops.set(id, drop);
+          }
           for (const id of message.removedDropIds) world.drops.delete(id);
           for (const drop of message.dropUpserts) world.drops.set(drop.id, drop);
+          if (message.chargingStations) {
+            world.chargingStations = new Map(
+              message.chargingStations.map((station) => [station.stationId, station]),
+            );
+          }
           for (const gameEvent of message.events) {
+            if (gameEvent.type === "heatRingStarted") {
+              world.heatRing = gameEvent.heatRing;
+              if (heatRingUiRef.current.phase !== "active") {
+                heatRingUiRef.current = {
+                  phase: "active",
+                  botCount: gameEvent.heatRing.botIds.length,
+                  jewelCount: 0,
+                  totalMass: 0,
+                };
+                showActionCallout("CORSAIR HEAT RING · 2 LABELED AI DUEL AHEAD", 2_600);
+              }
+            }
+            if (gameEvent.type === "heatRingResolved") {
+              const realJewels = gameEvent.dropIds
+                .map((id) => world.drops.get(id))
+                .filter((drop): drop is PublicDropState =>
+                  drop?.source === "death" &&
+                  drop.originPlayerId !== undefined &&
+                  gameEvent.botIds.includes(drop.originPlayerId)
+                );
+              const realMass = realJewels.reduce((sum, drop) => sum + drop.mass, 0);
+              const reconciled = realJewels.length === gameEvent.dropIds.length &&
+                Math.abs(realMass - gameEvent.totalMass) <= 1e-6;
+              world.heatRing = undefined;
+              heatRingUiRef.current = {
+                phase: "resolved",
+                botCount: gameEvent.botIds.length,
+                jewelCount: reconciled ? realJewels.length : 0,
+                totalMass: reconciled ? realMass : 0,
+              };
+              showActionCallout(
+                reconciled
+                  ? `RIVAL HOARD RELEASED · ${realJewels.length} REAL JEWELS · ${Number(realMass.toFixed(1))} SIZE`
+                  : "RIVAL HOARD RELEASED · VERIFYING REAL JEWELS",
+                2_800,
+              );
+              playTone(420, 0.12, 0.04);
+              window.setTimeout(() => playTone(690, 0.16, 0.035), 90);
+              if (!reducedMotionRef.current) navigator.vibrate?.([14, 24, 28]);
+            }
+            if (gameEvent.type === "heatRingAborted") {
+              world.heatRing = undefined;
+              heatRingUiRef.current = {
+                phase: "aborted",
+                botCount: gameEvent.botIds.length,
+                jewelCount: 0,
+                totalMass: 0,
+              };
+              showActionCallout(
+                gameEvent.reason === "second-human"
+                  ? "CORSAIR DUEL CLEARED · HUMAN CREW ARRIVED"
+                  : "CORSAIR DUEL CLEARED · SAFETY RESET",
+                1_500,
+              );
+            }
             if (gameEvent.type === "dropCollected" && gameEvent.playerId === handshake.playerId) {
               tutorial.collectedSpark(gameEvent.dropId, tutorialSparkIdRef.current);
+              const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
+              const collectedDrop = removedDrops.get(gameEvent.dropId);
+              const collectedPopCluster = (collectedDrop?.mass ?? 0) >= 5.35;
+              const combo = message.tick - pickupComboRef.current.lastTick < 21
+                ? Math.min(8, pickupComboRef.current.count + 1)
+                : 1;
+              pickupComboRef.current = { count: combo, lastTick: message.tick };
+              if (ownPlayer) {
+                const collectorPull =
+                  getActiveRelicPresentation(ownPlayer.specialist)?.relicKind === "loot-compass" &&
+                  ownPlayer.specialist !== undefined &&
+                  ownPlayer.specialist.expiresAtTick > message.tick &&
+                  collectedDrop &&
+                  (collectedDrop.source === "arena" ||
+                    (collectedDrop.source === "boost" && collectedDrop.originPlayerId === ownPlayer.id));
+                if (collectorPull) {
+                  collectorPullEventsRef.current += 1;
+                  pushCollectorPull(
+                    particlesRef.current,
+                    collectedDrop.position,
+                    ownPlayer.position,
+                    reducedMotionRef.current ? 0 : 7,
+                    dropColors[combo % dropColors.length],
+                    message.tick,
+                  );
+                } else {
+                  pushLiveBurst(
+                    particlesRef.current,
+                    collectedDrop?.position ?? ownPlayer.position,
+                    reducedMotionRef.current ? 0 : 5,
+                    [dropColors[combo % dropColors.length]],
+                    message.tick,
+                    0.72,
+                  );
+                }
+                if (!reducedMotionRef.current && gameEvent.mass > 0) {
+                  particlesRef.current.push({
+                    x: ownPlayer.position.x,
+                    y: ownPlayer.position.y,
+                    vx: 0,
+                    vy: -44,
+                    life: 0.72,
+                    maxLife: 0.72,
+                    radius: 0,
+                    color: collectedPopCluster ? "#fff1a1" : "#eafffb",
+                    label: `+${Number(gameEvent.mass.toFixed(1))} SIZE`,
+                  });
+                }
+              }
+              if (combo <= 5 || combo === 8) playTone(280 + combo * 55, 0.055, 0.022);
+              if (collectedPopCluster && combo !== 6 && combo !== 8) {
+                showActionCallout("TREASURE CHEST · JACKPOT", 750);
+                if (!reducedMotionRef.current) navigator.vibrate?.(12);
+              }
+              if (combo === 6 || combo === 8) {
+                showActionCallout(`${collectedPopCluster ? "CHEST · " : ""}TREASURE STREAK ×${combo}`, 700);
+                if (!reducedMotionRef.current) navigator.vibrate?.(8);
+              }
             }
             if (gameEvent.type === "massShed" && gameEvent.playerId === handshake.playerId) {
               tutorial.spentSprint();
+              playTone(165, 0.045, 0.012);
             }
             if (gameEvent.type === "specialistActivated" && gameEvent.playerId === handshake.playerId) {
               tutorial.sawCollector();
+              const relic = resolveRelicPresentation(gameEvent.relicKind);
+              const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
+              if (ownPlayer) {
+                pushLiveBurst(
+                  particlesRef.current,
+                  ownPlayer.position,
+                  reducedMotionRef.current ? 0 : 20,
+                  [relic.carrierAccent, "#4bcfff", "#f2fff9"],
+                  message.tick,
+                  1.15,
+                );
+              }
+              showActionCallout(`${relic.label.toUpperCase()} ON · ${relic.effectText}`, 2_200);
+              playTone(520, 0.11, 0.035);
+              window.setTimeout(() => playTone(760, 0.14, 0.03), 80);
+              if (!reducedMotionRef.current) navigator.vibrate?.([12, 24, 22]);
             }
-            if (gameEvent.type === "playerDied" && gameEvent.playerId === handshake.playerId) {
-              const killer = gameEvent.killerId
-                ? message.players.find((player) => player.id === gameEvent.killerId)?.name
-                : undefined;
-              showDeathNotice(
-                gameEvent.cause === "boundary"
-                  ? "YOU CRASHED · YOUR HEAD HIT THE ARENA EDGE · RESPAWNING…"
-                  : `YOU CRASHED · YOUR HEAD HIT ${killer ? `${killer.toUpperCase()}'S` : "A RIVAL"} CREW · RESPAWNING…`,
-              );
+            if (gameEvent.type === "specialistExpired" && gameEvent.playerId === handshake.playerId) {
+              const relic = resolveRelicPresentation(gameEvent.relicKind);
+              showActionCallout(`${relic.label.toUpperCase()} SPENT · FIND ANOTHER RELIC`, 900);
+            }
+            if (gameEvent.type === "playerDied") {
+              const victim = message.players.find((player) => player.id === gameEvent.playerId) ??
+                snapshotRef.current?.players.find((player) => player.id === gameEvent.playerId);
+              if (victim) {
+                pushLiveBurst(
+                  particlesRef.current,
+                  victim.position,
+                  reducedMotionRef.current ? 0 : 42,
+                  palettes[stableNumber(victim.id) % palettes.length],
+                  message.tick,
+                  1.45,
+                );
+              }
+              if (gameEvent.killerId === handshake.playerId && gameEvent.playerId !== handshake.playerId) {
+                showActionCallout(`CHAIN CUT · ${victim?.name ?? "RIVAL"} RELEASED`, 2_200);
+                playTone(510, 0.11, 0.055);
+                if (!reducedMotionRef.current) navigator.vibrate?.([12, 18, 22]);
+              }
+              if (gameEvent.playerId === handshake.playerId) {
+                const killer = gameEvent.killerId
+                  ? message.players.find((player) => player.id === gameEvent.killerId)?.name
+                  : undefined;
+                pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
+                showDeathNotice(
+                  gameEvent.cause === "boundary"
+                    ? "YOU CRASHED · YOUR HEAD HIT THE ARENA EDGE · RESPAWNING…"
+                    : `YOU CRASHED · YOUR HEAD HIT ${killer ? `${killer.toUpperCase()}'S` : "A RIVAL"} CREW · RESPAWNING…`,
+                );
+                playTone(125, 0.2, 0.065);
+                if (!reducedMotionRef.current) navigator.vibrate?.([35, 25, 80]);
+              }
             }
             if (
               gameEvent.type === "playerSpawned" &&
               gameEvent.playerId === handshake.playerId &&
               handshake.snapshotted
             ) {
-              showDeathNotice("BACK IN · DOTTED HALO = SHORT SPAWN GRACE");
+              showDeathNotice("BACK IN · HEAD SAFE 1.5S · EVERY CREW BODY STAYS LETHAL");
             }
           }
           if (tutorial.stageRef.current === "spark") {
@@ -714,10 +1278,21 @@ export function LiveArenaCanvas({
               }
             }
           }
+          const firstAuthoritativeSnapshot = !handshake.snapshotted;
           handshake.snapshotted = true;
+          pushAuthoritativeSnapshot(
+            presentationRef.current,
+            message,
+            performance.now(),
+            world.fixedStepSeconds,
+          );
           snapshotRef.current = message;
           attempts = 0;
-          updateFromSnapshot(message, handshake.playerId, world);
+          const now = performance.now();
+          if (firstAuthoritativeSnapshot || now >= nextHudRefreshAtRef.current) {
+            nextHudRefreshAtRef.current = now + HUD_REFRESH_INTERVAL_MS;
+            updateFromSnapshot(message, handshake.playerId, world);
+          }
           return;
         }
 
@@ -730,7 +1305,23 @@ export function LiveArenaCanvas({
               phase: "joining",
               detail: "Old seat expired · requesting a clean server-owned seat…",
             }));
-            sendJoin();
+            sendJoin(undefined, !retriedWithoutBoard);
+            return;
+          }
+          if (
+            message.code === "ROOM_BOARD_MISMATCH" &&
+            boardId &&
+            !retriedWithoutBoard &&
+            !handshakeRef.current?.welcomed
+          ) {
+            retriedWithoutBoard = true;
+            roomBoardResolved = true;
+            setUi((current) => ({
+              ...current,
+              phase: "joining",
+              detail: "Existing room found · accepting its locked board…",
+            }));
+            sendJoin(safeSessionGet(storageKey), false);
             return;
           }
           setUi((current) => ({
@@ -776,14 +1367,19 @@ export function LiveArenaCanvas({
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, "Player left");
       handshakeRef.current = null;
       snapshotRef.current = null;
+      resetLivePresentationBuffer(presentationRef.current);
       worldRef.current = null;
     };
   }, [
     arenaUrl,
+    themeId,
     playerName,
     roomId,
     running,
     session,
+    onBoardResolved,
+    playTone,
+    showActionCallout,
     showDeathNotice,
     tutorial.collectedSpark,
     tutorial.sawCollector,
@@ -794,6 +1390,14 @@ export function LiveArenaCanvas({
 
   useEffect(() => () => {
     if (deathNoticeTimerRef.current !== undefined) window.clearTimeout(deathNoticeTimerRef.current);
+    if (actionCalloutTimerRef.current !== undefined) window.clearTimeout(actionCalloutTimerRef.current);
+    particlesRef.current = [];
+    previousFrameAtRef.current = undefined;
+    pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
+    collectorPullEventsRef.current = 0;
+    const audio = audioRef.current;
+    audioRef.current = null;
+    if (audio && audio.state !== "closed") void audio.close();
   }, []);
 
   useEffect(() => {
@@ -854,17 +1458,27 @@ export function LiveArenaCanvas({
   useEffect(() => {
     let animationFrame = 0;
     const frame = (now: number) => {
+      const previousFrameAt = previousFrameAtRef.current ?? now;
+      previousFrameAtRef.current = now;
+      if (reducedMotionRef.current) {
+        particlesRef.current = [];
+      } else {
+        updateLiveParticles(particlesRef.current, Math.min(0.05, (now - previousFrameAt) / 1_000));
+      }
       const canvas = canvasRef.current;
       if (canvas) {
+        const presentedSnapshot = getPresentedSnapshot(presentationRef.current, now);
         renderLiveArena(
           canvas,
-          snapshotRef.current,
+          presentedSnapshot,
           worldRef.current,
           ui.playerId,
           cameraRef.current,
-          now,
+          reducedMotionRef.current ? 0 : now,
           debugHitboxesRef.current,
           tutorialSparkIdRef.current,
+          particlesRef.current,
+          photoSkinRef.current,
         );
       }
       animationFrame = requestAnimationFrame(frame);
@@ -906,6 +1520,7 @@ export function LiveArenaCanvas({
       }
       return;
     }
+    if (event.pointerType === "touch") return;
     setPointerDirection(event.clientX, event.clientY);
   };
 
@@ -914,12 +1529,18 @@ export function LiveArenaCanvas({
     if (event.pointerType === "touch") {
       const rect = stageRef.current?.getBoundingClientRect();
       if (!rect) return;
+      const touch = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      const fixedAnchor = fixedHelmAnchor(rect.width, rect.height, controlScheme);
+      if (!touchStartsHelm(touch, fixedAnchor)) return;
       const guide: TouchGuide = {
         pointerId: event.pointerId,
-        anchorX: event.clientX - rect.left,
-        anchorY: event.clientY - rect.top,
-        currentX: event.clientX - rect.left,
-        currentY: event.clientY - rect.top,
+        anchorX: fixedAnchor?.x ?? touch.x,
+        anchorY: fixedAnchor?.y ?? touch.y,
+        currentX: touch.x,
+        currentY: touch.y,
       };
       touchGuideRef.current = guide;
       setTouchGuide(guide);
@@ -943,12 +1564,62 @@ export function LiveArenaCanvas({
   };
 
   const authoritative = ui.phase === "authoritative";
+  const radarWorld = worldRef.current;
+  const radarLandmarks: RadarLandmark[] = radarWorld
+    ? [
+        ...[...radarWorld.drops.values()]
+          .filter((drop) => drop.specialist === "collector")
+          .map((drop) => ({
+            id: drop.id,
+            kind: "collector" as const,
+            position: drop.position,
+          })),
+        ...(radarWorld.heatRing
+          ? [{
+              id: `heat-ring-${radarWorld.heatRing.startsAtTick}`,
+              kind: "heat-ring" as const,
+              position: radarWorld.heatRing.center,
+              radius: radarWorld.heatRing.radius,
+            }]
+          : []),
+      ]
+    : [];
+  const radarSnapshot = authoritative ? snapshotRef.current : null;
+  const radarIntel = createLiveRadarIntel(
+    radarSnapshot,
+    ui.playerId,
+    liveRadarVisibleRadius(canvasRef.current, ui.exactMass),
+  );
+  const radarStations: RadarStation[] = radarWorld?.board
+    ? radarWorld.board.chargingStations.map((station) => {
+        const state = radarWorld.chargingStations.get(station.id);
+        return {
+          id: station.id,
+          position: station.position,
+          active: state?.phase === "charging" || state?.phase === "interrupted",
+        };
+      })
+    : [];
+  const relicStatus = createRelicStatusModel(
+    ui.activeRelic,
+    ui.tick,
+    ui.fixedStepSeconds,
+  );
   return (
     <div
       ref={stageRef}
-      className="arena-stage live-arena-stage"
+      className={`arena-stage live-arena-stage controls-${controlScheme}`}
       data-testid="live-arena-canvas"
       data-authority={authoritative ? "server-confirmed" : "unconfirmed"}
+      data-control-scheme={controlScheme}
+      data-board-id={worldRef.current?.board?.id ?? boardId ?? ""}
+      data-theme-id={themeId}
+      data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
+      data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
+      data-heat-ring-phase={heatRingUiRef.current.phase}
+      data-heat-ring-bots={heatRingUiRef.current.botCount}
+      data-heat-ring-jewels={heatRingUiRef.current.jewelCount}
+      data-heat-ring-mass={heatRingUiRef.current.totalMass}
       data-player-count={ui.players}
       data-human-count={ui.humans}
       data-player-id={ui.playerId ?? ""}
@@ -956,24 +1627,45 @@ export function LiveArenaCanvas({
       data-player-x={Math.round(ui.position.x)}
       data-player-y={Math.round(ui.position.y)}
       data-player-mass={ui.exactMass}
+      data-player-length={ui.length}
       data-collision-head-radius={ui.collisionHeadRadius.toFixed(3)}
       data-collision-body-radius={ui.collisionBodyRadius.toFixed(3)}
       data-collision-base-radius={ui.collisionRadii.baseRadius}
       data-collision-mass-factor={ui.collisionRadii.massRadiusFactor}
       data-collision-body-factor={ui.collisionRadii.bodyRadiusFactor}
-      data-collector-active={ui.collectorRemaining > 0 ? "true" : "false"}
-      data-collector-seconds={ui.collectorRemaining.toFixed(1)}
+      data-relic-kind={relicStatus?.presentation.relicKind ?? ""}
+      data-relic-seconds={relicStatus?.remainingSeconds.toFixed(1) ?? "0.0"}
+      data-collector-active={
+        relicStatus?.presentation.relicKind === "loot-compass" ? "true" : "false"
+      }
+      data-collector-seconds={
+        relicStatus?.presentation.relicKind === "loot-compass"
+          ? relicStatus.remainingSeconds.toFixed(1)
+          : "0.0"
+      }
+      data-charging-station-id={ui.chargingStation?.stationId ?? ""}
+      data-charging-station-phase={ui.chargingStation?.phase ?? "none"}
+      data-charging-station-progress={ui.chargingStation?.progressRatio ?? 0}
       data-neutral-spark-count={ui.neutralSparks}
+      data-pop-cluster-count={ui.popClusters}
       data-sprint-drop-count={ui.sprintDrops}
       data-rival-remains-count={ui.rivalRemains}
       data-collector-beacon-count={ui.collectorBeacons}
+      data-relic-beacon-count={ui.relicBeacons}
       data-player-alive={ui.alive ? "true" : "false"}
       data-tutorial-stage={tutorial.stage}
       data-tutorial-target-id={tutorialSparkIdRef.current ?? ""}
       data-tutorial-sprint-spent={tutorial.sprintSpent ? "true" : "false"}
       data-tutorial-retarget-count={tutorialRetargetRef.current.count}
       data-tutorial-retarget-reason={tutorialRetargetRef.current.reason ?? ""}
-      aria-label="Server-authoritative Wormifi multiplayer lab"
+      data-live-particle-count={particlesRef.current.length}
+      data-collector-pull-events={collectorPullEventsRef.current}
+      data-reduced-motion={reducedMotion ? "true" : "false"}
+      data-sensory-motion={reducedMotion ? "essential-only" : "full"}
+      data-live-presentation="authoritative-interpolation"
+      role="region"
+      aria-label="Server-authoritative Wormifi live arena"
+      aria-describedby="live-arena-keyboard-help"
       tabIndex={0}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
@@ -981,6 +1673,24 @@ export function LiveArenaCanvas({
       onPointerCancel={releasePointer}
     >
       <canvas ref={canvasRef} aria-hidden="true" />
+      {radarWorld && (
+        <PirateRadar
+          scopeLabel={roomIdentityLabel(ui.roomId)}
+          roomId={ui.roomId}
+          arenaRadius={radarWorld.arenaRadius}
+          position={ui.position}
+          direction={ui.direction}
+          alive={!authoritative || ui.alive}
+          landmarks={radarLandmarks}
+          otherPlayers={radarIntel.visiblePlayers}
+          stations={radarStations}
+          dangerBearings={radarIntel.dangerBearings}
+        />
+      )}
+      <p className="sr-only" id="live-arena-keyboard-help">
+        Use Arrow keys or W A S D to steer. Hold Space or Shift to sprint.
+        Press Tab to reach the Exit and Sprint controls.
+      </p>
 
       <div className="live-authority-card" data-phase={ui.phase} aria-live="polite">
         <span
@@ -1005,7 +1715,8 @@ export function LiveArenaCanvas({
             <small>RUN SCORE</small><strong>{ui.score.toLocaleString()}</strong>
           </div>
           <div className="hud-pill" data-testid="live-hud-length">
-            <small>SIZE</small><strong>{ui.mass}</strong>
+            <small>SIZE · {ui.length} CREW</small>
+            <strong className="size-value-pop" key={`${ui.mass}:${ui.length}`}>{ui.mass}</strong>
           </div>
         </div>
 
@@ -1038,28 +1749,35 @@ export function LiveArenaCanvas({
           )}
         </aside>
 
-        <div
-          className={`specialist-status ${ui.collectorRemaining > 0 ? "active" : ""}`}
-          data-testid="live-collector-status"
-          data-active={ui.collectorRemaining > 0 ? "true" : "false"}
-        >
-          <span className="specialist-icon">C</span>
-          <span>
-            <small>COLLECTOR</small>
-            <strong>
-              {ui.collectorRemaining > 0
-                ? `${ui.collectorRemaining.toFixed(1)}S · PULLS SPARKS + YOUR SPRINT DROPS`
-                : "FIND THE CYAN BEACON"}
-            </strong>
-          </span>
-        </div>
+        <RelicStatus
+          active={ui.activeRelic}
+          currentTick={ui.tick}
+          fixedStepSeconds={ui.fixedStepSeconds}
+          reducedMotion={reducedMotion}
+          className="specialist-status active"
+          testId="live-relic-status"
+        />
 
-        {authoritative && <ArenaTutorial stage={tutorial.stage} size={ui.mass} alreadyMoving />}
+        {ui.chargingStation && (
+          <ChargingStationStatus
+            status={ui.chargingStation}
+            testId="live-charging-station-status"
+          />
+        )}
+
+        {authoritative && (
+          <ArenaTutorial
+            stage={tutorial.stage}
+            size={ui.mass}
+            alreadyMoving
+            controlScheme={controlScheme}
+          />
+        )}
 
         <div className="mode-disclosure live-disclosure">
           {authoritative
-            ? `MULTIPLAYER LAB · ${ui.humans} CONNECTED HUMAN${ui.humans === 1 ? "" : "S"} · AI LABELED`
-            : "MULTIPLAYER LAB · NOT LIVE UNTIL SERVER SNAPSHOT IS CONFIRMED"}
+            ? `LIVE ARENA · ${ui.humans} CONNECTED HUMAN${ui.humans === 1 ? "" : "S"} · AI LABELED`
+            : "LIVE ARENA · NOT LIVE UNTIL SERVER SNAPSHOT IS CONFIRMED"}
         </div>
       </div>
 
@@ -1079,12 +1797,27 @@ export function LiveArenaCanvas({
           {deathNotice}
         </div>
       )}
+      {!touchGuide && controlScheme !== "drag-anywhere" && (
+        <div
+          className={`touch-guide touch-guide-idle ${controlScheme}`}
+          data-testid="live-fixed-touch-guide"
+          aria-hidden="true"
+        >
+          <span />
+        </div>
+      )}
 
-      <button className="exit-button" data-testid="live-exit-button" aria-label="Exit multiplayer lab" onClick={onExit}>×</button>
+      {actionCallout && (
+        <div className="action-callout" data-testid="live-action-callout" role="status">
+          {actionCallout}
+        </div>
+      )}
+
+      <button className="exit-button" data-testid="live-exit-button" aria-label="Exit live arena" onClick={onExit}>×</button>
       <button
         className={`boost-control ${boosting ? "active" : ""}`}
         data-testid="live-boost-control"
-        disabled={!authoritative || ui.mass <= 61}
+        disabled={!authoritative || ui.mass <= DEFAULT_GAME_CONFIG.minimumBoostMass}
         aria-label={`Sprint, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -1107,6 +1840,129 @@ export function LiveArenaCanvas({
   );
 }
 
+function pushLiveBurst(
+  particles: LiveParticle[],
+  position: Vec2,
+  count: number,
+  colors: readonly string[],
+  seed: number,
+  scale = 1,
+) {
+  if (count <= 0 || colors.length === 0) return;
+  for (let index = 0; index < count; index += 1) {
+    const angle = (index / count) * Math.PI * 2 + seed * 0.173;
+    const speed = (62 + (index % 9) * 15) * scale;
+    particles.push({
+      x: position.x,
+      y: position.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.9 + (index % 5) * 0.08,
+      maxLife: 1.25,
+      radius: (3.4 + (index % 4) * 0.8) * scale,
+      color: colors[index % colors.length],
+    });
+  }
+  if (particles.length > 180) particles.splice(0, particles.length - 180);
+}
+
+function pushCollectorPull(
+  particles: LiveParticle[],
+  from: Vec2,
+  to: Vec2,
+  count: number,
+  color: string,
+  seed: number,
+) {
+  if (count <= 0) return;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.max(1, Math.hypot(dx, dy));
+  const normalX = -dy / distance;
+  const normalY = dx / distance;
+  for (let index = 0; index < count; index += 1) {
+    const lane = ((((index + seed) % 3) + 3) % 3 - 1) * 3.2;
+    const headStart = index / Math.max(1, count - 1) * 0.16;
+    particles.push({
+      x: from.x + dx * headStart + normalX * lane,
+      y: from.y + dy * headStart + normalY * lane,
+      vx: dx * (2.35 + (index % 3) * 0.22),
+      vy: dy * (2.35 + (index % 3) * 0.22),
+      life: 0.34 + (index % 3) * 0.045,
+      maxLife: 0.44,
+      radius: 2.4 + (index % 2) * 0.8,
+      color: index % 3 === 0 ? "#eafffb" : color,
+      streak: true,
+    });
+  }
+  if (particles.length > 180) particles.splice(0, particles.length - 180);
+}
+
+function updateLiveParticles(particles: LiveParticle[], deltaSeconds: number) {
+  for (const particle of particles) {
+    particle.life -= deltaSeconds;
+    particle.x += particle.vx * deltaSeconds;
+    particle.y += particle.vy * deltaSeconds;
+    particle.vx *= Math.pow(0.15, deltaSeconds);
+    particle.vy *= Math.pow(0.15, deltaSeconds);
+  }
+  let writeIndex = 0;
+  for (const particle of particles) {
+    if (particle.life <= 0) continue;
+    particles[writeIndex] = particle;
+    writeIndex += 1;
+  }
+  particles.length = writeIndex;
+}
+
+function drawLiveParticles(
+  context: CanvasRenderingContext2D,
+  particles: readonly LiveParticle[],
+  worldToScreen: (point: Vec2) => Vec2,
+  zoom: number,
+  width: number,
+  height: number,
+) {
+  context.save();
+  context.globalCompositeOperation = "lighter";
+  for (const particle of particles) {
+    const screen = worldToScreen(particle);
+    if (screen.x < -40 || screen.y < -40 || screen.x > width + 40 || screen.y > height + 40) continue;
+    const alpha = clamp(particle.life / particle.maxLife, 0, 1);
+    context.globalAlpha = alpha;
+    if (particle.label) {
+      context.fillStyle = particle.color;
+      context.shadowColor = particle.color;
+      context.shadowBlur = 12;
+      context.font = `900 ${clamp(15 * zoom, 12, 19)}px "Baloo 2", sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(particle.label, screen.x, screen.y);
+      continue;
+    }
+    if (particle.streak) {
+      context.strokeStyle = particle.color;
+      context.lineWidth = Math.max(1.2, particle.radius * zoom * alpha);
+      context.beginPath();
+      context.moveTo(screen.x, screen.y);
+      context.lineTo(
+        screen.x - particle.vx * 0.055 * zoom,
+        screen.y - particle.vy * 0.055 * zoom,
+      );
+      context.stroke();
+    }
+    context.shadowBlur = 0;
+    drawTreasureShard(
+      context,
+      screen.x,
+      screen.y,
+      Math.max(1.8, particle.radius * zoom * alpha),
+      particle.color,
+      particle.life * 8 + particle.y * 0.011,
+    );
+  }
+  context.restore();
+}
 function renderLiveArena(
   canvas: HTMLCanvasElement,
   snapshot: SnapshotMessage | null,
@@ -1116,39 +1972,40 @@ function renderLiveArena(
   now: number,
   debugHitboxes: boolean,
   tutorialSparkId: string | null,
+  particles: readonly LiveParticle[],
+  photoSkin: PhotoSkinCanvasAppearance | undefined,
 ) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   if (width <= 0 || height <= 0) return;
-  const pixelRatio = Math.min(1.75, window.devicePixelRatio || 1);
+  const pixelRatio = arenaBackingScale(
+    width,
+    height,
+    window.devicePixelRatio || 1,
+    // A full 24-actor room is at least as raster-heavy as the 1,050-drop
+    // Practice scene. Keep its backing density in the same stable crowded
+    // tier even while pickups make the exact drop count fluctuate.
+    Math.max(world?.drops.size ?? 0, (snapshot?.players.length ?? 0) * 40),
+  );
   const targetWidth = Math.round(width * pixelRatio);
   const targetHeight = Math.round(height * pixelRatio);
   if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
     canvas.width = targetWidth;
     canvas.height = targetHeight;
   }
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext(
+    "2d",
+    ARENA_CANVAS_CONTEXT_OPTIONS,
+  ) as CanvasRenderingContext2D | null;
   if (!context) return;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const background = context.createRadialGradient(
-    width * 0.45,
-    height * 0.42,
-    0,
-    width * 0.5,
-    height * 0.5,
-    Math.max(width, height),
-  );
-  background.addColorStop(0, "#123153");
-  background.addColorStop(0.55, "#081a34");
-  background.addColorStop(1, "#020813");
-  context.fillStyle = background;
-  context.fillRect(0, 0, width, height);
+  drawArenaFloor(context, width, height, "#123153", "#081a34", "#020813");
 
   const ownPlayer = snapshot?.players.find((player) => player.id === playerId);
   const focus = ownPlayer?.position ?? { x: 0, y: 0 };
   camera.x += (focus.x - camera.x) * 0.11;
   camera.y += (focus.y - camera.y) * 0.11;
-  const zoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) *
+  const zoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9 *
     clamp(1 - Math.max(0, (ownPlayer?.mass ?? 100) - 100) / 2_800, 0.67, 1);
   const worldToScreen = (point: Vec2): Vec2 => ({
     x: width / 2 + (point.x - camera.x) * zoom,
@@ -1156,12 +2013,25 @@ function renderLiveArena(
   });
 
   drawNetworkGrid(context, width, height, camera, zoom, now);
+  drawPirateShipBackdrop(context, width, height);
   if (!snapshot || !world) {
     context.fillStyle = "rgba(213, 244, 255, 0.72)";
     context.font = "800 13px Inter, sans-serif";
     context.textAlign = "center";
     context.fillText("WAITING FOR AN AUTHORITATIVE SNAPSHOT", width / 2, height / 2);
     return;
+  }
+
+  if (world.heatRing) {
+    drawHeatRingTelegraph(
+      context,
+      world.heatRing,
+      worldToScreen,
+      zoom,
+      now,
+      width,
+      height,
+    );
   }
 
   const boundary = worldToScreen({ x: 0, y: 0 });
@@ -1176,7 +2046,67 @@ function renderLiveArena(
   context.stroke();
   context.restore();
 
+  drawChargingStationField(context, {
+    views: world.board?.chargingStations.map((station) => ({
+      station,
+      state: world.chargingStations.get(station.id),
+    })) ?? [],
+    worldToScreen,
+    zoom,
+    width,
+    height,
+    fixedStepSeconds: world.fixedStepSeconds,
+    viewerPlayerId: playerId,
+    now,
+  });
+
+  const fieldItems = [];
   for (const drop of world.drops.values()) {
+    if (
+      drop.id === tutorialSparkId ||
+      getGroundRelicPresentation(drop) ||
+      drop.source === "boost" ||
+      drop.source === "death" ||
+      drop.mass >= 5.35
+    ) continue;
+    const screen = worldToScreen(drop.position);
+    const cullMargin = 64;
+    if (
+      screen.x < -cullMargin ||
+      screen.y < -cullMargin ||
+      screen.x > width + cullMargin ||
+      screen.y > height + cullMargin
+    ) continue;
+    const seed = stableNumber(drop.id);
+    fieldItems.push({
+      id: drop.id,
+      position: drop.position,
+      radius: drop.radius,
+      color: drop.originPlayerId
+        ? palettes[stableNumber(drop.originPlayerId) % palettes.length][0]
+        : dropColors[seed % dropColors.length],
+      seed,
+    });
+  }
+  drawFacetedGemField(
+    context,
+    "live",
+    fieldItems,
+    worldToScreen,
+    zoom,
+    width,
+    height,
+    now,
+  );
+
+  for (const drop of world.drops.values()) {
+    if (
+      drop.id !== tutorialSparkId &&
+      !getGroundRelicPresentation(drop) &&
+      drop.source !== "boost" &&
+      drop.source !== "death" &&
+      drop.mass < 5.35
+    ) continue;
     drawNetworkDrop(
       context,
       drop,
@@ -1189,6 +2119,7 @@ function renderLiveArena(
       drop.id === tutorialSparkId,
     );
   }
+  drawLiveParticles(context, particles, worldToScreen, zoom, width, height);
   const players = snapshot.players
     .filter((player) => player.alive)
     .sort((first, second) => first.mass - second.mass);
@@ -1197,7 +2128,9 @@ function renderLiveArena(
       context,
       player,
       snapshot.tick,
+      world.fixedStepSeconds,
       playerId,
+      world.heatRing?.botIds ?? [],
       world.collisionRadii,
       worldToScreen,
       zoom,
@@ -1205,21 +2138,11 @@ function renderLiveArena(
       height,
       now,
       debugHitboxes,
+      player.id === playerId ? photoSkin : undefined,
     );
   }
 
-  const vignette = context.createRadialGradient(
-    width / 2,
-    height / 2,
-    Math.min(width, height) * 0.32,
-    width / 2,
-    height / 2,
-    Math.max(width, height) * 0.7,
-  );
-  vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(1, "rgba(0,4,14,0.48)");
-  context.fillStyle = vignette;
-  context.fillRect(0, 0, width, height);
+  drawArenaVignette(context, width, height);
 }
 
 function drawNetworkGrid(
@@ -1230,96 +2153,66 @@ function drawNetworkGrid(
   zoom: number,
   now: number,
 ) {
-  const spacing = 92 * zoom;
-  const offsetX = ((-camera.x * zoom) % spacing + spacing) % spacing;
-  const offsetY = ((-camera.y * zoom) % spacing + spacing) % spacing;
-  context.fillStyle = "rgba(103, 203, 255, 0.07)";
-  for (let x = offsetX; x < width; x += spacing) {
-    for (let y = offsetY; y < height; y += spacing) {
-      const pulse = 1.2 + Math.sin(now * 0.0008 + x * 0.02 + y * 0.014) * 0.55;
-      context.beginPath();
-      context.arc(x, y, pulse, 0, Math.PI * 2);
-      context.fill();
-    }
-  }
+  drawNauticalChart(context, width, height, camera, zoom, now);
 }
 
-function drawNetworkCollectorFace(
+function drawHeatRingTelegraph(
   context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  timerRatio = 1,
+  heatRing: PublicHeatRingState,
+  worldToScreen: (point: Vec2) => Vec2,
+  zoom: number,
+  now: number,
+  width: number,
+  height: number,
 ) {
-  if (radius < 3) return;
+  const center = worldToScreen(heatRing.center);
+  const radius = heatRing.radius * zoom;
+  if (
+    center.x + radius < -30 || center.x - radius > width + 30 ||
+    center.y + radius < -30 || center.y - radius > height + 30
+  ) return;
   context.save();
-  context.translate(x, y);
+  context.strokeStyle = "rgba(255, 205, 94, .74)";
+  context.lineWidth = Math.max(2, 4 * zoom);
+  context.setLineDash([Math.max(9, 16 * zoom), Math.max(7, 11 * zoom)]);
+  context.lineDashOffset = -now * 0.018;
   context.beginPath();
-  context.arc(0, 0, radius, 0, Math.PI * 2);
-  context.clip();
-
-  const gradient = context.createRadialGradient(
-    -radius * 0.3,
-    -radius * 0.38,
-    radius * 0.05,
-    0,
-    0,
-    radius,
-  );
-  gradient.addColorStop(0, "#e9fff8");
-  gradient.addColorStop(0.22, "#71ffe2");
-  gradient.addColorStop(1, "#159d9c");
-  context.fillStyle = gradient;
-  context.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-  context.strokeStyle = "rgba(3, 43, 55, .78)";
-  context.lineWidth = Math.max(0.7, radius * 0.1);
+  context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.setLineDash([]);
+  context.strokeStyle = "rgba(93, 232, 216, .36)";
+  context.lineWidth = Math.max(1, 2 * zoom);
   context.beginPath();
-  context.moveTo(-radius * 0.48, -radius * 0.46);
-  context.lineTo(-radius * 0.13, -radius * 0.38);
-  context.moveTo(radius * 0.48, -radius * 0.46);
-  context.lineTo(radius * 0.13, -radius * 0.38);
+  context.arc(center.x, center.y, radius + Math.max(6, 10 * zoom), 0, Math.PI * 2);
   context.stroke();
 
-  context.fillStyle = "rgba(255,255,255,.97)";
-  context.beginPath();
-  context.ellipse(-radius * 0.29, -radius * 0.16, radius * 0.22, radius * 0.28, 0, 0, Math.PI * 2);
-  context.ellipse(radius * 0.29, -radius * 0.16, radius * 0.22, radius * 0.28, 0, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = "#042333";
-  context.beginPath();
-  context.arc(-radius * 0.24, -radius * 0.12, radius * 0.09, 0, Math.PI * 2);
-  context.arc(radius * 0.34, -radius * 0.12, radius * 0.09, 0, Math.PI * 2);
-  context.fill();
-
-  context.strokeStyle = "rgba(3, 36, 48, .88)";
-  context.lineWidth = Math.max(0.8, radius * 0.1);
-  context.beginPath();
-  context.arc(0, radius * 0.18, radius * 0.34, 0.12 * Math.PI, 0.88 * Math.PI);
-  context.stroke();
-
-  context.strokeStyle = "rgba(229, 255, 249, .95)";
-  context.lineWidth = Math.max(0.9, radius * 0.1);
-  context.beginPath();
-  context.arc(
-    0,
-    0,
-    radius * 0.83,
-    -Math.PI / 2,
-    -Math.PI / 2 + Math.PI * 2 * clamp(timerRatio, 0, 1),
-  );
-  context.stroke();
-
-  if (radius >= 5.5) {
-    context.fillStyle = "#06364a";
+  if (
+    center.x >= 80 && center.x <= width - 80 &&
+    center.y >= 130 && center.y <= height - 210
+  ) {
+    const sword = Math.max(11, 18 * zoom);
+    context.translate(center.x, center.y);
+    context.strokeStyle = "rgba(255, 231, 160, .9)";
+    context.lineWidth = Math.max(2, 3 * zoom);
     context.beginPath();
-    context.arc(0, radius * 0.66, radius * 0.19, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#dffff8";
-    context.font = `900 ${Math.max(4, radius * 0.28)}px "Baloo 2", sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("C", 0, radius * 0.68);
+    context.moveTo(-sword, -sword);
+    context.lineTo(sword, sword);
+    context.moveTo(sword, -sword);
+    context.lineTo(-sword, sword);
+    context.stroke();
+    // The DOM callout already explains this event on phones. Keeping only the
+    // crossed-swords mark prevents duplicate copy from covering the live duel.
+    if (width >= 520) {
+      context.font = `900 ${clamp(11 * zoom, 9, 13)}px Inter, sans-serif`;
+      context.textAlign = "center";
+      context.fillStyle = "#ffe8a4";
+      context.shadowColor = "rgba(0, 8, 20, .95)";
+      context.shadowBlur = 5;
+      context.fillText("AI CORSAIR DUEL", 0, -sword - 13);
+      context.font = `800 ${clamp(8 * zoom, 7, 10)}px Inter, sans-serif`;
+      context.fillStyle = "#a9eee5";
+      context.fillText("REAL COLLISION · REAL HOARD", 0, sword + 18);
+    }
   }
   context.restore();
 }
@@ -1362,39 +2255,18 @@ function drawNetworkDrop(
     context.font = "900 10px Inter, sans-serif";
     context.textAlign = "center";
     context.fillStyle = "#fff6b2";
-    context.fillText("SPARK · GROW", 0, -ringRadius - 8);
+    context.fillText("RINGED TREASURE · GROW", 0, -ringRadius - 8);
     context.restore();
   }
 
-  if (drop.specialist === "collector") {
+  if (getGroundRelicPresentation(drop)) {
     const beaconRadius = Math.max(10, radius * 1.25);
-    context.shadowColor = color;
-    context.shadowBlur = 24;
-    context.fillStyle = "rgba(11, 46, 67, 0.96)";
-    context.strokeStyle = color;
-    context.lineWidth = Math.max(2, beaconRadius * 0.14);
-    context.beginPath();
-    context.arc(0, 0, beaconRadius, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-    context.shadowBlur = 0;
-    context.save();
-    context.rotate(now * 0.0012);
-    context.setLineDash([beaconRadius * 0.55, beaconRadius * 0.24]);
-    context.strokeStyle = "rgba(184, 255, 244, 0.88)";
-    context.lineWidth = Math.max(1.2, beaconRadius * 0.09);
-    context.beginPath();
-    context.arc(0, 0, beaconRadius * 1.42, 0, Math.PI * 2);
-    context.stroke();
-    context.restore();
-    drawNetworkCollectorFace(context, 0, 0, beaconRadius * 0.78);
-    const durationSeconds = Math.round((drop.specialistDurationTicks ?? 0) * fixedStepSeconds);
-    context.font = `900 ${clamp(9 * zoom, 8, 11)}px Inter, sans-serif`;
-    context.textAlign = "center";
-    context.fillStyle = "#cafff5";
-    context.shadowColor = "rgba(0,0,0,.9)";
-    context.shadowBlur = 5;
-    context.fillText(`COLLECTOR · ${durationSeconds}S`, 0, -beaconRadius * 2.05);
+    drawGroundRelicPickup(context, drop, {
+      beaconRadius,
+      zoom,
+      now,
+      fixedStepSeconds,
+    });
     context.restore();
     return;
   }
@@ -1428,63 +2300,33 @@ function drawNetworkDrop(
   }
 
   if (drop.source === "death") {
-    // Rival Remains remember their producer but never imply Collector reach.
-    context.shadowColor = color;
-    context.shadowBlur = 17;
-    context.fillStyle = color;
-    context.beginPath();
-    for (let point = 0; point < 12; point += 1) {
-      const angle = (point / 12) * Math.PI * 2 + now * 0.00035;
-      const radial = point % 2 === 0 ? radius * 1.3 : radius * 0.64;
-      const x = Math.cos(angle) * radial;
-      const y = Math.sin(angle) * radial;
-      if (point === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
+    // Real defeated-chain mass becomes a marked rival-hoard jewel.
+    drawRivalHoardGem(context, radius, color, now, stableNumber(drop.id));
+    context.restore();
+    return;
+  }
+  if (drop.mass >= 5.35) {
+    // High-value neutral mass is one authoritative treasure chest collider.
+    if (!drawPirateAtlasSprite(context, "treasure-chest", {
+      x: 0,
+      y: 0,
+      size: Math.max(28, radius * 3.4),
+      rotation: Math.sin(now * 0.0014 + stableNumber(drop.id)) * 0.035,
+    })) {
+      drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
     }
-    context.closePath();
-    context.fill();
-    context.shadowBlur = 0;
-    context.strokeStyle = "rgba(255,255,255,.58)";
-    context.lineWidth = Math.max(0.8, radius * 0.11);
-    context.setLineDash([radius * 0.55, radius * 0.34]);
-    context.beginPath();
-    context.arc(0, 0, radius * 1.7, 0, Math.PI * 2);
-    context.stroke();
-    context.setLineDash([]);
-    context.fillStyle = "rgba(4, 19, 35, .72)";
-    context.beginPath();
-    context.arc(0, 0, radius * 0.32, 0, Math.PI * 2);
-    context.fill();
     context.restore();
     return;
   }
 
-  // Neutral Sparks are diamonds, visually separate from player-made drops.
-  context.rotate(Math.PI / 4 + Math.sin(now * 0.0015 + stableNumber(drop.id)) * 0.08);
-  context.shadowColor = color;
-  context.shadowBlur = 9;
-  context.fillStyle = color;
-  context.beginPath();
-  context.moveTo(0, -radius);
-  context.quadraticCurveTo(radius * 0.7, -radius * 0.7, radius, 0);
-  context.quadraticCurveTo(radius * 0.7, radius * 0.7, 0, radius);
-  context.quadraticCurveTo(-radius * 0.7, radius * 0.7, -radius, 0);
-  context.quadraticCurveTo(-radius * 0.7, -radius * 0.7, 0, -radius);
-  context.closePath();
-  context.fill();
-  context.shadowBlur = 0;
-  context.fillStyle = "rgba(255,255,255,.78)";
-  context.beginPath();
-  context.moveTo(0, -radius * 0.55);
-  context.lineTo(radius * 0.18, -radius * 0.08);
-  context.lineTo(radius * 0.55, 0);
-  context.lineTo(radius * 0.18, radius * 0.08);
-  context.lineTo(0, radius * 0.55);
-  context.lineTo(-radius * 0.18, radius * 0.08);
-  context.lineTo(-radius * 0.55, 0);
-  context.lineTo(-radius * 0.18, -radius * 0.08);
-  context.closePath();
-  context.fill();
+  if (!drawPirateAtlasSprite(context, commonTreasureSprite(stableNumber(drop.id)), {
+    x: 0,
+    y: 0,
+    size: Math.max(12, radius * 2.08),
+    rotation: ((stableNumber(drop.id) % 17) - 8) * 0.035,
+  })) {
+    drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
+  }
   context.restore();
 }
 
@@ -1492,7 +2334,9 @@ function drawNetworkChain(
   context: CanvasRenderingContext2D,
   player: PublicPlayerState,
   currentTick: number,
+  fixedStepSeconds: number,
   localPlayerId: string | undefined,
+  heatCorsairIds: readonly string[],
   collisionRadii: CollisionRadiusConfig,
   worldToScreen: (point: Vec2) => Vec2,
   zoom: number,
@@ -1500,84 +2344,75 @@ function drawNetworkChain(
   height: number,
   now: number,
   debugHitboxes: boolean,
+  photoSkin: PhotoSkinCanvasAppearance | undefined,
 ) {
   const head = worldToScreen(player.position);
   const points = [player.position, ...player.body].map(worldToScreen);
   const margin = 240;
   if (!points.some((point) => point.x > -margin && point.y > -margin && point.x < width + margin && point.y < height + margin)) return;
-  const palette = palettes[stableNumber(player.id) % palettes.length];
+  const palette = player.themeId
+    ? [...getCosmeticTheme(player.themeId).palette]
+    : palettes[stableNumber(player.id) % palettes.length];
   const headRadius = getPlayerRadius(player, collisionRadii) * zoom;
   const bodyRadius = getBodyRadius(player, collisionRadii) * zoom;
   const identityNumber = stableNumber(player.id);
   const shielded = player.shieldTicksRemaining > 0;
   const isHuman = player.kind === "human";
   const isLocal = player.id === localPlayerId;
+  const isHeatCorsair = heatCorsairIds.includes(player.id);
+  const activeRelic = createActiveRelicCanvasModel(player.specialist, currentTick);
+
+  if (activeRelic?.presentation.relicKind === "loot-compass") {
+    drawCollectorVortex(context, head, headRadius, now, palette[0]);
+  } else if (activeRelic) {
+    drawRelicCarrierEffect(context, activeRelic, head, headRadius, now);
+  }
 
   context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.globalAlpha = shielded ? 0.72 : 0.92;
-  context.strokeStyle = palette[0];
-  context.lineWidth = Math.max(3, bodyRadius * 0.46);
-  context.shadowColor = palette[0];
-  context.shadowBlur = 12;
-  context.beginPath();
-  context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    const previous = points[index - 1];
-    const point = points[index];
-    context.quadraticCurveTo(previous.x, previous.y, (previous.x + point.x) / 2, (previous.y + point.y) / 2);
-  }
-  context.stroke();
-  context.shadowBlur = 0;
+  drawContinuousPirateWorm(context, {
+    points,
+    headRadius,
+    bodyRadius,
+    palette,
+    direction: player.direction,
+    shielded,
+    identity: identityNumber,
+    now,
+  });
 
-  for (let index = player.body.length - 1; index >= 0; index -= 1) {
-    const screen = points[index + 1];
-    const lean = Math.sin(now * 0.006 + index * 0.85) * bodyRadius * 0.05;
-    drawNetworkCreature(
-      context,
-      { x: screen.x, y: screen.y + lean },
+  if (photoSkin && points.length > 2) {
+    drawPhotoSkinCanvas(context, {
+      points: points.slice(1),
       bodyRadius,
-      palette,
-      index,
-      player.direction,
-      false,
-      shielded,
-      identityNumber,
-    );
+      direction: player.direction,
+      decodedImages: photoSkin.decodedImages,
+      renderPlan: photoSkin.renderPlan,
+    });
   }
 
-  if (
-    player.specialist?.kind === "collector" &&
-    player.specialist.expiresAtTick > currentTick &&
-    points[1]
-  ) {
-    // Collector paint is clipped inside an existing body segment. It changes
-    // neither the rendered chain silhouette nor the authoritative hit circles.
-    const remainingTicks = Math.max(0, player.specialist.expiresAtTick - currentTick);
-    const timerRatio = clamp(remainingTicks / player.specialist.durationTicks, 0, 1);
-    drawNetworkCollectorFace(
+  if (activeRelic && points[1]) {
+    // Relic paint stays inside an existing body segment. It changes neither
+    // the rendered chain silhouette nor the authoritative hit circles.
+    drawRelicCarrierBadge(
       context,
+      activeRelic,
       points[1].x,
       points[1].y,
       bodyRadius * 0.82,
-      timerRatio,
+      now,
     );
   }
-  drawNetworkCreature(
-    context,
-    head,
-    headRadius,
-    palette,
-    0,
-    player.direction,
-    true,
-    shielded,
-    identityNumber,
-  );
-
   if (debugHitboxes) {
     context.save();
+    context.globalAlpha = 0.18;
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = bodyRadius * 2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(points[0].x, points[0].y);
+    for (const point of points.slice(1)) context.lineTo(point.x, point.y);
+    context.stroke();
     context.globalAlpha = 1;
     context.setLineDash([3, 3]);
     context.strokeStyle = "rgba(255,255,255,0.82)";
@@ -1612,127 +2447,87 @@ function drawNetworkChain(
     context.arc(head.x, head.y, headRadius * 1.48, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-  }
-
-  context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
-  context.textAlign = "center";
-  context.fillStyle = isLocal ? "#ffffff" : isHuman ? "#74ffe4" : "rgba(224,238,249,0.84)";
-  context.shadowColor = "rgba(0,0,0,0.9)";
-  context.shadowBlur = 5;
-  const identity = isLocal ? "YOU · HUMAN" : isHuman ? "HUMAN" : "AI";
-  context.fillText(`${player.name} · ${identity}`, head.x, head.y - headRadius * 1.7);
-  context.restore();
-}
-
-function drawNetworkCreature(
-  context: CanvasRenderingContext2D,
-  point: Vec2,
-  radius: number,
-  palette: string[],
-  index: number,
-  direction: Vec2,
-  head: boolean,
-  shielded: boolean,
-  identityNumber: number,
-) {
-  if (radius < 1.5) return;
-  const primary = palette[index % 2];
-  context.save();
-  context.translate(point.x, point.y);
-  context.rotate(Math.atan2(direction.y, direction.x) * 0.07);
-  context.shadowColor = primary;
-  context.shadowBlur = head ? 18 : 10;
-  const gradient = context.createRadialGradient(-radius * 0.34, -radius * 0.42, radius * 0.05, 0, 0, radius * 1.2);
-  gradient.addColorStop(0, palette[2]);
-  gradient.addColorStop(0.25, primary);
-  gradient.addColorStop(1, palette[(index + 1) % 2]);
-  context.fillStyle = gradient;
-  const variant = (identityNumber + index * 7 + (head ? 3 : 0)) % 5;
-  context.beginPath();
-  drawNetworkCreatureSilhouette(context, radius, variant);
-  context.fill();
-  context.shadowBlur = 0;
-
-  if (radius >= 5.5) {
-    const eyeOffset = radius * 0.34;
-    const eyeY = -radius * 0.13;
-    const pupilX = direction.x * radius * 0.08;
-    const pupilY = direction.y * radius * 0.08;
-    context.fillStyle = "rgba(255,255,255,0.94)";
-    context.beginPath();
-    context.ellipse(-eyeOffset, eyeY, radius * 0.25, radius * 0.31, 0, 0, Math.PI * 2);
-    context.ellipse(eyeOffset, eyeY, radius * 0.25, radius * 0.31, 0, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#061326";
-    context.beginPath();
-    context.arc(-eyeOffset + pupilX, eyeY + pupilY, radius * 0.105, 0, Math.PI * 2);
-    context.arc(eyeOffset + pupilX, eyeY + pupilY, radius * 0.105, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#fff";
-    context.beginPath();
-    context.arc(-eyeOffset + pupilX - radius * 0.025, eyeY + pupilY - radius * 0.035, radius * 0.03, 0, Math.PI * 2);
-    context.arc(eyeOffset + pupilX - radius * 0.025, eyeY + pupilY - radius * 0.035, radius * 0.03, 0, Math.PI * 2);
-    context.fill();
-
-    context.strokeStyle = "rgba(4,22,36,0.82)";
-    context.lineWidth = Math.max(1.1, radius * 0.09);
-    context.lineCap = "round";
-    context.beginPath();
-    if (shielded) {
-      context.arc(0, radius * 0.19, radius * 0.18, 0.15 * Math.PI, 0.85 * Math.PI, true);
-    } else if (head) {
-      context.arc(0, radius * 0.15, radius * 0.28, 0.12 * Math.PI, 0.88 * Math.PI);
-    } else {
-      context.moveTo(-radius * 0.16, radius * 0.23);
-      context.quadraticCurveTo(0, radius * 0.32, radius * 0.16, radius * 0.23);
+    if (isLocal || width >= 520) {
+      context.font = `900 ${clamp(9 * zoom, 8, 12)}px Inter, sans-serif`;
+      context.textAlign = "center";
+      context.fillStyle = "rgba(211,255,250,0.96)";
+      context.shadowColor = "rgba(0,8,22,0.95)";
+      context.shadowBlur = 5;
+      context.fillText(
+        `HEAD SAFE · ${(player.shieldTicksRemaining * fixedStepSeconds).toFixed(1)}S`,
+        head.x,
+        head.y + headRadius * 2.15,
+      );
     }
-    context.stroke();
+  }
 
-    // Decorative limbs remain inside the authoritative solid collision circle.
-    context.strokeStyle = "rgba(4,24,39,0.55)";
-    context.lineWidth = Math.max(1, radius * 0.07);
-    context.beginPath();
-    context.moveTo(-radius * 0.76, radius * 0.18);
-    context.lineTo(-radius * 0.53, radius * 0.03);
-    context.moveTo(radius * 0.76, radius * 0.18);
-    context.lineTo(radius * 0.53, radius * 0.03);
-    context.stroke();
+  const focusedMobileLabel = Math.hypot(
+    head.x - width / 2,
+    head.y - height / 2,
+  ) <= Math.min(width, height) * 0.48;
+  const insideMobileLabelSafeZone =
+    head.x >= 48 && head.x <= width - 48 &&
+    head.y >= 124 && head.y <= height - 224;
+  const corsair = isHeatCorsair;
+  if (
+    isLocal ||
+    (isHuman && insideMobileLabelSafeZone) ||
+    width >= 520 ||
+    ((focusedMobileLabel || corsair) && insideMobileLabelSafeZone)
+  ) {
+    context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
+    context.textAlign = "center";
+    context.fillStyle = isLocal ? "#ffffff" : isHuman ? "#74ffe4" : "rgba(224,238,249,0.84)";
+    context.shadowColor = "rgba(0,0,0,0.9)";
+    context.shadowBlur = 5;
+    const identity = isLocal
+      ? "YOU · HUMAN"
+      : isHuman
+        ? "HUMAN"
+        : isHeatCorsair
+          ? "AI CORSAIR"
+          : "AI";
+    context.fillText(`${player.name} · ${identity}`, head.x, head.y - headRadius * 2.05);
   }
   context.restore();
 }
 
-function drawNetworkCreatureSilhouette(
+function drawCollectorVortex(
   context: CanvasRenderingContext2D,
-  radius: number,
-  variant: number,
+  head: Vec2,
+  headRadius: number,
+  now: number,
+  color: string,
 ) {
-  if (variant === 0) {
-    context.ellipse(0, 0, radius * 0.98, radius * 0.9, 0, 0, Math.PI * 2);
-    return;
-  }
-  if (variant === 1) {
-    context.roundRect(
-      -radius * 0.66,
-      -radius * 0.66,
-      radius * 1.32,
-      radius * 1.32,
-      radius * 0.34,
-    );
-    return;
-  }
+  const fieldRadius = Math.max(30, headRadius * 2.65);
+  context.save();
+  context.translate(head.x, head.y);
+  context.globalCompositeOperation = "lighter";
+  context.strokeStyle = color;
+  context.shadowColor = "#79ffe6";
+  context.shadowBlur = 12;
+  for (let ring = 0; ring < 3; ring += 1) {
+    const phase = now * (0.0012 + ring * 0.00018) + ring * 2.1;
+    const radius = fieldRadius * (0.48 + ring * 0.24);
+    context.globalAlpha = 0.32 - ring * 0.065;
+    context.lineWidth = Math.max(1.1, headRadius * (0.12 - ring * 0.015));
+    context.beginPath();
+    context.arc(0, 0, radius, phase, phase + Math.PI * (0.92 + ring * 0.13));
+    context.stroke();
 
-  const points = variant === 2 ? 6 : variant === 3 ? 5 : 8;
-  const innerFactor = variant === 3 ? 0.58 : variant === 4 ? 0.72 : 1;
-  const pointCount = innerFactor < 1 ? points * 2 : points;
-  for (let point = 0; point < pointCount; point += 1) {
-    const angle = -Math.PI / 2 + (point / pointCount) * Math.PI * 2;
-    const radial = point % 2 === 1 && innerFactor < 1
-      ? radius * innerFactor
-      : radius * 0.94;
-    const x = Math.cos(angle) * radial;
-    const y = Math.sin(angle) * radial;
-    if (point === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
   }
-  context.closePath();
+  for (let mote = 0; mote < 5; mote += 1) {
+    const angle = now * 0.0015 + mote * (Math.PI * 2 / 5);
+    const orbit = fieldRadius * (0.58 + (mote % 2) * 0.22);
+    context.globalAlpha = 0.55;
+    drawTreasureShard(
+      context,
+      Math.cos(angle) * orbit,
+      Math.sin(angle) * orbit,
+      Math.max(1.8, headRadius * 0.12),
+      mote % 2 === 0 ? "#ffe89d" : color,
+      angle,
+    );
+  }
+  context.restore();
 }

@@ -3,43 +3,43 @@
   "timerSamples": [
     {
       "label": "bare-setInterval",
-      "durationMs": 2001.694,
-      "ticks": 44,
-      "observedHz": 21.981,
+      "durationMs": 2025.816,
+      "ticks": 41,
+      "observedHz": 20.239,
       "targetHz": 30,
-      "targetRatio": 0.733
+      "targetRatio": 0.675
     },
     {
       "label": "one-room-2-actors-0-drops-snapshot-15hz",
-      "durationMs": 2007.337,
-      "ticks": 59,
-      "observedHz": 29.392,
+      "durationMs": 2001.843,
+      "ticks": 60,
+      "observedHz": 29.972,
       "targetHz": 30,
-      "targetRatio": 0.98
+      "targetRatio": 0.999
     },
     {
       "label": "one-room-2-actors-720-drops-snapshot-1hz",
-      "durationMs": 2008.983,
-      "ticks": 60,
-      "observedHz": 29.866,
+      "durationMs": 1999.97,
+      "ticks": 59,
+      "observedHz": 29.5,
       "targetHz": 30,
-      "targetRatio": 0.996
+      "targetRatio": 0.983
     },
     {
       "label": "one-room-2-actors-720-drops-snapshot-15hz",
-      "durationMs": 2012.705,
-      "ticks": 59,
-      "observedHz": 29.314,
+      "durationMs": 2003.335,
+      "ticks": 60,
+      "observedHz": 29.95,
       "targetHz": 30,
-      "targetRatio": 0.977
+      "targetRatio": 0.998
     },
     {
       "label": "one-room-12-actors-720-drops-snapshot-15hz",
-      "durationMs": 2008.116,
-      "ticks": 60,
-      "observedHz": 29.879,
+      "durationMs": 2016.146,
+      "ticks": 59,
+      "observedHz": 29.264,
       "targetHz": 30,
-      "targetRatio": 0.996
+      "targetRatio": 0.975
     }
   ],
   "snapshots": [
@@ -47,132 +47,132 @@
       "targetPopulation": 2,
       "targetDropCount": 0,
       "players": 2,
-      "drops": 0,
-      "bodySegments": 16,
-      "oneTimeWorldPayloadBytes": 121,
-      "oneTimeWorldWithoutDropsBytes": 121,
-      "dropsApproximateBytes": 0,
-      "dropsPercentOfWorldPayload": 0,
-      "incrementalSnapshotPayloadBytes": 1469,
-      "incrementalSnapshotWithoutPlayersBytes": 185,
-      "playersApproximateBytes": 1284,
-      "playersPercentOfIncrementalSnapshot": 87.406,
+      "drops": 3,
+      "bodySegments": 6,
+      "oneTimeWorldPayloadBytes": 747,
+      "oneTimeWorldWithoutDropsBytes": 203,
+      "dropsApproximateBytes": 544,
+      "dropsPercentOfWorldPayload": 72.825,
+      "incrementalSnapshotPayloadBytes": 1016,
+      "incrementalSnapshotWithoutPlayersBytes": 207,
+      "playersApproximateBytes": 809,
+      "playersPercentOfIncrementalSnapshot": 79.626,
       "snapshotBuild": {
         "iterations": 250,
-        "totalMs": 0.499,
-        "meanMs": 0.001997,
-        "operationsPerSecond": 500801.282
+        "totalMs": 0.707,
+        "meanMs": 0.002828,
+        "operationsPerSecond": 353606.789
       },
       "incrementalSnapshotJsonSerialization": {
         "iterations": 250,
-        "totalMs": 1.237,
-        "meanMs": 0.004949,
-        "operationsPerSecond": 202052.857
+        "totalMs": 0.894,
+        "meanMs": 0.003576,
+        "operationsPerSecond": 279610.782
       },
       "oneTimeWorldJsonSerialization": {
         "iterations": 250,
-        "totalMs": 0.09,
-        "meanMs": 0.000362,
-        "operationsPerSecond": 2765486.726
+        "totalMs": 0.619,
+        "meanMs": 0.002475,
+        "operationsPerSecond": 404073.056
       },
       "serializationAtSixRecipients": {
-        "hypotheticalRepeatedCpuMsPerSnapshot": 0.03,
-        "currentSerializeOnceCpuMsPerSnapshot": 0.004949,
+        "hypotheticalRepeatedCpuMsPerSnapshot": 0.021,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.003576,
         "avoidedSerializationMultiplier": 6
       },
       "estimatedNetworkAt15Hz": {
-        "mebibytesPerSecondPerClient": 0.021,
-        "megabitsPerSecondPerClient": 0.176,
-        "mebibytesPerSecondPerSixClientRoom": 0.126,
-        "mebibytesPerSecondForFourSixClientRooms": 0.504
+        "mebibytesPerSecondPerClient": 0.015,
+        "megabitsPerSecondPerClient": 0.122,
+        "mebibytesPerSecondPerSixClientRoom": 0.087,
+        "mebibytesPerSecondForFourSixClientRooms": 0.349
       }
     },
     {
       "targetPopulation": 2,
       "targetDropCount": 720,
       "players": 2,
-      "drops": 720,
-      "bodySegments": 16,
-      "oneTimeWorldPayloadBytes": 105247,
-      "oneTimeWorldWithoutDropsBytes": 123,
-      "dropsApproximateBytes": 105124,
-      "dropsPercentOfWorldPayload": 99.883,
-      "incrementalSnapshotPayloadBytes": 1464,
-      "incrementalSnapshotWithoutPlayersBytes": 187,
-      "playersApproximateBytes": 1277,
-      "playersPercentOfIncrementalSnapshot": 87.227,
+      "drops": 723,
+      "bodySegments": 6,
+      "oneTimeWorldPayloadBytes": 105875,
+      "oneTimeWorldWithoutDropsBytes": 205,
+      "dropsApproximateBytes": 105670,
+      "dropsPercentOfWorldPayload": 99.806,
+      "incrementalSnapshotPayloadBytes": 1019,
+      "incrementalSnapshotWithoutPlayersBytes": 209,
+      "playersApproximateBytes": 810,
+      "playersPercentOfIncrementalSnapshot": 79.49,
       "snapshotBuild": {
         "iterations": 250,
-        "totalMs": 22.08,
-        "meanMs": 0.08832,
-        "operationsPerSecond": 11322.412
+        "totalMs": 47.48,
+        "meanMs": 0.189918,
+        "operationsPerSecond": 5265.419
       },
       "incrementalSnapshotJsonSerialization": {
         "iterations": 250,
-        "totalMs": 1.016,
-        "meanMs": 0.004064,
-        "operationsPerSecond": 246087.213
+        "totalMs": 1.012,
+        "meanMs": 0.00405,
+        "operationsPerSecond": 246937.969
       },
       "oneTimeWorldJsonSerialization": {
         "iterations": 250,
-        "totalMs": 65.462,
-        "meanMs": 0.261847,
-        "operationsPerSecond": 3819.027
+        "totalMs": 119.96,
+        "meanMs": 0.47984,
+        "operationsPerSecond": 2084.026
       },
       "serializationAtSixRecipients": {
         "hypotheticalRepeatedCpuMsPerSnapshot": 0.024,
-        "currentSerializeOnceCpuMsPerSnapshot": 0.004064,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.00405,
         "avoidedSerializationMultiplier": 6
       },
       "estimatedNetworkAt15Hz": {
-        "mebibytesPerSecondPerClient": 0.021,
-        "megabitsPerSecondPerClient": 0.176,
-        "mebibytesPerSecondPerSixClientRoom": 0.126,
-        "mebibytesPerSecondForFourSixClientRooms": 0.503
+        "mebibytesPerSecondPerClient": 0.015,
+        "megabitsPerSecondPerClient": 0.122,
+        "mebibytesPerSecondPerSixClientRoom": 0.087,
+        "mebibytesPerSecondForFourSixClientRooms": 0.35
       }
     },
     {
       "targetPopulation": 12,
       "targetDropCount": 720,
       "players": 12,
-      "drops": 720,
-      "bodySegments": 96,
-      "oneTimeWorldPayloadBytes": 105197,
-      "oneTimeWorldWithoutDropsBytes": 124,
-      "dropsApproximateBytes": 105073,
-      "dropsPercentOfWorldPayload": 99.882,
-      "incrementalSnapshotPayloadBytes": 7904,
-      "incrementalSnapshotWithoutPlayersBytes": 188,
-      "playersApproximateBytes": 7716,
-      "playersPercentOfIncrementalSnapshot": 97.621,
+      "drops": 723,
+      "bodySegments": 36,
+      "oneTimeWorldPayloadBytes": 105856,
+      "oneTimeWorldWithoutDropsBytes": 206,
+      "dropsApproximateBytes": 105650,
+      "dropsPercentOfWorldPayload": 99.805,
+      "incrementalSnapshotPayloadBytes": 5089,
+      "incrementalSnapshotWithoutPlayersBytes": 210,
+      "playersApproximateBytes": 4879,
+      "playersPercentOfIncrementalSnapshot": 95.873,
       "snapshotBuild": {
         "iterations": 250,
-        "totalMs": 17.184,
-        "meanMs": 0.068736,
-        "operationsPerSecond": 14548.332
+        "totalMs": 33.249,
+        "meanMs": 0.132995,
+        "operationsPerSecond": 7519.068
       },
       "incrementalSnapshotJsonSerialization": {
         "iterations": 250,
-        "totalMs": 5.427,
-        "meanMs": 0.021706,
-        "operationsPerSecond": 46069.362
+        "totalMs": 4.77,
+        "meanMs": 0.019081,
+        "operationsPerSecond": 52408.704
       },
       "oneTimeWorldJsonSerialization": {
         "iterations": 250,
-        "totalMs": 66.741,
-        "meanMs": 0.266966,
-        "operationsPerSecond": 3745.801
+        "totalMs": 109.605,
+        "meanMs": 0.43842,
+        "operationsPerSecond": 2280.916
       },
       "serializationAtSixRecipients": {
-        "hypotheticalRepeatedCpuMsPerSnapshot": 0.13,
-        "currentSerializeOnceCpuMsPerSnapshot": 0.021706,
+        "hypotheticalRepeatedCpuMsPerSnapshot": 0.114,
+        "currentSerializeOnceCpuMsPerSnapshot": 0.019081,
         "avoidedSerializationMultiplier": 6
       },
       "estimatedNetworkAt15Hz": {
-        "mebibytesPerSecondPerClient": 0.113,
-        "megabitsPerSecondPerClient": 0.948,
-        "mebibytesPerSecondPerSixClientRoom": 0.678,
-        "mebibytesPerSecondForFourSixClientRooms": 2.714
+        "mebibytesPerSecondPerClient": 0.073,
+        "megabitsPerSecondPerClient": 0.611,
+        "mebibytesPerSecondPerSixClientRoom": 0.437,
+        "mebibytesPerSecondForFourSixClientRooms": 1.747
       }
     }
   ],
@@ -188,5 +188,5 @@
     "Private room methods are invoked only by this diagnostic script and are not a supported application API.",
     "The profile is local, same-process, short-duration, and not a production capacity or parity claim."
   ],
-  "measuredAtUtc": "2026-07-30T00:05:29.243Z"
+  "measuredAtUtc": "2026-07-30T08:01:35.602Z"
 }

@@ -8,9 +8,78 @@ export interface Vec2 {
 
 export type PlayerKind = "human" | "bot";
 export type SpecialistKind = "collector";
+export type PirateRelicKind =
+  | "loot-compass"
+  | "emerald-spyglass"
+  | "pepper-cutlass";
+
+/**
+ * Static, server-owned geometry and tuning for a wrap charging station. A
+ * board with an empty station list is behaviorally identical to the original
+ * open arena.
+ */
+export interface ChargingStationConfig {
+  id: string;
+  name: string;
+  position: Vec2;
+  coreRadius: number;
+  wrapRadius: number;
+  wrapTolerance: number;
+  dockAngleRadians: number;
+  dockRadius: number;
+  requiredWrapRadians: number;
+  minimumWrappedSegments: number;
+  chargeDurationSeconds: number;
+  massReward: number;
+  interruptionGraceSeconds: number;
+  interruptionDecayTicksPerTick: number;
+  completionCooldownSeconds: number;
+  resetCooldownSeconds: number;
+}
+
+export interface GameBoardConfig {
+  id: string;
+  name: string;
+  chargingStations: ChargingStationConfig[];
+}
+
+export type ChargingStationPhase =
+  | "ready"
+  | "charging"
+  | "interrupted"
+  | "cooldown";
+
+/** Dynamic station truth; only the deterministic core mutates this state. */
+export interface ChargingStationState {
+  stationId: string;
+  phase: ChargingStationPhase;
+  playerId?: PlayerId;
+  windingDirection: -1 | 0 | 1;
+  progressTicks: number;
+  requiredTicks: number;
+  graceTicksRemaining: number;
+  cooldownTicksRemaining: number;
+  massAwarded: number;
+}
+
+/** Inspectable geometry result used by tests and future renderer feedback. */
+export interface ChargingWrapGeometry {
+  docked: boolean;
+  wrappedSegments: number;
+  windingRadians: number;
+  windingDirection: -1 | 0 | 1;
+  directionConsistency: number;
+  valid: boolean;
+}
 
 export interface ActiveSpecialist {
   kind: SpecialistKind;
+  /**
+   * Optional protocol-v5 extension. Absent on legacy Collector state, which
+   * means Loot Compass exactly. The outer kind stays `collector` so older
+   * clients can safely retain the single timed-slot envelope.
+   */
+  relicKind?: PirateRelicKind;
   activatedAtTick: number;
   expiresAtTick: number;
   durationTicks: number;
@@ -71,6 +140,9 @@ export interface DropState {
   /** A zero-mass, explicitly telegraphed specialist pickup. */
   specialist?: SpecialistKind;
   specialistDurationTicks?: number;
+  /** New named Relics use additive fields old protocol-v5 clients ignore. */
+  relicKind?: PirateRelicKind;
+  relicDurationTicks?: number;
   /** Collector range may affect neutral motes, the producer only, or nobody. */
   collectorReachPolicy: "neutral" | "owner" | "none";
   blockedPlayerId?: PlayerId;
@@ -99,6 +171,7 @@ export interface GameConfig {
   segmentSpacingFactor: number;
   startingBodySegments: number;
   minimumBodySegments: number;
+  maximumBodySegments: number;
   massPerSegment: number;
   spawnShieldSeconds: number;
   dropRadius: number;
@@ -116,6 +189,8 @@ export type CollisionRadiusConfig = Pick<
 
 export interface GameState {
   config: GameConfig;
+  board: GameBoardConfig;
+  chargingStations: Record<string, ChargingStationState>;
   initialSeed: string | number;
   randomState: number;
   tick: number;
@@ -144,6 +219,8 @@ export interface SpawnDropOptions {
   originPlayerId?: PlayerId;
   specialist?: SpecialistKind;
   specialistDurationSeconds?: number;
+  relicKind?: PirateRelicKind;
+  relicDurationSeconds?: number;
   collectorReachPolicy?: DropState["collectorReachPolicy"];
   blockedPlayerId?: PlayerId;
   blockedUntilTick?: number;
@@ -197,6 +274,7 @@ export type GameEvent =
       playerId: PlayerId;
       dropId: DropId;
       specialist: SpecialistKind;
+      relicKind?: PirateRelicKind;
       durationTicks: number;
     }
   | {
@@ -204,6 +282,44 @@ export type GameEvent =
       tick: number;
       playerId: PlayerId;
       specialist: SpecialistKind;
+      relicKind?: PirateRelicKind;
+    }
+  | {
+      type: "chargingStarted";
+      tick: number;
+      stationId: string;
+      playerId: PlayerId;
+      windingDirection: -1 | 1;
+      requiredTicks: number;
+    }
+  | {
+      type: "chargingInterrupted";
+      tick: number;
+      stationId: string;
+      playerId: PlayerId;
+      progressTicks: number;
+    }
+  | {
+      type: "chargingResumed";
+      tick: number;
+      stationId: string;
+      playerId: PlayerId;
+      progressTicks: number;
+    }
+  | {
+      type: "chargingReset";
+      tick: number;
+      stationId: string;
+      playerId: PlayerId;
+      massAwarded: number;
+    }
+  | {
+      type: "chargingCompleted";
+      tick: number;
+      stationId: string;
+      playerId: PlayerId;
+      massAwarded: number;
+      cooldownTicks: number;
     }
   | {
       type: "playerDied";

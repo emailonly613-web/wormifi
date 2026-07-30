@@ -58,30 +58,44 @@ from unsupported exact matching to prefix matching. Full spec validation does
 not clone the repository or execute the build, so rerun it after `main` exists.
 Neither command creates or updates an app.
 
-After explicit deployment authorization, a new app would be created with:
+The Wormifi app now exists as `209351f3-4440-4e23-9dd1-93dd9274ec26`.
+After the candidate is committed, pushed and explicitly accepted, apply this
+reviewed spec to that exact Wormifi app with:
 
 ```powershell
-doctl apps create --spec deploy/do-preview.yaml
+doctl apps update 209351f3-4440-4e23-9dd1-93dd9274ec26 --spec deploy/do-preview.yaml --update-sources --wait
 ```
 
-Do not substitute `doctl apps update`, and never supply either Fire Your
-Coworkers app ID. App creation incurs service charges; the spec deliberately
-uses one `basic-xs` service instance and a static-site component.
+Do not run `apps create`, and never supply either Fire Your Coworkers app ID.
+The spec deliberately retains one `basic-xs` service instance and one
+static-site component.
 
 ## Post-deployment preview gate
 
 Before considering any custom domain:
 
-1. Confirm `GET https://<starter-domain>/healthz` returns
-   `{ "ok": true, "authority": "server", ... }`.
-2. Connect to `wss://<starter-domain>/arena`, join a room, and require a valid
+1. Confirm `GET https://<domain>/build-info.json` returns
+   `{ "product": "wormifi", "protocolVersion": 5,
+   "buildRevision": "<deployed-git-sha>" }` from the static client and that the
+   revision equals the candidate being proved.
+2. Confirm `GET https://<domain>/healthz` returns
+   `{ "ok": true, "authority": "server", "protocolVersion": 5,
+   "buildRevision": "<deployed-git-sha>", ... }` and that the revision equals
+   both the candidate and the static-client revision.
+3. Connect to `wss://<domain>/arena`, join a room, and require a valid
    server welcome, world sync, and fresh snapshots.
-3. Run two independent browsers in the same room and verify shared authority,
+4. Run two independent browsers in the same room and verify shared authority,
    movement, disconnect/reconnect, and no fallback to local practice state.
-4. Repeat desktop/mobile proof and an external network run. The existing load
+5. Repeat desktop/mobile proof and an external network run. The existing load
    report is localhost evidence only.
-5. Review service CPU, memory, restarts, bandwidth, and connection stability in
+6. Review service CPU, memory, restarts, bandwidth, and connection stability in
    App Platform Insights.
+
+The first two checks are deliberately automated and fail closed:
+
+```powershell
+pnpm verify:deployment-identity -- https://wormifi.com <deployed-git-sha>
+```
 
 That gate passed on the isolated starter domain before the reviewed `domains`
 block was added. Domain health and certificate issuance remain separate checks;

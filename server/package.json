@@ -12,6 +12,7 @@
     "start": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs src/cli.ts",
     "test": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs --test tests/integration/*.test.ts",
     "test:load": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs tests/load/authoritative-load.ts",
+    "test:network:impairment": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs tests/network/authoritative-impairment.ts",
     "profile:load": "node --experimental-transform-types --experimental-loader ./src/extension-loader.mjs tests/load/profile-authority.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

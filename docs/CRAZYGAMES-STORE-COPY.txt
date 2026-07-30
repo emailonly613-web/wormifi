@@ -1,0 +1,11 @@
+WORMIFI — THREE-SENTENCE DESCRIPTION
+
+Wormifi is an original pirate-serpent arena where every piece of treasure makes your crew visibly larger. Steer through a crowded sea chart, collect recognizable gems and relics, and cut across rival captains without striking their bodies. Chase a higher score in a fast 90-second run or keep growing in Endless mode with mouse, keyboard, or touch controls.
+
+CONTROLS
+
+Desktop: move the mouse or use WASD/arrow keys to steer. Hold the mouse button, Space, or Shift to sprint; sprint spends size. Mobile: drag from the selected left, right, or anywhere helm and use the on-screen Sprint control.
+
+SHORT DESCRIPTION
+
+Collect pirate treasure, grow a mighty sea-serpent, and outmaneuver rival captains in an original browser arena.

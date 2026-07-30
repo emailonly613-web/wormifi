@@ -12,15 +12,28 @@ import {
 } from "../../src/game/core.ts";
 import { spawnBotRoster } from "../../src/game/bots.ts";
 import { randomPointInCircle } from "../../src/game/random.ts";
+import {
+  DEFAULT_COSMETIC_THEME_ID,
+  type CosmeticThemeId,
+} from "../../src/game/cosmeticThemes.ts";
 import type {
   BotInputProvider,
+  GameBoardConfig,
   GameEvent,
   GameState,
   PlayerInput,
   PlayerInputMap,
 } from "../../src/game/types.ts";
 import {
+  HeatRingController,
+  type HeatRingConfig,
+} from "./heat-ring.ts";
+import { PirateRelicDirector } from "./relic-director.ts";
+import { SERVER_BUILD_REVISION } from "./build-info.ts";
+import {
   PROTOCOL_VERSION,
+  packSnapshotForWire,
+  type AuthoritativeEvent,
   type ErrorMessage,
   type InputMessage,
   type JoinMessage,
@@ -44,6 +57,7 @@ interface Session {
   token: string;
   playerId: string;
   name: string;
+  themeId: CosmeticThemeId;
   socket?: WebSocket;
   lastAcceptedSequence: number;
   latestInput?: PlayerInput;
@@ -58,11 +72,16 @@ interface BenchedBot {
 
 export interface ArenaRoomOptions {
   targetPopulation?: number;
+  /** Maximum reserved human seats, including reconnect-grace sessions. */
+  maxHumanPlayers?: number;
   fixedStepHz?: number;
   snapshotHz?: number;
   reconnectGraceMs?: number;
   arenaRadius?: number;
   targetDropCount?: number;
+  /** Opt-in board profile. Omit it to preserve the station-free open arena. */
+  board?: Readonly<GameBoardConfig>;
+  heatRing?: false | Partial<HeatRingConfig>;
   now?: () => number;
 }
 
@@ -75,17 +94,20 @@ export class ArenaRoom {
   readonly state: GameState;
 
   private readonly targetPopulation: number;
+  private readonly maxHumanPlayers: number;
   private readonly fixedStepHz: number;
   private readonly snapshotEveryTicks: number;
   private readonly reconnectGraceMs: number;
   private readonly targetDropCount: number;
+  private readonly heatRingOptions: false | Partial<HeatRingConfig> | undefined;
   private readonly collectorBeaconRespawnTicks: number;
+  private readonly pirateRelics: PirateRelicDirector;
   private readonly now: () => number;
   private readonly sessionsByToken = new Map<string, Session>();
   private readonly sessionsByPlayer = new Map<string, Session>();
   private readonly botPool: BenchedBot[] = [];
   private readonly botProviders: Record<string, BotInputProvider> = {};
-  private pendingEvents: GameEvent[] = [];
+  private pendingEvents: AuthoritativeEvent[] = [];
   private readonly broadcastDrops = new Map<string, PublicDropState>();
   private timer?: NodeJS.Timeout;
   private schedulerLastMs = 0;
@@ -94,6 +116,8 @@ export class ArenaRoom {
   private humanNumber = 0;
   private collectorBeaconNumber = 0;
   private nextCollectorBeaconTick?: number;
+  private heatRingUsed = false;
+  private heatRing?: HeatRingController;
 
   constructor(
     readonly id: string,
@@ -101,28 +125,35 @@ export class ArenaRoom {
     private readonly onIdle?: (room: ArenaRoom) => void,
   ) {
     this.targetPopulation = Math.max(0, Math.floor(options.targetPopulation ?? 24));
+    this.maxHumanPlayers = Math.max(1, Math.floor(options.maxHumanPlayers ?? 24));
     this.fixedStepHz = Math.max(1, Math.floor(options.fixedStepHz ?? 30));
     const snapshotHz = Math.max(1, Math.floor(options.snapshotHz ?? 15));
     this.snapshotEveryTicks = Math.max(1, Math.round(this.fixedStepHz / snapshotHz));
     this.reconnectGraceMs = Math.max(100, options.reconnectGraceMs ?? 15_000);
     this.targetDropCount = Math.max(0, Math.floor(options.targetDropCount ?? 720));
+    this.heatRingOptions = options.heatRing;
     this.collectorBeaconRespawnTicks = Math.max(
       1,
       Math.ceil(COLLECTOR_BEACON_RESPAWN_SECONDS * this.fixedStepHz),
     );
     this.now = options.now ?? Date.now;
-    this.state = createGameState(`room:${id}`, {
-      fixedStepSeconds: 1 / this.fixedStepHz,
-      arenaRadius: Math.max(600, options.arenaRadius ?? 1_850),
-      spawnShieldSeconds: 4,
-      maximumDeathDrops: 64,
-      dropRadius: 5.2,
-    });
+    this.state = createGameState(
+      `room:${id}`,
+      {
+        fixedStepSeconds: 1 / this.fixedStepHz,
+        arenaRadius: Math.max(600, options.arenaRadius ?? 1_850),
+        spawnShieldSeconds: 1.5,
+        maximumDeathDrops: 64,
+        dropRadius: 5.2,
+      },
+      options.board,
+    );
 
     const roster = spawnBotRoster(this.state, this.targetPopulation);
     Object.assign(this.botProviders, roster.providers);
     this.seedArenaDrops();
     this.spawnCollectorBeacon();
+    this.pirateRelics = new PirateRelicDirector(this.state);
     for (const drop of this.publicDrops()) this.broadcastDrops.set(drop.id, drop);
   }
 
@@ -168,6 +199,7 @@ export class ArenaRoom {
       existing.disconnectedAtMs = undefined;
       const player = this.state.players[existing.playerId];
       existing.name = message.name || existing.name;
+      if (message.themeId) existing.themeId = message.themeId;
       if (player) player.name = existing.name;
       this.sendWelcome(existing, true);
       this.sendWorld(existing);
@@ -175,6 +207,21 @@ export class ArenaRoom {
       return { session: existing };
     }
 
+    // Reconnect-grace sessions retain their seat. This fails closed instead of
+    // spawning an unbounded human while a disconnected captain can still return.
+    if (this.sessionsByToken.size >= this.maxHumanPlayers) {
+      return {
+        error: {
+          type: "error",
+          code: "ROOM_FULL",
+          message: `This room is full (${this.maxHumanPlayers} human captains). Try another room or reconnect with your existing token.`,
+        },
+      };
+    }
+
+    if (this.heatRing?.active) {
+      this.pendingEvents.push(...this.heatRing.abort("second-human"));
+    }
     this.benchOneBot();
     this.humanNumber += 1;
     const playerId = `human-${this.humanNumber}`;
@@ -183,18 +230,29 @@ export class ArenaRoom {
       id: playerId,
       name: message.name ?? `Guest ${this.humanNumber}`,
       kind: "human",
-      shieldSeconds: 4,
+      shieldSeconds: this.state.config.spawnShieldSeconds,
     });
 
     const session: Session = {
       token,
       playerId,
       name: message.name ?? `Guest ${this.humanNumber}`,
+      themeId: message.themeId ?? DEFAULT_COSMETIC_THEME_ID,
       socket,
       lastAcceptedSequence: -1,
     };
     this.sessionsByToken.set(token, session);
     this.sessionsByPlayer.set(playerId, session);
+    if (!this.heatRingUsed) {
+      this.heatRingUsed = true;
+      this.heatRing = HeatRingController.prepare(
+        this.state,
+        playerId,
+        this.botProviders,
+        this.heatRingOptions,
+      );
+      if (this.heatRing) this.pendingEvents.push(this.heatRing.startedEvent());
+    }
     this.sendWelcome(session, false);
     this.sendWorld(session);
     this.broadcastSnapshot();
@@ -205,6 +263,9 @@ export class ArenaRoom {
     if (session.socket !== socket) return;
     session.socket = undefined;
     session.disconnectedAtMs = this.now();
+    if (this.heatRing?.active && session.playerId === this.heatRing.firstHumanId) {
+      this.pendingEvents.push(...this.heatRing.abort("first-human-disconnected"));
+    }
 
     const player = this.state.players[session.playerId];
     if (player) {
@@ -270,19 +331,25 @@ export class ArenaRoom {
       if (this.simulationStep()) return;
       this.schedulerAccumulatorMs -= stepMilliseconds;
       steps += 1;
+      // Preserve the published snapshot cadence across a delayed scheduler
+      // wake. Publishing only after the full catch-up batch silently collapsed
+      // multiple due frames even though the authoritative ticks were retained.
+      if (this.state.tick - this.lastSnapshotTick >= this.snapshotEveryTicks) {
+        this.lastSnapshotTick = this.state.tick;
+        this.broadcastSnapshot();
+      }
     }
     if (steps === MAX_CATCH_UP_STEPS) {
       this.schedulerAccumulatorMs = Math.min(this.schedulerAccumulatorMs, stepMilliseconds);
-    }
-    if (steps > 0 && this.state.tick - this.lastSnapshotTick >= this.snapshotEveryTicks) {
-      this.lastSnapshotTick = this.state.tick;
-      this.broadcastSnapshot();
     }
   }
 
   /** Returns true when this step retired the room through its idle callback. */
   private simulationStep(): boolean {
     if (this.expireDisconnectedSessions()) return true;
+    if (this.heatRing?.active) {
+      this.pendingEvents.push(...this.heatRing.validateBeforeStep());
+    }
     this.respawnReleasedPlayers();
     const humanInputs: Record<string, PlayerInput> = {};
     for (const session of this.sessionsByToken.values()) {
@@ -291,13 +358,20 @@ export class ArenaRoom {
       }
     }
 
+    const previousDropIds = this.heatRing?.active
+      ? new Set(this.state.drops.map((drop) => drop.id))
+      : new Set<string>();
     const result = stepGame(
       this.state,
       humanInputs as PlayerInputMap,
       this.botProviders,
     );
     this.pendingEvents.push(...result.events);
+    if (this.heatRing?.active) {
+      this.pendingEvents.push(...this.heatRing.reconcileStep(result.events, previousDropIds));
+    }
     this.reconcileCollectorBeacon(result.events);
+    this.pirateRelics.reconcile(result.events);
     if (this.state.drops.length < this.targetDropCount - 48) this.seedArenaDrops();
     return false;
   }
@@ -318,6 +392,9 @@ export class ArenaRoom {
         kills: player.stats.kills,
         score: calculateScore(player, this.state.config),
         shieldTicksRemaining: player.shieldTicksRemaining,
+        // Only human sessions own authored public cosmetics. Bots intentionally
+        // omit themeId so clients retain their deterministic varied palettes.
+        themeId: this.sessionsByPlayer.get(player.id)?.themeId,
         specialist: player.specialist ? { ...player.specialist } : undefined,
       }));
 
@@ -339,6 +416,9 @@ export class ArenaRoom {
       dropUpserts,
       removedDropIds,
       events: this.pendingEvents,
+      chargingStations: Object.values(this.state.chargingStations)
+        .sort((first, second) => first.stationId.localeCompare(second.stationId))
+        .map((station) => ({ ...station })),
     };
     this.pendingEvents = [];
     return message;
@@ -346,7 +426,7 @@ export class ArenaRoom {
 
   private broadcastSnapshot(): void {
     const snapshot = this.snapshot();
-    const encoded = JSON.stringify(snapshot);
+    const encoded = JSON.stringify(packSnapshotForWire(snapshot));
     const carriesWorldDelta = snapshot.dropUpserts.length > 0 || snapshot.removedDropIds.length > 0;
     for (const session of this.sessionsByToken.values()) {
       // A skipped dynamic player frame is self-healing because the next frame
@@ -360,6 +440,7 @@ export class ArenaRoom {
     const message: WelcomeMessage = {
       type: "welcome",
       protocolVersion: PROTOCOL_VERSION,
+      buildRevision: SERVER_BUILD_REVISION,
       authority: "server",
       roomId: this.id,
       playerId: session.playerId,
@@ -386,6 +467,15 @@ export class ArenaRoom {
         bodyRadiusFactor: this.state.config.bodyRadiusFactor,
       },
       drops: this.publicDrops(),
+      board: {
+        id: this.state.board.id,
+        name: this.state.board.name,
+        chargingStations: this.state.board.chargingStations.map((station) => ({
+          ...station,
+          position: { ...station.position },
+        })),
+      },
+      heatRing: this.heatRing?.active ? this.heatRing.descriptor : undefined,
     };
     this.sendEncoded(session, JSON.stringify(message));
   }
@@ -400,6 +490,8 @@ export class ArenaRoom {
       originPlayerId: drop.originPlayerId,
       specialist: drop.specialist,
       specialistDurationTicks: drop.specialistDurationTicks,
+      relicKind: drop.relicKind,
+      relicDurationTicks: drop.relicDurationTicks,
     }));
   }
 
@@ -453,7 +545,10 @@ export class ArenaRoom {
   }
 
   private benchOneBot(): void {
-    const id = Object.keys(this.botProviders).sort().at(-1);
+    const id = Object.keys(this.botProviders)
+      .filter((candidate) => !this.heatRing?.isHeatBot(candidate))
+      .sort()
+      .at(-1);
     if (!id) return;
     const player = this.state.players[id];
     const provider = this.botProviders[id];
@@ -472,7 +567,7 @@ export class ArenaRoom {
         id: benched.id,
         name: benched.name,
         kind: "bot",
-        shieldSeconds: 4,
+        shieldSeconds: this.state.config.spawnShieldSeconds,
       });
       this.botProviders[benched.id] = benched.provider;
     }
@@ -508,7 +603,7 @@ export class ArenaRoom {
         id: player.id,
         name,
         kind,
-        shieldSeconds: 3,
+        shieldSeconds: this.state.config.spawnShieldSeconds,
       });
     }
   }

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /arena
+Disallow: /healthz
+
+Sitemap: https://wormifi.com/sitemap.xml

@@ -20,12 +20,14 @@ state fields, stale input, an excessive sequence jump, binary input, and a
 bounded burst of stale messages. It then checks both WebSocket responsiveness
 and `/healthz`.
 
-The same gate validates protocol v4 ground-loop visibility under load:
+The same gate validates protocol v5 ground-loop visibility under load:
 
 - Collector beacon metadata is coherent in world syncs;
 - active Collector intervals are valid against each snapshot tick;
 - Boost Echo and Rival Echo upserts retain producer identity;
 - no world contains multiple Collector beacons;
+- packed body paths stay decodable and bounded;
+- Heat Ring metadata, when present, remains server-owned and room-isolated;
 - metadata violations remain exactly zero;
 - p99 world payload stays at or below 160 KiB, p99 snapshot payload stays at or
   below 24 KiB, and estimated snapshot traffic stays at or below 4 MiB/s.
@@ -68,9 +70,22 @@ WORMIFI_LOAD_PING_HZ=2
 WORMIFI_LOAD_TARGET_POPULATION=16
 WORMIFI_LOAD_RECONNECT_CLIENTS=8
 WORMIFI_LOAD_INVALID_BURST=500
+WORMIFI_LOAD_BOOTSTRAP_TIMEOUT_MS=10000
+WORMIFI_LOAD_JOIN_BATCH_SIZE=8
+WORMIFI_LOAD_JOIN_BATCH_DELAY_MS=25
 WORMIFI_LOAD_REPORT=C:\absolute\path\report.json
 WORMIFI_LOAD_ALLOW_CAPACITY_MISS=1
 ```
+
+`WORMIFI_LOAD_BOOTSTRAP_TIMEOUT_MS` changes only the explicit cold-start and
+room-convergence deadline. Initial join latency remains measured in the report;
+the tick, snapshot-cadence, isolation, payload, reconnect, and safety gates are
+not relaxed.
+
+`WORMIFI_LOAD_JOIN_BATCH_SIZE` and `WORMIFI_LOAD_JOIN_BATCH_DELAY_MS` make a
+steady-state ramp explicit. The default remains an all-at-once cold burst. A
+ramped capacity pass must be labeled as ramped/steady-state proof and does not
+erase a separate cold-burst bootstrap miss.
 
 The report includes p50/p95/p99 local ping RTT and snapshot inter-arrival,
 snapshot payload and delivery-lag distributions, observed room tick rate,

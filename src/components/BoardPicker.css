@@ -1,0 +1,115 @@
+.board-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(112, 255, 226, 0.28);
+  border-radius: 15px;
+  color: #eafff9;
+  background: linear-gradient(135deg, rgba(8, 37, 48, 0.82), rgba(29, 21, 50, 0.74));
+  display: grid;
+  gap: 7px;
+}
+
+.board-picker legend {
+  padding: 0 5px;
+  color: #ffe7a0;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+}
+
+.board-picker-intro,
+.board-picker-lock {
+  margin: 0;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.board-picker-intro {
+  color: #a9c7ce;
+}
+
+.board-picker-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.board-picker-options > label {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(157, 203, 211, 0.2);
+  border-radius: 12px;
+  background: rgba(2, 18, 31, 0.72);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.board-picker-options > label.selected {
+  border-color: rgba(255, 219, 114, 0.74);
+  background: linear-gradient(145deg, rgba(102, 72, 25, 0.5), rgba(17, 78, 82, 0.66));
+  box-shadow: inset 0 0 0 1px rgba(255, 230, 148, 0.08);
+}
+
+.board-picker-options > label:has(input:focus-visible) {
+  outline: 3px solid #fff0a6;
+  outline-offset: 2px;
+}
+
+.board-picker-options > label:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.board-picker-options input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 1px 0 0;
+  accent-color: #ffd96c;
+}
+
+.board-picker-copy,
+.board-picker-heading {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.board-picker-heading strong {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.board-picker-heading small {
+  color: #70f5db;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+}
+
+.board-picker-copy > span:not(.board-picker-heading) {
+  color: #adc3cc;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.board-picker-copy > b {
+  color: #f6d984;
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.board-picker-lock {
+  padding-top: 2px;
+  color: #7affe1;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 480px) {
+  .board-picker-options {
+    grid-template-columns: 1fr;
+  }
+}

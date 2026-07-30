@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "verdict": "NETWORK_IMPAIRMENT_PROOF_PASS",
+  "claim": "non-production-application-level-websocket-impairment-proof-only",
+  "profiles": [
+    {
+      "id": "rtt-100",
+      "configuration": {
+        "targetRoundTripMs": 100,
+        "oneWayDelayMs": 50,
+        "oneWayJitterMs": 5,
+        "inputLossModel": "none",
+        "inputReorderModel": "none",
+        "seed": 1048832,
+        "inputMessagesSent": 120,
+        "interruptionMs": 400
+      },
+      "measured": {
+        "initialApplicationJoinMs": {
+          "count": 2,
+          "min": 134.613,
+          "p50": 134.613,
+          "p95": 290.876,
+          "p99": 290.876,
+          "max": 290.876,
+          "mean": 212.744
+        },
+        "applicationPingRoundTripMs": {
+          "count": 7,
+          "min": 106.733,
+          "p50": 122.238,
+          "p95": 296.667,
+          "p99": 296.667,
+          "max": 296.667,
+          "mean": 165.917
+        },
+        "inputToObservedDirectionMs": 768.237,
+        "initialTick": 6,
+        "finalTick": 237,
+        "tickProgress": 231,
+        "reconnectApplicationMs": 276.263,
+        "reconnectLastAcceptedSequence": 121,
+        "staleInputErrorsObserved": 0,
+        "proxy": {
+          "downstreamConnections": 3,
+          "clientToServer": {
+            "receivedMessages": 131,
+            "deliveredMessages": 131,
+            "inputMessages": 120,
+            "droppedInputs": 0,
+            "injectedReorderedInputs": 0,
+            "observedOutOfOrderInputDeliveries": 0,
+            "scheduledButNotYetDelivered": 0,
+            "plannedDelayMs": {
+              "count": 131,
+              "min": 45.057,
+              "p50": 50.154,
+              "p95": 54.041,
+              "p99": 54.409,
+              "max": 54.505,
+              "mean": 50.089
+            }
+          },
+          "serverToClient": {
+            "receivedMessages": 205,
+            "deliveredMessages": 201,
+            "scheduledButNotYetDelivered": 4,
+            "plannedDelayMs": {
+              "count": 205,
+              "min": 45.106,
+              "p50": 50.657,
+              "p95": 54.523,
+              "p99": 54.844,
+              "max": 54.968,
+              "mean": 50.367
+            }
+          }
+        }
+      },
+      "assertions": {
+        "joinCompletedThroughRealWebSockets": true,
+        "welcomeWorldAndSnapshotsRemainServerAuthoritative": true,
+        "authoritativeTicksProgressed": true,
+        "clientInputChangedAuthoritativeDirection": true,
+        "applicationPingReceivedMatchingPong": true,
+        "measuredPingApproximatedConfiguredRoundTrip": true,
+        "reconnectRecoveredSamePlayerExactlyOnce": true,
+        "reconnectPreservedAcceptedInputSequence": true,
+        "independentRoomsShowedNoCrossRoomMessagesOrHumans": true,
+        "serverHealthRemainedResponsive": true
+      }
+    },
+    {
+      "id": "rtt-200",
+      "configuration": {
+        "targetRoundTripMs": 200,
+        "oneWayDelayMs": 100,
+        "oneWayJitterMs": 12,
+        "inputLossModel": "drop every 100th client input per proxied connection",
+        "inputReorderModel": "delay every 20th client input by an additional 60 ms",
+        "seed": 2097664,
+        "inputMessagesSent": 120,
+        "interruptionMs": 400
+      },
+      "measured": {
+        "initialApplicationJoinMs": {
+          "count": 2,
+          "min": 214.68,
+          "p50": 214.68,
+          "p95": 362.437,
+          "p99": 362.437,
+          "max": 362.437,
+          "mean": 288.559
+        },
+        "applicationPingRoundTripMs": {
+          "count": 7,
+          "min": 240.943,
+          "p50": 264.221,
+          "p95": 353.009,
+          "p99": 353.009,
+          "max": 353.009,
+          "mean": 283.011
+        },
+        "inputToObservedDirectionMs": 531.685,
+        "initialTick": 6,
+        "finalTick": 261,
+        "tickProgress": 255,
+        "reconnectApplicationMs": 217.937,
+        "reconnectLastAcceptedSequence": 121,
+        "staleInputErrorsObserved": 6,
+        "proxy": {
+          "downstreamConnections": 3,
+          "clientToServer": {
+            "receivedMessages": 131,
+            "deliveredMessages": 130,
+            "inputMessages": 120,
+            "droppedInputs": 1,
+            "injectedReorderedInputs": 5,
+            "observedOutOfOrderInputDeliveries": 6,
+            "scheduledButNotYetDelivered": 0,
+            "plannedDelayMs": {
+              "count": 130,
+              "min": 88.226,
+              "p50": 99.621,
+              "p95": 111.834,
+              "p99": 169.661,
+              "max": 170.131,
+              "mean": 102.38
+            }
+          },
+          "serverToClient": {
+            "receivedMessages": 228,
+            "deliveredMessages": 224,
+            "scheduledButNotYetDelivered": 4,
+            "plannedDelayMs": {
+              "count": 228,
+              "min": 88.086,
+              "p50": 99.167,
+              "p95": 110.591,
+              "p99": 111.722,
+              "max": 111.978,
+              "mean": 100.036
+            }
+          }
+        }
+      },
+      "assertions": {
+        "joinCompletedThroughRealWebSockets": true,
+        "welcomeWorldAndSnapshotsRemainServerAuthoritative": true,
+        "authoritativeTicksProgressed": true,
+        "clientInputChangedAuthoritativeDirection": true,
+        "applicationPingReceivedMatchingPong": true,
+        "measuredPingApproximatedConfiguredRoundTrip": true,
+        "reconnectRecoveredSamePlayerExactlyOnce": true,
+        "reconnectPreservedAcceptedInputSequence": true,
+        "independentRoomsShowedNoCrossRoomMessagesOrHumans": true,
+        "serverHealthRemainedResponsive": true
+      }
+    },
+    {
+      "id": "rtt-350",
+      "configuration": {
+        "targetRoundTripMs": 350,
+        "oneWayDelayMs": 175,
+        "oneWayJitterMs": 25,
+        "inputLossModel": "drop every 33rd client input per proxied connection",
+        "inputReorderModel": "delay every 10th client input by an additional 85 ms",
+        "seed": 3474256,
+        "inputMessagesSent": 120,
+        "interruptionMs": 400
+      },
+      "measured": {
+        "initialApplicationJoinMs": {
+          "count": 2,
+          "min": 344.99,
+          "p50": 344.99,
+          "p95": 550.259,
+          "p99": 550.259,
+          "max": 550.259,
+          "mean": 447.625
+        },
+        "applicationPingRoundTripMs": {
+          "count": 7,
+          "min": 339.488,
+          "p50": 375.097,
+          "p95": 623.689,
+          "p99": 623.689,
+          "max": 623.689,
+          "mean": 432.782
+        },
+        "inputToObservedDirectionMs": 577.59,
+        "initialTick": 13,
+        "finalTick": 297,
+        "tickProgress": 284,
+        "reconnectApplicationMs": 333.024,
+        "reconnectLastAcceptedSequence": 121,
+        "staleInputErrorsObserved": 14,
+        "proxy": {
+          "downstreamConnections": 3,
+          "clientToServer": {
+            "receivedMessages": 131,
+            "deliveredMessages": 128,
+            "inputMessages": 120,
+            "droppedInputs": 3,
+            "injectedReorderedInputs": 12,
+            "observedOutOfOrderInputDeliveries": 14,
+            "scheduledButNotYetDelivered": 0,
+            "plannedDelayMs": {
+              "count": 128,
+              "min": 150.793,
+              "p50": 179.539,
+              "p95": 251.982,
+              "p99": 280.938,
+              "max": 284.306,
+              "mean": 183.708
+            }
+          },
+          "serverToClient": {
+            "receivedMessages": 280,
+            "deliveredMessages": 272,
+            "scheduledButNotYetDelivered": 8,
+            "plannedDelayMs": {
+              "count": 280,
+              "min": 150.383,
+              "p50": 177.589,
+              "p95": 197.006,
+              "p99": 199.671,
+              "max": 199.825,
+              "mean": 176.715
+            }
+          }
+        }
+      },
+      "assertions": {
+        "joinCompletedThroughRealWebSockets": true,
+        "welcomeWorldAndSnapshotsRemainServerAuthoritative": true,
+        "authoritativeTicksProgressed": true,
+        "clientInputChangedAuthoritativeDirection": true,
+        "applicationPingReceivedMatchingPong": true,
+        "measuredPingApproximatedConfiguredRoundTrip": true,
+        "reconnectRecoveredSamePlayerExactlyOnce": true,
+        "reconnectPreservedAcceptedInputSequence": true,
+        "independentRoomsShowedNoCrossRoomMessagesOrHumans": true,
+        "serverHealthRemainedResponsive": true
+      }
+    }
+  ],
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "architecture": "x64"
+  },
+  "caveats": [
+    "This is a deterministic localhost application-message impairment proof, not an OS packet shaper, WAN measurement, public capacity result, or production service-level claim.",
+    "WebSocket runs over ordered TCP. Ordinary control and state messages remain ordered; deliberate reordering is restricted to client input messages to exercise the server's monotonic sequence rejection path.",
+    "Input loss is injected by the proxy at the application-message boundary. It approximates missing gameplay updates but does not reproduce TCP retransmission, congestion control, head-of-line blocking, TLS termination, carrier networks, or radio handoffs.",
+    "The configured RTT is symmetric planned message delay plus bounded jitter. Measured application ping includes local scheduling overhead and is asserted only inside a broad deterministic tolerance.",
+    "Input-to-observed-direction measures the first authoritative snapshot whose player direction reflects the requested turn; protocol version 5 does not acknowledge every input sequence.",
+    "Reconnect uses the same in-process room owner and does not prove multi-instance routing, external persistence, rolling deployment recovery, regional failover, or sticky-room infrastructure.",
+    "Two isolated rooms and three downstream connections per profile prove bounded semantics only, not scale, retention, fairness, fun, or Wormate market parity."
+  ],
+  "measuredAtUtc": "2026-07-30T06:58:02.477Z"
+}

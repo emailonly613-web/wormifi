@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import WebSocket from "ws";
 
-import type {
-  ErrorMessage,
-  ServerMessage,
-  SnapshotMessage,
-  WelcomeMessage,
-  WorldMessage,
+import {
+  decodeSnapshotFromWire,
+  type ErrorMessage,
+  type ServerMessage,
+  type SnapshotMessage,
+  type WelcomeMessage,
+  type WorldMessage,
 } from "../../src/protocol.ts";
+import { SERVER_BUILD_REVISION } from "../../src/build-info.ts";
 import { AuthoritativeArenaServer } from "../../src/server.ts";
 
 class TestClient {
@@ -22,7 +24,9 @@ class TestClient {
   private constructor(socket: WebSocket) {
     this.socket = socket;
     socket.on("message", (data) => {
-      const message = JSON.parse(data.toString()) as ServerMessage;
+      const decoded = decodeSnapshotFromWire(JSON.parse(data.toString()));
+      if (decoded === null) return;
+      const message = decoded as ServerMessage;
       const waiterIndex = this.waiters.findIndex((waiter) => waiter.predicate(message));
       if (waiterIndex >= 0) {
         const [waiter] = this.waiters.splice(waiterIndex, 1);
@@ -110,6 +114,7 @@ test("two independent clients share one server-owned arena with bot backfill and
   alice.send({ type: "join", roomId: "proof-room", name: "Alice" });
   const aliceWelcome = await alice.next(isWelcome);
   assert.equal(aliceWelcome.authority, "server");
+  assert.equal(aliceWelcome.buildRevision, SERVER_BUILD_REVISION);
   assert.equal(aliceWelcome.reconnected, false);
   assert.ok(aliceWelcome.reconnectToken.length >= 24);
   const aliceWorld = await alice.next(isWorld);
@@ -121,9 +126,9 @@ test("two independent clients share one server-owned arena with bot backfill and
   assert.ok((collectorBeacons[0]?.specialistDurationTicks ?? 0) > 0);
   assert.ok(aliceWorld.arenaRadius >= 600);
   assert.deepEqual(aliceWorld.collisionRadii, {
-    baseRadius: 9,
-    massRadiusFactor: 0.42,
-    bodyRadiusFactor: 0.88,
+    baseRadius: 8,
+    massRadiusFactor: 0.68,
+    bodyRadiusFactor: 0.98,
   });
 
   bob.send({ type: "join", roomId: "proof-room", name: "Bob" });
@@ -148,6 +153,12 @@ test("two independent clients share one server-owned arena with bot backfill and
 
   const before = aliceShared.players.find((player) => player.id === aliceWelcome.playerId);
   assert.ok(before);
+  assert.equal(before.mass, 48, "the authoritative run starts at the compact launch mass");
+  assert.equal(before.body.length, 3, "the authoritative run starts with three followers");
+  assert.ok(
+    before.shieldTicksRemaining > 0 && before.shieldTicksRemaining <= 45,
+    "the visible spawn grace is bounded to 1.5 seconds at 30 Hz",
+  );
 
   alice.send({
     type: "input",

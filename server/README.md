@@ -19,14 +19,21 @@ Current proof:
 - server snapshots own the collectible field, arena radius, player score, and
   the human/AI roster rendered by the browser;
 - released players are respawned by server policy rather than a client command.
-- protocol v4 publishes Echo producer identity, Collector beacon metadata, and
-  the exact server-owned active Collector interval;
+- protocol v5 publishes packed body paths, Echo producer identity, Collector
+  beacon metadata, and the exact server-owned active Collector interval;
 - every room seeds one deterministic zero-mass Collector beacon and publishes a
   replacement five seconds after the collected effect expires;
 - the shared game core remains the only reach authority: Collector can extend
   neutral/own-boost reach but never vacuums rival remains or another beacon.
+- a first human can receive one fail-closed Heat Ring: two ordinary AI inputs
+  resolve through the normal collision law and expose only real, conserved
+  Rival Hoard jewel IDs and mass.
+- an opt-in room board can publish wrap charging landmarks; the shared core
+  alone validates a docked head plus contiguous body coil, awards bounded match
+  mass, and owns interruption, decay, reset and cooldown. Omitted board config
+  remains the station-free `open-seas` arena.
 
-## Protocol v4 ground-loop additions
+## Protocol v5 ground-loop additions
 
 All additions are optional fields so ordinary neutral drops and players without
 an active role do not pay repeated JSON cost.
@@ -37,6 +44,12 @@ an active role do not pay repeated JSON cost.
 | `PublicDropState` | `specialist?: "collector"` | Marks a visible, zero-mass Collector beacon |
 | `PublicDropState` | `specialistDurationTicks?: number` | Exact effect duration granted by that beacon |
 | `PublicPlayerState` | `specialist?: ActiveSpecialist` | `{ kind, activatedAtTick, expiresAtTick, durationTicks }` from authoritative state |
+| `PublicPlayerState` | `bodyQ4?: string` | Packed quarter-unit body path; the client may decode it but cannot author it |
+| `WorldMessage` | `heatRing?: PublicHeatRingState` | Active duel geometry, labeled AI IDs, newcomer safe radius, and start tick |
+| `SnapshotMessage.event` | `heatRingStarted`, `heatRingResolved`, or `heatRingAborted` | Authoritative lifecycle; resolution names exact real jewel IDs and conserved total mass |
+| `WorldMessage` | `board?: PublicBoardState` | Static board ID/name and station core, wrap-lane, dock and tuning geometry for arena/radar rendering |
+| `SnapshotMessage` | `chargingStations?: PublicChargingStationState[]` | Dynamic owner, phase, winding, progress, grace, reward and cooldown truth |
+| `SnapshotMessage.events` | `chargingStarted`, `chargingInterrupted`, `chargingResumed`, `chargingReset`, `chargingCompleted` | Server-owned objective lifecycle; browsers never submit these values |
 
 Clients calculate remaining Collector time from `SnapshotMessage.tick` and
 `specialist.expiresAtTick`; wall clocks are not authoritative. The initial
@@ -49,6 +62,12 @@ The room publishes `source: "arena"`, `mass: 0`, no `originPlayerId`, and
 `specialist: "collector"` for a beacon. Boost/death Echoes publish their
 producer through `originPlayerId`. This metadata is descriptive only; clients
 cannot set it and the room does not reproduce the core's pickup-radius law.
+
+The Heat Ring is presentation around ordinary simulation, not a scripted kill.
+It activates only for a safe first-human room, aborts if that premise changes,
+and never grants collision immunity or synthetic treasure. A resolved event is
+accepted by the browser only when its listed IDs, death origin, and summed mass
+match the drops in the same authoritative state.
 
 The WebSocket boundary also fails closed under common low-cost abuse:
 
@@ -88,12 +107,16 @@ Runtime settings can be supplied with `PORT`, `HOST`, `TARGET_POPULATION`,
 | `joinTimeoutMs` | 5,000 | Join-handshake deadline |
 | `heartbeatIntervalMs` | 15,000 | WebSocket ping cadence |
 | `idleTimeoutMs` | 45,000 | Maximum time without a client application message |
+| `board` | `open-seas` | Immutable `GameBoardConfig`; pass an opt-in catalog profile to enable charging landmarks |
 
 Protocol pong frames prove that the transport is alive, but they do not reset
 the application-idle deadline. Normal game inputs and JSON ping messages do.
 
-Health check: `GET /healthz`. WebSocket clients connect to the same host and
-send a `join` message before inputs.
+Health check: `GET /healthz`. It reports `protocolVersion` and the exact
+deployment `buildRevision` in addition to room/connection state. Welcome frames
+carry the same revision, so public proof can be tied to one immutable candidate.
+WebSocket clients connect to the same host and send a `join` message before
+inputs.
 
 Not yet proven: internet deployment, regional latency, persistence, matchmaking,
 long-duration soak capacity, managed-edge DDoS/WAF behavior, or human-player

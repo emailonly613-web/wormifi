@@ -12,10 +12,11 @@ import type {
 } from "./types";
 
 export const BOT_NAMES = Object.freeze([
-  "Nibble Nova", "Mochi", "Pixel Pip", "Boba", "Sprinkle", "Zigzag",
-  "Comet", "Jellybean", "Dash", "Luna Loop", "Churro", "Moxie",
-  "Taffy", "Orbit", "Peaches", "Wiggles", "Rocket", "Doodle",
-  "Gummy", "Pogo", "Twinkle", "Noodle", "Fizz", "Clover",
+  "Captain Coral", "Cutlass Kit", "Ruby Rook", "Mako Mara", "Treasure Tess", "Sable Finn",
+  "Anchor Ash", "Blackwake Bea", "Galleon Gray", "Pearl Pike", "Stormy Skye", "Bosun Blue",
+  "Cannon Cade", "Mapmaker Mae", "Doubloon Dee", "Reef Ryder", "Harbor Hex", "Jolly Jules",
+  "Kraken Kai", "Maroon Milo", "Compass Cora", "Riptide Rue", "Lantern Lux", "Deckhand Dotty",
+  "Privateer Poppy", "Shipwreck Shane", "Tidecaller Tori", "Buccaneer Beck",
 ]) as readonly string[];
 
 export const BOT_PERSONALITY_IDS = Object.freeze([
@@ -95,13 +96,17 @@ function bestDrop(
 ): Readonly<DropState> | undefined {
   let winner: Readonly<DropState> | undefined;
   let winnerScore = -Infinity;
-  for (const drop of [...context.drops].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const drop of context.drops) {
     if (source !== "any" && drop.source !== source) continue;
     if (drop.blockedPlayerId === context.self.id && context.tick < drop.blockedUntilTick) continue;
     const squared = distanceSquared(context.self.position, drop.position);
     if (squared > visionSquared) continue;
     const score = drop.mass / (Math.sqrt(squared) + 45);
-    if (score > winnerScore) {
+    if (
+      score > winnerScore ||
+      (score === winnerScore && winner !== undefined &&
+        drop.id.localeCompare(winner.id) < 0)
+    ) {
       winner = drop;
       winnerScore = score;
     }

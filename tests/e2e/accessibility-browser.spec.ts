@@ -1,0 +1,256 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+
+function proofPath(testInfo: TestInfo, fileName: string) {
+  return path.resolve("proof", "accessibility", testInfo.project.name, fileName);
+}
+
+async function captureProof(page: Page, testInfo: TestInfo, fileName: string) {
+  const target = proofPath(testInfo, fileName);
+  await mkdir(path.dirname(target), { recursive: true });
+  await page.screenshot({ path: target, fullPage: true });
+}
+
+async function expectWithinViewport(locator: Locator, page: Page) {
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box, "control has a rendered bounding box").not.toBeNull();
+  expect(viewport, "test has a fixed viewport").not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+}
+
+async function expectVisibleFocus(locator: Locator) {
+  const focus = await locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+    };
+  });
+  expect(focus.outlineStyle).not.toBe("none");
+  expect(focus.outlineWidth).toBeGreaterThanOrEqual(3);
+}
+
+test.describe("Wormifi accessibility and browser resilience", () => {
+  test("keyboard-only launch, tutorial, and exit preserve visible focus", async ({ page }, testInfo) => {
+    await page.goto("/");
+
+    const modeGroup = page.getByRole("group", { name: "Solo mode" });
+    const nickname = page.getByRole("textbox", { name: "Your arena name" });
+    const customizeSkin = page.getByRole("button", { name: /customize skin/i });
+    const openSeas = page.getByRole("radio", { name: /open seas/i });
+    const blackPearl = page.getByRole("radio", { name: /black pearl/i });
+    const boardPicker = page.getByTestId("board-picker");
+    const roomCode = page.getByRole("textbox", { name: "Room number or code" });
+    const joinRoom = page.getByRole("button", { name: "JOIN ROOM" });
+    const newRoom = page.getByRole("button", { name: "NEW ROOM" });
+    const inviteRoom = page.getByRole("button", { name: "INVITE" });
+    const drag = page.getByTestId("control-drag-anywhere");
+    const leftHelm = page.getByTestId("control-left-helm");
+    const rightHelm = page.getByTestId("control-right-helm");
+    const live = page.getByRole("button", { name: /play live/i });
+    const rush = modeGroup.getByRole("button", { name: /90s rush/i });
+    const endless = modeGroup.getByRole("button", { name: /endless/i });
+    const play = page.getByTestId("solo-run-button");
+
+    await expect(modeGroup).toBeVisible();
+    await expect(rush).toHaveAttribute("aria-pressed", "true");
+    await expect(endless).toHaveAttribute("aria-pressed", "false");
+
+    await page.keyboard.press("Tab");
+    if (!await nickname.evaluate((element) => element === document.activeElement)) {
+      // Headless Firefox can consume the first Tab while transferring focus
+      // from browser chrome into the document. The next Tab must still land
+      // on the first page control.
+      await page.keyboard.press("Tab");
+    }
+    await expect(nickname).toBeFocused();
+    await expectVisibleFocus(nickname);
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("Keyboard Pilot");
+
+    await page.keyboard.press("Tab");
+    await expect(customizeSkin).toBeFocused();
+    await expectVisibleFocus(customizeSkin);
+    await page.keyboard.press("Tab");
+    await expect(openSeas).toBeFocused();
+    await expectVisibleFocus(openSeas);
+    await page.keyboard.press("ArrowRight");
+    await expect(blackPearl).toBeFocused();
+    await expect(blackPearl).toBeChecked();
+    await expect(boardPicker).toHaveAttribute("data-board-id", "black-pearl-relay");
+    await page.keyboard.press("Tab");
+    await expect(roomCode).toBeFocused();
+    await expectVisibleFocus(roomCode);
+    await page.keyboard.press("Tab");
+    await expect(joinRoom).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(newRoom).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(inviteRoom).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(drag).toBeFocused();
+    await expectVisibleFocus(drag);
+    await expect(drag).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Tab");
+    await expect(leftHelm).toBeFocused();
+    await expectVisibleFocus(leftHelm);
+    await page.keyboard.press("Tab");
+    await expect(rightHelm).toBeFocused();
+    await expectVisibleFocus(rightHelm);
+    await page.keyboard.press("Tab");
+    await expect(live).toBeFocused();
+    await expectVisibleFocus(live);
+    await page.keyboard.press("Tab");
+    await expect(rush).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(endless).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(endless).toHaveAttribute("aria-pressed", "true");
+
+    await page.keyboard.press("Tab");
+    await expect(play).toBeFocused();
+    await expectVisibleFocus(play);
+    await page.keyboard.press("Enter");
+
+    const arena = page.getByRole("region", { name: "Active Wormifi pirate sea-serpent arena" });
+    await expect(arena).toBeFocused();
+    await expectVisibleFocus(arena);
+    await expect(arena).toHaveAttribute("aria-describedby", "arena-keyboard-help");
+    await expect(page.getByTestId("room-identity")).toHaveText(/SOLO RUN — NO LIVE ROOM/u);
+    await expect(page.getByRole("status")).toContainText("STEP 1 OF 4");
+    await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/size rank \d+/i);
+    await expect(page.getByTestId("hud-score")).toHaveAccessibleName(/score \d+/i);
+    await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
+    await expect(page.getByRole("timer")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /exit to wormifi menu/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /sprint.*costs 12 size/i })).toBeVisible();
+
+    await page.keyboard.press("ArrowDown");
+    await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
+    await expect(page.getByRole("status")).toContainText("STEP 2 OF 4");
+
+    await page.keyboard.press("Tab");
+    const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
+    await expect(exit).toBeFocused();
+    await expectVisibleFocus(exit);
+    await page.keyboard.press("Enter");
+
+    await expect(live).toBeFocused();
+    await expectVisibleFocus(live);
+    await captureProof(page, testInfo, "01-keyboard-exit-focus.png");
+  });
+
+  test("result dialog puts keyboard focus on retry and restarts the tutorial", async ({ page }, testInfo) => {
+    test.setTimeout(65_000);
+    await page.goto("/");
+    const play = page.getByTestId("solo-run-button");
+    await play.focus();
+    await page.keyboard.press("Enter");
+
+    const arena = page.getByRole("region", { name: "Active Wormifi pirate sea-serpent arena" });
+    await expect(arena).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    // A fast browser can render the highlighted Spark before this assertion;
+    // a slower one may collect it on the same steering step and reach Sprint.
+    await expect(arena).toHaveAttribute("data-tutorial-stage", /^(spark|sprint)$/u);
+    await page.keyboard.down("Space");
+    await expect(arena).toHaveAttribute("data-boosting", "true");
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId("room-identity")).toHaveText(/SOLO RUN — NO LIVE ROOM/u);
+    await page.keyboard.up("Space");
+    await expect(dialog).toHaveAccessibleName(/chain released|rush complete|target beaten/i);
+    const retry = page.getByRole("button", { name: "PLAY AGAIN" });
+    await expect(retry).toBeFocused();
+    await expectVisibleFocus(retry);
+    await captureProof(page, testInfo, "02-result-retry-focus.png");
+
+    await page.keyboard.press("Enter");
+    await expect(arena).toBeFocused();
+    await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("reduced motion freezes decorative preview motion but keeps essential play", async ({ page }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+
+    const arena = page.getByTestId("arena-canvas");
+    await expect(arena).toHaveAttribute("data-reduced-motion", "true");
+    await expect(arena).toHaveAttribute("data-sensory-motion", "essential-only");
+    const initialPosition = await Promise.all([
+      arena.getAttribute("data-player-x"),
+      arena.getAttribute("data-player-y"),
+    ]);
+    await page.waitForTimeout(600);
+    expect(await Promise.all([
+      arena.getAttribute("data-player-x"),
+      arena.getAttribute("data-player-y"),
+    ])).toEqual(initialPosition);
+
+    const orbitMotion = await page.locator(".brand-orbit-a").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { duration: style.animationDuration, iterations: style.animationIterationCount };
+    });
+    expect(orbitMotion.duration).toBe("0.001s");
+    expect(orbitMotion.iterations).toBe("1");
+    expect(await page.getByRole("button", { name: /play live/i }).evaluate(
+      (element) => getComputedStyle(element, "::after").display,
+    )).toBe("none");
+
+    const soloRun = page.getByTestId("solo-run-button");
+    await soloRun.focus();
+    await page.keyboard.press("Enter");
+    await expect(arena).toHaveAttribute("data-reduced-motion", "true");
+    const startY = Number(await arena.getAttribute("data-player-y"));
+    await page.keyboard.press("ArrowDown");
+    await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
+    await expect.poll(async () => Number(await arena.getAttribute("data-player-y"))).toBeGreaterThan(startY + 2);
+    await captureProof(page, testInfo, "03-reduced-motion-essential-play.png");
+
+    await page.goto("/");
+    const playLive = page.getByRole("button", { name: /play live/i });
+    await playLive.focus();
+    await page.keyboard.press("Enter");
+    const liveArena = page.getByRole("region", { name: "Server-authoritative Wormifi live arena" });
+    await expect(liveArena).toBeFocused();
+    await expect(liveArena).toHaveAttribute("data-reduced-motion", "true");
+    await expect(liveArena).toHaveAttribute("data-sensory-motion", "essential-only");
+    await expect(liveArena).toHaveAttribute("aria-describedby", "live-arena-keyboard-help");
+  });
+
+  test("320 CSS-pixel viewport keeps every launcher and game control reachable", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 480 });
+    await page.goto("/");
+
+    const panel = page.locator(".launch-panel");
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+
+    const live = page.getByRole("button", { name: /play live/i });
+    await live.scrollIntoViewIfNeeded();
+    await live.focus();
+    await expect(live).toBeFocused();
+    await expectVisibleFocus(live);
+    await expectWithinViewport(live, page);
+    await captureProof(page, testInfo, "04-narrow-launcher.png");
+
+    const play = page.getByTestId("solo-run-button");
+    await play.scrollIntoViewIfNeeded();
+    await play.focus();
+    await page.keyboard.press("Enter");
+    const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
+    const sprint = page.getByRole("button", { name: /sprint.*costs 12 size/i });
+    await expectWithinViewport(exit, page);
+    await expectWithinViewport(sprint, page);
+    await expect(page.getByRole("status")).toContainText("STEP 1 OF 4");
+    await captureProof(page, testInfo, "05-narrow-game.png");
+  });
+});

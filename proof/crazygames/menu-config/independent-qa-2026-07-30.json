@@ -1,0 +1,66 @@
+{
+  "verified_at": "2026-07-30",
+  "scope": "Independent menu monetization configuration and responsive overlay QA",
+  "deployment_changed": false,
+  "result": "PASS_WITH_EXPLICIT_NON_GOAL",
+  "checks": {
+    "single_mutually_exclusive_switch": "PASS",
+    "rewarded_skin_capability_gate": "PASS",
+    "currency_store_dual_capability_gate": "PASS",
+    "unsupported_or_loosely_cased_flags_fail_closed": "PASS",
+    "mobile_open_store_fits_viewport": "PASS",
+    "desktop_open_store_fits_viewport": "PASS",
+    "monetization_surfaces_absent_during_active_gameplay": "PASS",
+    "responsive_canvas_backing_scale": "PASS",
+    "actual_iap_purchase_handler": "NOT_IN_SCOPE_AND_NOT_CONNECTED"
+  },
+  "configuration": {
+    "switch": "VITE_CRAZYGAMES_MENU_MONETIZATION",
+    "allowed_values": [
+      "off",
+      "rewarded-skin",
+      "currency-store"
+    ],
+    "rewarded_skin_requires": "VITE_CRAZYGAMES_REWARDED_ENABLED=true",
+    "currency_store_requires": [
+      "VITE_CRAZYGAMES_IAP_AUTHORIZED=true",
+      "VITE_CRAZYGAMES_STORE_LAYOUT=currency-packs"
+    ],
+    "basic_launch_default": "off"
+  },
+  "automated_checks": {
+    "command": "pnpm exec vitest run tests/monetization-config.test.ts tests/responsive-canvas.test.ts tests/crazygames-platform.test.ts tests/rewarded-skin.test.ts --reporter=verbose",
+    "test_files_passed": 4,
+    "tests_passed": 17,
+    "tests_failed": 0,
+    "typecheck_command": "pnpm typecheck",
+    "typecheck": "PASS"
+  },
+  "evidence": [
+    {
+      "file": "03-currency-store-mobile.png",
+      "viewport_px": [390, 843],
+      "shows": "Open one-column treasury fully contained in the mobile viewport with its close control visible",
+      "sha256": "dbb8d659f6eaa25cd8818a6db4074f6beed0feae35ba9a44d0d42485116f61b1"
+    },
+    {
+      "file": "08-currency-store-open-desktop-current.png",
+      "viewport_px": [1280, 720],
+      "shows": "Open three-column treasury fully contained in the desktop viewport with its close control visible",
+      "sha256": "d4180d84a558c742b3782ef3a686dbc987de1a0f3b2f14a74d5fd8a4dbd453c0"
+    },
+    {
+      "file": "05-currency-mode-mobile-gameplay.png",
+      "viewport_px": [390, 843],
+      "shows": "Full active mobile canvas without the currency card or treasury overlay",
+      "sha256": "c176ab3e867c3b069cd688c702dce8e00aadc520f77e96489adee1b197efdbaa"
+    },
+    {
+      "file": "06-rewarded-mode-desktop-gameplay.png",
+      "viewport_px": [1280, 720],
+      "shows": "Full active desktop canvas without rewarded monetization UI",
+      "sha256": "938429af83c573e6025501aa69976381e0917174378e1fb76d2bb8ad9fd95a65"
+    }
+  ],
+  "implementation_boundary": "The currency store is a safe responsive layout shell. Purchase buttons remain disabled until an approved platform purchase handler is connected."
+}

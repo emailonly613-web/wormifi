@@ -52,6 +52,10 @@ services:
         scope: RUN_TIME
         type: GENERAL
         value: production
+      - key: WORMIFI_COMMIT_HASH
+        scope: RUN_TIME
+        type: GENERAL
+        value: ${_self.COMMIT_HASH}
       - key: HOST
         scope: RUN_TIME
         type: GENERAL
@@ -92,6 +96,10 @@ static_sites:
         scope: BUILD_TIME
         type: GENERAL
         value: "24.14.1"
+      - key: VITE_WORMIFI_BUILD_REVISION
+        scope: BUILD_TIME
+        type: GENERAL
+        value: ${_self.COMMIT_HASH}
 
 # Rule order is intentional: health and WebSocket traffic reach the Node
 # service before the static-site catch-all. App Platform terminates TLS; browser
