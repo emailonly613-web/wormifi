@@ -5,6 +5,7 @@ const CANONICAL_PAGE_URLS = [
   "/how-to-play.html",
   "/multiplayer.html",
   "/pirate-treasure.html",
+  "/press.html",
   "/privacy.html",
 ];
 const STATIC_URLS = [

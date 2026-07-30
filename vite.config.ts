@@ -94,6 +94,7 @@ export default defineConfig(({ mode }) => {
         howToPlay: page("how-to-play.html"),
         multiplayer: page("multiplayer.html"),
         pirateTreasure: page("pirate-treasure.html"),
+        press: page("press.html"),
         privacy: page("privacy.html"),
       };
 
