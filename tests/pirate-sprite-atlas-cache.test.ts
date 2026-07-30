@@ -153,7 +153,7 @@ describe("bounded static pirate treasure rotation atlases", () => {
     );
     expect(context.drawImage.mock.calls[0]?.[0]).toBeInstanceOf(ReadyImage);
     expect(String((context.drawImage.mock.calls[0]?.[0] as ReadyImage).src)).toContain(
-      "ruby-skull.png",
+      "treasure-ruby-cluster.png",
     );
 
     await flushMicrotasks();
@@ -282,8 +282,8 @@ describe("bounded static pirate treasure rotation atlases", () => {
 
     for (const sourceScale of [1, 2]) {
       const context = canvasContext(sourceScale);
-      const baseSize = 24.1;
-      const item = { ...ITEM, radius: baseSize / 2.08, seed: 0 };
+      const baseSize = 30.1;
+      const item = { ...ITEM, radius: baseSize / 3, seed: 0 };
       drawGroundTreasureSpriteField(
         context as unknown as CanvasRenderingContext2D,
         [item],

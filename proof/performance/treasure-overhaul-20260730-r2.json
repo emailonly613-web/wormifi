@@ -1,0 +1,392 @@
+{
+  "verdict": "LOCAL_SMOOTHNESS_GATE_PASS",
+  "claim": "bounded-local-chromium-smoothness-proof-only",
+  "measuredAtUtc": "2026-07-30T22:02:07.044Z",
+  "candidate": {
+    "baseUrl": "http://127.0.0.1:4185",
+    "browser": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "headless": true
+  },
+  "configuration": {
+    "secondsPerScene": 60,
+    "cpuProfileEnabled": false,
+    "bundleBuild": "rebuilt-for-run",
+    "heapSamplingMode": "post-gc-endpoints",
+    "practice": {
+      "labeledBots": 28,
+      "targetGroundDrops": 1050
+    },
+    "live": {
+      "authority": "in-process-local-server",
+      "actors": 32,
+      "targetGroundDrops": 600,
+      "simulationHz": 30,
+      "snapshotHz": 15
+    }
+  },
+  "thresholds": {
+    "averageCanvasFramesPerSecondMinimum": 55,
+    "canvasFrameGapP95MsMaximum": 22,
+    "canvasFrameGapP99MsMaximum": 40,
+    "slowCanvasFrameRatioMaximum": 0.02,
+    "slowCanvasFrameThresholdMs": 34,
+    "animationCallbackP95MsMaximum": 12,
+    "animationCallbackP99MsMaximum": 20,
+    "inputToNextCanvasPaintP95MsMaximum": 34,
+    "inputToNextCanvasPaintP99MsMaximum": 50,
+    "longTaskCountPerMinuteMaximum": 2,
+    "longTaskBlockingMsPerMinuteMaximum": 100,
+    "retainedHeapGrowthMiBMaximum": 12,
+    "sampledHeapSlopeMiBPerMinuteMaximum": 8,
+    "liveSnapshotsPerSecondMinimum": 14.7,
+    "liveSnapshotGapP95MsMaximum": 100,
+    "liveSnapshotGapP99MsMaximum": 135,
+    "liveGroundDropsMinimum": 552,
+    "liveGroundDropsMaximum": 1500
+  },
+  "environmentDiagnostics": {
+    "minimumCanvasFramesPerSecond": 28,
+    "canvasFrameGapP95MsMaximum": 35,
+    "canvasFrameGapP99MsMaximum": 50
+  },
+  "scenes": [
+    {
+      "scene": "crowded-practice",
+      "configuredSeconds": 60,
+      "actualMeasuredSeconds": 60.155,
+      "canvasFramesPerSecond": 59.945,
+      "displayFrameGapMs": {
+        "count": 3605,
+        "min": 16.5,
+        "mean": 16.684,
+        "p50": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 33.3
+      },
+      "canvasFrameGapMs": {
+        "count": 3605,
+        "min": 11.9,
+        "mean": 16.685,
+        "p50": 16.7,
+        "p95": 18.3,
+        "p99": 19.2,
+        "max": 25.2
+      },
+      "animationCallbackDurationMs": {
+        "count": 3606,
+        "min": 0.2,
+        "mean": 0.952,
+        "p50": 0.9,
+        "p95": 1.6,
+        "p99": 2.1,
+        "max": 11.6
+      },
+      "inputToNextCanvasPaintMs": {
+        "count": 24,
+        "min": 0.7,
+        "mean": 6.713,
+        "p50": 7.1,
+        "p95": 12.4,
+        "p99": 12.8,
+        "max": 12.8
+      },
+      "slowCanvasFrames": {
+        "thresholdMs": 34,
+        "count": 0,
+        "ratio": 0
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 0,
+        "countPerMinute": 0,
+        "totalDurationMs": 0,
+        "durationMs": {
+          "count": 0,
+          "min": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "blockingMs": 0,
+        "blockingMsPerMinute": 0,
+        "entries": [],
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "durationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingDurationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topAttributedScripts": []
+        }
+      },
+      "heap": {
+        "samplingMode": "post-gc-endpoints",
+        "startAfterGcMiB": 4.733,
+        "endAfterGcMiB": 5.476,
+        "retainedGrowthMiB": 0.743,
+        "peakSampleMiB": null,
+        "sampleSlopeMiBPerMinute": null,
+        "sampleSlopeGateEligible": false,
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "usedMiB": 4.733
+          },
+          {
+            "elapsedMs": 60209,
+            "usedMiB": 5.476
+          }
+        ]
+      },
+      "session": {
+        "restarts": 0,
+        "canvasPaints": 3606,
+        "lifecycleMarks": []
+      },
+      "environmentDiagnostic": {
+        "pass": true,
+        "note": "Diagnostic only; it never changes the release verdict or its 55 FPS / 22 ms p95 budget."
+      },
+      "gates": {
+        "canvasFramesPerSecond": true,
+        "canvasFrameGapP95": true,
+        "canvasFrameGapP99": true,
+        "slowCanvasFrameRatio": true,
+        "animationCallbackP95": true,
+        "animationCallbackP99": true,
+        "inputToNextPaintP95": true,
+        "inputToNextPaintP99": true,
+        "longTaskCount": true,
+        "longTaskBlockingTime": true,
+        "retainedHeapGrowth": true,
+        "sampledHeapSlope": true,
+        "browserErrors": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "authoritative-live",
+      "configuredSeconds": 60,
+      "actualMeasuredSeconds": 60.182,
+      "canvasFramesPerSecond": 60.001,
+      "displayFrameGapMs": {
+        "count": 3610,
+        "min": 16.5,
+        "mean": 16.666,
+        "p50": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8
+      },
+      "canvasFrameGapMs": {
+        "count": 3610,
+        "min": 10.6,
+        "mean": 16.666,
+        "p50": 16.7,
+        "p95": 17.9,
+        "p99": 18.4,
+        "max": 19.8
+      },
+      "animationCallbackDurationMs": {
+        "count": 3611,
+        "min": 0.3,
+        "mean": 0.719,
+        "p50": 0.7,
+        "p95": 1,
+        "p99": 1.2,
+        "max": 11
+      },
+      "inputToNextCanvasPaintMs": {
+        "count": 24,
+        "min": 0.4,
+        "mean": 3.833,
+        "p50": 3.4,
+        "p95": 6.7,
+        "p99": 9.3,
+        "max": 9.3
+      },
+      "slowCanvasFrames": {
+        "thresholdMs": 34,
+        "count": 0,
+        "ratio": 0
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 0,
+        "countPerMinute": 0,
+        "totalDurationMs": 0,
+        "durationMs": {
+          "count": 0,
+          "min": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "blockingMs": 0,
+        "blockingMsPerMinute": 0,
+        "entries": [],
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "durationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingDurationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topAttributedScripts": []
+        }
+      },
+      "heap": {
+        "samplingMode": "post-gc-endpoints",
+        "startAfterGcMiB": 4.811,
+        "endAfterGcMiB": 5.387,
+        "retainedGrowthMiB": 0.577,
+        "peakSampleMiB": null,
+        "sampleSlopeMiBPerMinute": null,
+        "sampleSlopeGateEligible": false,
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "usedMiB": 4.811
+          },
+          {
+            "elapsedMs": 60242,
+            "usedMiB": 5.387
+          }
+        ]
+      },
+      "session": {
+        "restarts": 0,
+        "canvasPaints": 3611,
+        "lifecycleMarks": []
+      },
+      "environmentDiagnostic": {
+        "pass": true,
+        "note": "Diagnostic only; it never changes the release verdict or its 55 FPS / 22 ms p95 budget."
+      },
+      "live": {
+        "websocketMessages": 903,
+        "snapshots": 903,
+        "snapshotsPerSecond": 15.004,
+        "snapshotInterArrivalMs": {
+          "count": 902,
+          "min": 50,
+          "mean": 66.662,
+          "p50": 66.7,
+          "p95": 79.7,
+          "p99": 82.5,
+          "max": 85.4
+        },
+        "groundDropCount": {
+          "count": 904,
+          "min": 553,
+          "mean": 643.747,
+          "p50": 648,
+          "p95": 694,
+          "p99": 702,
+          "max": 706
+        },
+        "messageHandlerDurationMs": {
+          "count": 903,
+          "min": 0,
+          "mean": 0.276,
+          "p50": 0.3,
+          "p95": 0.5,
+          "p99": 0.6,
+          "max": 0.7
+        }
+      },
+      "gates": {
+        "canvasFramesPerSecond": true,
+        "canvasFrameGapP95": true,
+        "canvasFrameGapP99": true,
+        "slowCanvasFrameRatio": true,
+        "animationCallbackP95": true,
+        "animationCallbackP99": true,
+        "inputToNextPaintP95": true,
+        "inputToNextPaintP99": true,
+        "longTaskCount": true,
+        "longTaskBlockingTime": true,
+        "retainedHeapGrowth": true,
+        "sampledHeapSlope": true,
+        "snapshotDeliveryRate": true,
+        "snapshotGapP95": true,
+        "snapshotGapP99": true,
+        "groundDropFloor": true,
+        "groundDropCeiling": true,
+        "browserErrors": true
+      },
+      "pass": true
+    }
+  ],
+  "diagnostics": {
+    "browserErrors": []
+  },
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "architecture": "x64",
+    "logicalCpuCount": 48,
+    "cpuModel": "AMD Ryzen Threadripper 9960X 24-Cores          ",
+    "totalMemoryGiB": 127.371,
+    "freeMemoryGiBAtReport": 92.148
+  },
+  "assertions": [
+    "The real Canvas2D renderer was measured at 1440x900 in full-motion Chromium.",
+    "Crowded Practice used the product's 28 labeled bots and 1,050-drop target.",
+    "Live used a real authoritative WebSocket room with 32 actors and a 600-drop target.",
+    "Frame gaps, animation callback cost, input-event-to-next-canvas-paint, long tasks, and post-GC retained heap were measured.",
+    "The short timing gate collected only post-GC heap endpoints so external CDP polling could not perturb frame pacing.",
+    "Live snapshot arrival cadence and the browser's applied ground-drop set were measured throughout the soak.",
+    "Page errors and browser console errors were captured for both scenes and are release-blocking."
+  ],
+  "caveats": [
+    "This is a repeatable local regression gate, not a public-WAN, mobile-device, every-browser, or every-hardware performance certification.",
+    "Headless Chromium timing on this machine cannot establish the experience on low-end phones, high-refresh displays, background tabs, thermal-throttled devices, or congested networks.",
+    "Input latency is measured from a real keyboard event to the next canvas paint call. It does not prove photon latency or input-to-authoritative acknowledgement.",
+    "The default one-minute-per-scene soak detects obvious progressive growth but does not replace the required 60-minute preview and six-hour public-launch soak.",
+    "JavaScript heap is collected after explicit Chromium garbage collection. Browser GPU memory, native canvas allocations, audio buffers, and operating-system memory are not included.",
+    "Server and client run on the same machine in this gate. Use the separate impairment and load gates for WAN delay, loss, jitter, reconnect, room isolation, and service capacity.",
+    "Passing this gate does not prove player fun, retention, virality, monetization, or superiority over another game."
+  ]
+}

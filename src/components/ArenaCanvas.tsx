@@ -56,7 +56,6 @@ import {
   drawArenaFloor,
   drawArenaVignette,
   drawFacetedGem,
-  drawFacetedGemField,
   drawContinuousPirateWorm,
   drawNauticalChart,
   drawPirateShipBackdrop,
@@ -1982,14 +1981,7 @@ function drawDrops(
 
     if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
       // One authoritative collider is rendered as a high-value treasure chest.
-      if (!drawPirateAtlasSprite(context, "treasure-chest", {
-        x: 0,
-        y: 0,
-        size: Math.max(28, radius * 3.4),
-        rotation: Math.sin(now * 0.0014 + stableNumber(drop.id)) * 0.035,
-      })) {
-        drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
-      }
+      drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
       context.restore();
       continue;
     }
@@ -1997,7 +1989,7 @@ function drawDrops(
     if (!drawPirateAtlasSprite(context, commonTreasureSprite(stableNumber(drop.id)), {
       x: 0,
       y: 0,
-      size: Math.max(12, radius * 2.08),
+      size: Math.max(26, radius * 3),
       rotation: ((stableNumber(drop.id) % 17) - 8) * 0.035,
     })) {
       drawFacetedGem(context, radius, color, now, stableNumber(drop.id));

@@ -21,7 +21,7 @@ function copyCrazyGamesRuntimeAssets() {
     copyFileSync(`${spriteSource}/${filename}`, `${spriteOutput}/${filename}`);
   }
 
-  for (const filename of ["cut-jewel-v1.png", "treasure-chest-v3.png"]) {
+  for (const filename of ["cut-jewel-v1.png"]) {
     const destination = `${outputRoot}/art/${filename}`;
     mkdirSync(dirname(destination), { recursive: true });
     copyFileSync(page(`public/art/${filename}`), destination);

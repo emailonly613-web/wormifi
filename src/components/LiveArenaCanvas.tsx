@@ -53,7 +53,6 @@ import {
   drawArenaVignette,
   drawContinuousPirateWorm,
   drawFacetedGem,
-  drawFacetedGemField,
   drawNauticalChart,
   drawPirateShipBackdrop,
   drawRivalHoardGem,
@@ -63,7 +62,9 @@ import {
 } from "../game/treasureRender";
 import {
   commonTreasureSprite,
+  drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
+  type GroundTreasureSpriteItem,
 } from "../game/pirateSpriteAtlas";
 import {
   createActiveRelicCanvasModel,
@@ -126,6 +127,7 @@ const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
 const INPUT_INTERVAL_MS = 50;
 const HUD_REFRESH_INTERVAL_MS = 100;
+const liveGroundTreasureFieldScratch: GroundTreasureSpriteItem[] = [];
 
 type ConnectionPhase =
   | "connecting"
@@ -2205,7 +2207,8 @@ function renderLiveArena(
     now,
   });
 
-  const fieldItems = [];
+  const fieldItems = liveGroundTreasureFieldScratch;
+  let fieldItemCount = 0;
   for (const drop of world.drops.values()) {
     if (
       drop.id === tutorialSparkId ||
@@ -2223,19 +2226,24 @@ function renderLiveArena(
       screen.y > height + cullMargin
     ) continue;
     const seed = stableNumber(drop.id);
-    fieldItems.push({
+    const item = fieldItems[fieldItemCount] ?? {
       id: drop.id,
       position: drop.position,
       radius: drop.radius,
-      color: drop.originPlayerId && drop.mixedOrigin !== true
-        ? palettes[stableNumber(drop.originPlayerId) % palettes.length][0]
-        : dropColors[seed % dropColors.length],
       seed,
-    });
+    };
+    item.id = drop.id;
+    item.position = drop.position;
+    item.radius = drop.radius;
+    item.seed = seed;
+    item.screenX = screen.x;
+    item.screenY = screen.y;
+    fieldItems[fieldItemCount] = item;
+    fieldItemCount += 1;
   }
-  drawFacetedGemField(
+  fieldItems.length = fieldItemCount;
+  drawGroundTreasureSpriteField(
     context,
-    "live",
     fieldItems,
     worldToScreen,
     zoom,
@@ -2456,14 +2464,7 @@ function drawNetworkDrop(
   }
   if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
     // High-value neutral mass is one authoritative treasure chest collider.
-    if (!drawPirateAtlasSprite(context, "treasure-chest", {
-      x: 0,
-      y: 0,
-      size: Math.max(28, radius * 3.4),
-      rotation: Math.sin(now * 0.0014 + stableNumber(drop.id)) * 0.035,
-    })) {
-      drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
-    }
+    drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
     context.restore();
     return;
   }
@@ -2471,7 +2472,7 @@ function drawNetworkDrop(
   if (!drawPirateAtlasSprite(context, commonTreasureSprite(stableNumber(drop.id)), {
     x: 0,
     y: 0,
-    size: Math.max(12, radius * 2.08),
+    size: Math.max(26, radius * 3),
     rotation: ((stableNumber(drop.id) % 17) - 8) * 0.035,
   })) {
     drawFacetedGem(context, radius, color, now, stableNumber(drop.id));

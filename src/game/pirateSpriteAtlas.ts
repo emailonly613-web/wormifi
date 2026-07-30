@@ -15,6 +15,13 @@ export const PIRATE_SPRITE_NAMES = [
   "vortex-astrolabe",
   "pepper-cutlass",
   "shipwheel-shield",
+  "treasure-doubloons",
+  "treasure-ruby-cluster",
+  "treasure-sapphire-anchor",
+  "treasure-emerald-spyglass",
+  "treasure-pearl-shell",
+  "treasure-ornate-key",
+  "treasure-chart-scroll",
 ] as const;
 
 export type PirateSpriteName = (typeof PIRATE_SPRITE_NAMES)[number];
@@ -24,13 +31,13 @@ export type PirateSpriteName = (typeof PIRATE_SPRITE_NAMES)[number];
 // uploaded game folder when CrazyGames hosts it below a versioned sub-path.
 const SPRITE_ROOT = `${import.meta.env.BASE_URL}assets/sprites/pirate-atlas`;
 const COMMON_TREASURE = [
-  "doubloon-stack",
-  "ruby-skull",
-  "sapphire-anchor",
-  "emerald-spyglass",
-  "pearl-shell",
-  "ornate-key",
-  "treasure-map",
+  "treasure-doubloons",
+  "treasure-ruby-cluster",
+  "treasure-sapphire-anchor",
+  "treasure-emerald-spyglass",
+  "treasure-pearl-shell",
+  "treasure-ornate-key",
+  "treasure-chart-scroll",
 ] as const satisfies readonly PirateSpriteName[];
 
 type DrawableSprite = HTMLImageElement | HTMLCanvasElement;
@@ -38,6 +45,8 @@ type DrawableSprite = HTMLImageElement | HTMLCanvasElement;
 const sourceImages = new Map<PirateSpriteName, HTMLImageElement>();
 const hueVariants = new Map<string, HTMLCanvasElement>();
 const GROUND_TREASURE_SPRITE_LOGICAL_EXTENT = 48;
+export const GROUND_TREASURE_MIN_LOGICAL_SIZE = 26;
+export const GROUND_TREASURE_RADIUS_SCALE = 3;
 const GROUND_TREASURE_SOURCE_SCALES = [1, 2] as const;
 const GROUND_TREASURE_ROTATION_MIN = -8;
 const GROUND_TREASURE_ROTATION_COUNT = 17;
@@ -388,7 +397,7 @@ export function drawGroundTreasureSpriteField(
   const rotationAtlas = typeof Image === "undefined"
     ? undefined
     : groundTreasureRotationAtlasFor(sourceScale);
-  const treasureSizeScale = zoom * 2.08;
+  const treasureSizeScale = zoom * GROUND_TREASURE_RADIUS_SCALE;
   const pulseTime = now * 0.0024;
   const bobTime = now * 0.002;
   const atlasDestinationScale = rotationAtlas
@@ -408,7 +417,10 @@ export function drawGroundTreasureSpriteField(
         : undefined;
       const screenX = item.screenX ?? projected!.x;
       const screenY = item.screenY ?? projected!.y;
-      const baseSize = Math.max(12, item.radius * treasureSizeScale);
+      const baseSize = Math.max(
+        GROUND_TREASURE_MIN_LOGICAL_SIZE,
+        item.radius * treasureSizeScale,
+      );
       // Atlas content can extend at most sqrt(2)/2 of its requested size from
       // center; vertical bob adds another 4.5%. Cull with those true maxima
       // before running trigonometry for the many offscreen world pickups.

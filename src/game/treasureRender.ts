@@ -34,7 +34,7 @@ export const PIRATE_RENDER_ASSETS = Object.freeze({
   wormBodySash: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/serpent-body-sash.png`,
   wormTail: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/serpent-tail.png`,
   cutJewel: `${PUBLIC_ASSET_ROOT}art/cut-jewel-v1.png`,
-  treasureChest: `${PUBLIC_ASSET_ROOT}art/treasure-chest-v3.png`,
+  treasureChest: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/treasure-chest-premium.png`,
 });
 
 /**
@@ -679,7 +679,7 @@ export function drawTreasureChest(
   now: number,
   seed: number,
 ) {
-  const size = spriteRadius(Math.max(12, radius * 1.35));
+  const size = spriteRadius(Math.max(16, radius * 1.35));
   const bob = Math.sin(now * 0.0035 + seed * 0.021) * size * 0.08;
   const image = readyRenderImage(PIRATE_RENDER_ASSETS.treasureChest);
   const spriteHalfSize = size * (image ? 2.2 : 2.35);

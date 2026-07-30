@@ -13,13 +13,13 @@ const spriteDirectory = path.join(
   "pirate-atlas",
 );
 const treasureNames = [
-  "doubloon-stack",
-  "ruby-skull",
-  "sapphire-anchor",
-  "emerald-spyglass",
-  "pearl-shell",
-  "ornate-key",
-  "treasure-map",
+  "treasure-doubloons",
+  "treasure-ruby-cluster",
+  "treasure-sapphire-anchor",
+  "treasure-emerald-spyglass",
+  "treasure-pearl-shell",
+  "treasure-ornate-key",
+  "treasure-chart-scroll",
 ];
 const rotationCount = 17;
 const rotationMinimum = -8;
