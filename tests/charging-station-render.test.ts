@@ -15,6 +15,7 @@ import type { ChargingStationState } from "../src/game/types";
 function recordingContext() {
   const arcs: number[] = [];
   const text: string[] = [];
+  let gradients = 0;
   const target: Record<PropertyKey, unknown> = {};
   const context = new Proxy(target, {
     get: (object, property) => {
@@ -24,6 +25,12 @@ function recordingContext() {
       if (property === "fillText") {
         return (value: string) => text.push(value);
       }
+      if (property === "createLinearGradient" || property === "createRadialGradient") {
+        return () => {
+          gradients += 1;
+          return { addColorStop: () => undefined };
+        };
+      }
       if (property in object) return object[property];
       return () => undefined;
     },
@@ -32,7 +39,7 @@ function recordingContext() {
       return true;
     },
   }) as unknown as CanvasRenderingContext2D;
-  return { context, arcs, text };
+  return { context, arcs, text, gradientCount: () => gradients };
 }
 
 function stationFixture() {
@@ -158,18 +165,18 @@ describe("charging station client presentation", () => {
     expect(text.some((entry) => entry.includes("CLOCKWISE"))).toBe(true);
   });
 
-  it("renders a mini-island harbor with one-lap copy and exact reward truth", () => {
+  it("renders a raised harbor pad with staged growth and exact reward truth", () => {
     const prepared = cloneAndValidateBoard(OPEN_SEAS_BOARD, 1 / 30, 1_450);
     const station = { ...prepared.board.chargingStations[0], position: { x: 0, y: 0 } };
     const ready = prepared.states[station.id];
     const presentation = describeChargingStation(station, ready, 1 / 30, "captain");
     expect(presentation).toMatchObject({
       stationId: "coin-cay",
-      heading: "Coin Cay · LOOP READY",
-      icon: "↻",
+      heading: "Coin Cay · PAD READY",
+      icon: "⚡",
     });
-    expect(presentation.detail).toBe("ENTER THE MARKED LANE · SAIL ONE FULL CIRCLE · +2.5 SIZE");
-    expect(presentation.visualValue).toBe("+2.5");
+    expect(presentation.detail).toBe("STAY INSIDE 3.0S · GROWTH ×1 → ×2 → ×3 · UP TO +9 SIZE");
+    expect(presentation.visualValue).toBe("+9");
 
     const looping: ChargingStationState = {
       ...ready,
@@ -177,17 +184,15 @@ describe("charging station client presentation", () => {
       playerId: "captain",
       windingDirection: 1,
       progressTicks: Math.floor(ready.requiredTicks / 2),
-      lapStartAngleRadians: 0.4,
-      lapLastAngleRadians: 3,
-      lapAccumulatedRadians: station.requiredWrapRadians / 2,
+      massAwarded: 3,
     };
     expect(describeChargingStation(station, looping, 1 / 30, "captain")).toMatchObject({
       progressRatio: expect.closeTo(0.5, 2),
-      progressLabel: "50% LOOP",
-      visualValue: "50%",
+      progressLabel: "50% CHARGED",
+      visualValue: "×2",
     });
 
-    const { context, arcs, text } = recordingContext();
+    const { context, arcs, text, gradientCount } = recordingContext();
     drawChargingStationField(context, {
       views: [{ station, state: looping }],
       worldToScreen: (point) => ({ x: 400 + point.x, y: 300 + point.y }),
@@ -199,10 +204,11 @@ describe("charging station client presentation", () => {
       now: 1_000,
     });
 
-    expect(arcs).toContain(station.wrapRadius * 2);
-    expect(arcs).toContain(station.dockRadius * 2);
-    expect(text).toContain("⚓");
+    expect(arcs).toContain((station.wrapRadius + station.wrapTolerance) * 2);
+    expect(arcs).not.toContain(station.dockRadius * 2);
+    expect(gradientCount()).toBeGreaterThanOrEqual(3);
+    expect(text).toContain("×2");
     expect(text.some((entry) => entry.includes("COIN CAY"))).toBe(false);
-    expect(text.some((entry) => entry.includes("RETURN HEAD TO BUOY"))).toBe(false);
+    expect(text.some((entry) => entry.includes("BUOY"))).toBe(false);
   });
 });

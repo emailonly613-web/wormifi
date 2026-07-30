@@ -11,9 +11,8 @@ const TAU = Math.PI * 2;
 const EPSILON = 1e-9;
 const MINIMUM_DIRECTION_CONSISTENCY = 0.82;
 const BOARD_ID_PATTERN = /^[a-z0-9-]{1,40}$/;
-export const HARBOR_PROGRESS_UNITS_PER_RADIAN = 1_000;
 
-/** Default arena: three progressively riskier one-lap island rewards. */
+/** Default arena: three progressively stronger hold-to-grow harbor pads. */
 export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
   id: "open-seas",
   name: "Open Seas",
@@ -30,10 +29,10 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
       dockRadius: 12,
       requiredWrapRadians: 5.3,
       minimumWrappedSegments: 6,
-      chargeDurationSeconds: 1 / 30,
-      massReward: 2.5,
-      interruptionGraceSeconds: 0,
-      interruptionDecayTicksPerTick: 1,
+      chargeDurationSeconds: 3,
+      massReward: 9,
+      interruptionGraceSeconds: 0.25,
+      interruptionDecayTicksPerTick: 4,
       completionCooldownSeconds: 4,
       resetCooldownSeconds: 1,
     }),
@@ -49,10 +48,10 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
       dockRadius: 14,
       requiredWrapRadians: 5.45,
       minimumWrappedSegments: 10,
-      chargeDurationSeconds: 1 / 30,
-      massReward: 4,
-      interruptionGraceSeconds: 0,
-      interruptionDecayTicksPerTick: 1,
+      chargeDurationSeconds: 5,
+      massReward: 20,
+      interruptionGraceSeconds: 0.25,
+      interruptionDecayTicksPerTick: 4,
       completionCooldownSeconds: 6,
       resetCooldownSeconds: 1,
     }),
@@ -68,10 +67,10 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
       dockRadius: 18,
       requiredWrapRadians: 5.55,
       minimumWrappedSegments: 14,
-      chargeDurationSeconds: 1 / 30,
-      massReward: 7,
-      interruptionGraceSeconds: 0,
-      interruptionDecayTicksPerTick: 1,
+      chargeDurationSeconds: 7,
+      massReward: 42,
+      interruptionGraceSeconds: 0.25,
+      interruptionDecayTicksPerTick: 4,
       completionCooldownSeconds: 8,
       resetCooldownSeconds: 1,
     }),
@@ -200,7 +199,7 @@ export function cloneAndValidateBoard(
     if (station.wrapRadius - station.wrapTolerance <= station.coreRadius) {
       throw new Error(`charging station ${station.id} wrap lane must clear its core`);
     }
-    if (station.requiredWrapRadians > TAU * 2) {
+    if (station.requiredWrapRadians > Math.PI * 4) {
       throw new Error(`charging station ${station.id} cannot require more than two wraps`);
     }
     if (
@@ -241,11 +240,10 @@ export function cloneAndValidateBoard(
       phase: "ready",
       windingDirection: 0,
       progressTicks: 0,
-      requiredTicks: station.kind === "harbor"
-        ? Math.max(1, Math.ceil(
-            station.requiredWrapRadians * HARBOR_PROGRESS_UNITS_PER_RADIAN,
-          ))
-        : Math.max(1, Math.ceil(station.chargeDurationSeconds / fixedStepSeconds)),
+      requiredTicks: Math.max(
+        1,
+        Math.ceil(station.chargeDurationSeconds / fixedStepSeconds),
+      ),
       graceTicksRemaining: 0,
       cooldownTicksRemaining: 0,
       massAwarded: 0,
@@ -294,6 +292,18 @@ export function isPointInChargingLoopLane(
   const radialDistance = distance(position, station.position);
   return radialDistance + EPSILON >= station.wrapRadius - station.wrapTolerance &&
     radialDistance <= station.wrapRadius + station.wrapTolerance + EPSILON;
+}
+
+/**
+ * Open Seas pads use the whole luminous disc as their authoritative hold area.
+ * The outer rendered rim is therefore gameplay truth, not decorative reach.
+ */
+export function isPointOnHarborPad(
+  position: Readonly<Vec2>,
+  station: Readonly<ChargingStationConfig>,
+): boolean {
+  return distance(position, station.position) <=
+    station.wrapRadius + station.wrapTolerance + EPSILON;
 }
 
 /**

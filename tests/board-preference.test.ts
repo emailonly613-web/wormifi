@@ -83,11 +83,11 @@ describe("board preference and immutable room selection", () => {
     });
   });
 
-  it("discloses all three default Open Seas harbor-loop rewards before play", () => {
+  it("discloses all three default Open Seas hold-to-grow pads before play", () => {
     const openSeas = BOARD_OPTIONS.find((option) => option.id === "open-seas");
     expect(openSeas).toMatchObject({
       objectiveCount: 3,
-      objectiveDisclosure: "Three mini harbors: circle back to each buoy for +2.5, +4, or +7 size.",
+      objectiveDisclosure: "Three harbor pads: stay inside for up to +9, +20, or +42 size in real time.",
     });
   });
 });
@@ -102,7 +102,7 @@ describe("accessible BoardPicker markup", () => {
     expect(markup.match(/type="radio"/gu)).toHaveLength(2);
     expect(markup).toMatch(/checked="" value="open-seas"/u);
     expect(markup).toContain("Open Seas is the default");
-    expect(markup).toContain("Three mini harbors: circle back to each buoy for +2.5, +4, or +7 size.");
+    expect(markup).toContain("Three harbor pads: stay inside for up to +9, +20, or +42 size in real time.");
     expect(markup).toContain("Two wrap-capstan objectives: Port Capstan and Starboard Capstan.");
   });
 

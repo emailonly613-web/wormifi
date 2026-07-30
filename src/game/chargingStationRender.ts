@@ -22,6 +22,12 @@ function secondsLabel(seconds: number) {
   return `${safe >= 10 ? Math.ceil(safe) : safe.toFixed(1)}S`;
 }
 
+function harborGrowthMultiplier(progressRatio: number): 1 | 2 | 3 {
+  if (progressRatio >= 2 / 3) return 3;
+  if (progressRatio >= 1 / 3) return 2;
+  return 1;
+}
+
 export interface ChargingStationView {
   station: Readonly<ChargingStationConfig>;
   state?: Readonly<ChargingStationState>;
@@ -63,7 +69,7 @@ export function describeChargingStation(
       stationName: station.name,
       kind: station.kind ?? "capstan",
       phase: "syncing",
-      icon: harbor ? "🏝" : "…",
+      icon: harbor ? "✦" : "…",
       heading: `${station.name} · SYNCING`,
       detail: "WAITING FOR AUTHORITATIVE STATION STATE",
       progressRatio: 0,
@@ -89,10 +95,10 @@ export function describeChargingStation(
       stationName: station.name,
       kind: station.kind ?? "capstan",
       phase: state.phase,
-      icon: harbor ? "↻" : "⚓",
-      heading: harbor ? `${station.name} · LOOP READY` : `${station.name} · READY`,
+      icon: harbor ? "⚡" : "⚓",
+      heading: harbor ? `${station.name} · PAD READY` : `${station.name} · READY`,
       detail: harbor
-        ? `ENTER THE MARKED LANE · SAIL ONE FULL CIRCLE · +${compactNumber(station.massReward)} SIZE`
+        ? `STAY INSIDE ${secondsLabel(station.chargeDurationSeconds)} · GROWTH ×1 → ×2 → ×3 · UP TO +${compactNumber(station.massReward)} SIZE`
         : `DOCK HEAD · WRAP ${station.minimumWrappedSegments}+ CREW · HOLD ${secondsLabel(station.chargeDurationSeconds)} · +${compactNumber(station.massReward)} SIZE`,
       progressRatio: 0,
       progressLabel: "READY",
@@ -105,29 +111,30 @@ export function describeChargingStation(
   if (state.phase === "charging") {
     const direction = state.windingDirection < 0 ? "COUNTERCLOCKWISE" : "CLOCKWISE";
     const remainingSeconds = Math.max(0, state.requiredTicks - state.progressTicks) * safeStep;
+    const multiplier = harborGrowthMultiplier(progressRatio);
     return {
       stationId: station.id,
       stationName: station.name,
       kind: station.kind ?? "capstan",
       phase: state.phase,
-      icon: state.windingDirection < 0 ? "↺" : "↻",
+      icon: harbor ? "⚡" : state.windingDirection < 0 ? "↺" : "↻",
       heading: harbor
         ? occupiedByOther
-          ? `${station.name} · RIVAL LOOP`
+          ? `${station.name} · RIVAL CHARGING`
           : ownedByViewer
-            ? `${station.name} · YOUR LOOP`
-            : `${station.name} · LOOPING`
+            ? `${station.name} · YOUR PAD`
+            : `${station.name} · CHARGING`
         : occupiedByOther
           ? `${station.name} · RIVAL WINDING`
           : ownedByViewer
             ? `${station.name} · YOUR CHARGE`
             : `${station.name} · WINDING`,
       detail: harbor
-        ? `${direction} · STAY IN THE MARKED LANE · +${compactNumber(station.massReward)} SIZE`
+        ? `×${multiplier} GROWTH · +${compactNumber(state.massAwarded)} NOW · ${secondsLabel(remainingSeconds)} TO MAX`
         : `${direction} · ${percent}% · ${secondsLabel(remainingSeconds)} TO +${compactNumber(station.massReward)} SIZE`,
       progressRatio,
-      progressLabel: harbor ? `${percent}% LOOP` : `${percent}% CHARGED`,
-      visualValue: harbor ? `${percent}%` : "",
+      progressLabel: `${percent}% CHARGED`,
+      visualValue: harbor ? `×${multiplier}` : "",
       active: true,
       ownedByViewer,
     };
@@ -141,13 +148,13 @@ export function describeChargingStation(
       kind: station.kind ?? "capstan",
       phase: state.phase,
       icon: "⚠",
-      heading: harbor ? `${station.name} · LOOP MISSED` : `${station.name} · COIL BROKEN`,
+      heading: harbor ? `${station.name} · PAD LOST` : `${station.name} · COIL BROKEN`,
       detail: harbor
-        ? "CIRCLE THE MARKED LANE AND BRING YOUR HEAD BACK TO THE BUOY"
+        ? `RETURN WITHIN ${secondsLabel(graceSeconds)} · +${compactNumber(state.massAwarded)} SIZE KEPT`
         : `${occupiedByOther ? "RIVAL " : ""}RESUME WITHIN ${secondsLabel(graceSeconds)} · ${percent}% HELD`,
       progressRatio,
       progressLabel: `${percent}% HELD`,
-      visualValue: harbor ? `${percent}%` : "",
+      visualValue: harbor ? `×${harborGrowthMultiplier(progressRatio)}` : "",
       active: true,
       ownedByViewer,
     };
@@ -172,11 +179,11 @@ export function describeChargingStation(
     kind: station.kind ?? "capstan",
     phase: state.phase,
     icon: "⌛",
-    heading: harbor ? `${station.name} · LOOP WON` : `${station.name} · COOLDOWN`,
+    heading: harbor ? `${station.name} · PAD CASHED` : `${station.name} · COOLDOWN`,
     detail: harbor
       ? cooldownSeconds <= 0
-        ? `SAIL CLEAR · THEN LOOP AGAIN · +${compactNumber(state.massAwarded)} SIZE WON`
-        : `NEXT LOOP IN ${secondsLabel(cooldownSeconds)} · +${compactNumber(state.massAwarded)} SIZE WON`
+        ? `SAIL CLEAR · THEN CHARGE AGAIN · +${compactNumber(state.massAwarded)} SIZE BANKED`
+        : `NEXT CHARGE IN ${secondsLabel(cooldownSeconds)} · +${compactNumber(state.massAwarded)} SIZE BANKED`
       : `${secondsLabel(cooldownSeconds)} REMAINING · ${compactNumber(state.massAwarded)} SIZE BANKED`,
     progressRatio: cooldownRatio,
     progressLabel: `${secondsLabel(cooldownSeconds)} COOLDOWN`,
@@ -245,102 +252,160 @@ function phaseColor(phase: ChargingStationPresentation["phase"]) {
   return "#ffd56c";
 }
 
-function drawHarborIsland(
+function drawHarborChargingPad(
   context: CanvasRenderingContext2D,
   station: Readonly<ChargingStationConfig>,
+  state: Readonly<ChargingStationState> | undefined,
+  presentation: Readonly<ChargingStationPresentation>,
   center: Readonly<Vec2>,
+  padRadius: number,
   coreRadius: number,
-  dock: Readonly<Vec2>,
   color: string,
+  now: number,
+  zoom: number,
 ) {
-  const islandRadius = Math.max(5.5, coreRadius);
   const seed = [...station.id].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const active = presentation.phase === "charging";
+  const progress = presentation.progressRatio;
+  const multiplier = harborGrowthMultiplier(progress);
+  const depth = clamp(padRadius * 0.13, 3, 12);
+  const pulse = active ? 0.88 + Math.sin(now * 0.009 + seed) * 0.12 : 0.72;
+  const tierPalette = station.id === "kraken-atoll"
+    ? { dark: "#1b124d", mid: "#7047d9", bright: "#d5b9ff", flare: "#9f7cff" }
+    : station.id === "coral-key"
+      ? { dark: "#143f52", mid: "#e7638f", bright: "#ffe0a3", flare: "#ff77b7" }
+      : { dark: "#183b4c", mid: "#b87919", bright: "#fff3a6", flare: "#ffd45d" };
 
-  // A reef glow and turquoise shoal keep the tiny landmark legible without
-  // enlarging the authoritative wrap lane.
-  context.globalAlpha = 0.42;
-  context.fillStyle = "#44d9cf";
+  // Detached shadow and lowered base make the gameplay disc read as a raised,
+  // floating object while the luminous top stays the exact accepted radius.
+  context.globalAlpha = 0.38;
+  context.fillStyle = "#020713";
   context.beginPath();
-  context.arc(center.x, center.y, islandRadius * 1.32, 0, TAU);
+  context.ellipse(center.x, center.y + depth * 1.7, padRadius * 1.05, padRadius * 0.8, 0, 0, TAU);
   context.fill();
-  context.globalAlpha = 0.92;
-  context.fillStyle = "#d8b86a";
-  context.strokeStyle = "#fff0ad";
-  context.lineWidth = Math.max(1.2, islandRadius * 0.12);
+
+  const sideGradient = context.createLinearGradient(
+    center.x,
+    center.y - padRadius,
+    center.x,
+    center.y + padRadius + depth,
+  );
+  sideGradient.addColorStop(0, tierPalette.mid);
+  sideGradient.addColorStop(0.62, tierPalette.dark);
+  sideGradient.addColorStop(1, "#060b20");
+  context.globalAlpha = presentation.phase === "cooldown" ? 0.48 : 0.96;
+  context.fillStyle = sideGradient;
   context.beginPath();
-  for (let point = 0; point < 12; point += 1) {
-    const angle = point / 12 * TAU;
-    const wobble = 0.84 + ((point * 17 + seed) % 7) * 0.025;
-    const radius = islandRadius * wobble;
-    const x = center.x + Math.cos(angle) * radius;
-    const y = center.y + Math.sin(angle) * radius * 0.88;
-    if (point === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
-  }
-  context.closePath();
+  context.arc(center.x, center.y + depth, padRadius, 0, TAU);
+  context.fill();
+
+  const surface = context.createRadialGradient(
+    center.x - padRadius * 0.32,
+    center.y - padRadius * 0.38,
+    Math.max(1, padRadius * 0.04),
+    center.x,
+    center.y,
+    padRadius,
+  );
+  surface.addColorStop(0, tierPalette.bright);
+  surface.addColorStop(0.12, tierPalette.mid);
+  surface.addColorStop(0.48, tierPalette.dark);
+  surface.addColorStop(0.78, "#071a30");
+  surface.addColorStop(1, "#020817");
+  context.globalAlpha = presentation.phase === "cooldown" ? 0.56 : 1;
+  context.fillStyle = surface;
+  context.strokeStyle = color;
+  context.lineWidth = Math.max(2, 2.5 * zoom);
+  context.shadowColor = active ? tierPalette.flare : color;
+  context.shadowBlur = active ? 18 * pulse : 8;
+  context.beginPath();
+  context.arc(center.x, center.y, padRadius, 0, TAU);
   context.fill();
   context.stroke();
+  context.shadowBlur = 0;
 
-  context.fillStyle = station.id === "kraken-atoll" ? "#315b44" : "#3e8a55";
-  context.beginPath();
-  context.ellipse(
-    center.x - islandRadius * 0.08,
-    center.y - islandRadius * 0.08,
-    islandRadius * 0.54,
-    islandRadius * 0.42,
-    -0.18,
-    0,
-    TAU,
-  );
-  context.fill();
-
-  // A tiny timber pier points at the exact return buoy.
-  const dockAngle = Math.atan2(dock.y - center.y, dock.x - center.x);
-  context.strokeStyle = "#704523";
-  context.lineWidth = Math.max(2, islandRadius * 0.22);
-  context.beginPath();
-  context.moveTo(
-    center.x + Math.cos(dockAngle) * islandRadius * 0.7,
-    center.y + Math.sin(dockAngle) * islandRadius * 0.7,
-  );
-  context.lineTo(
-    center.x + Math.cos(dockAngle) * islandRadius * 1.38,
-    center.y + Math.sin(dockAngle) * islandRadius * 1.38,
-  );
-  context.stroke();
-
-  // Palm/flag silhouette: crisp at ordinary zoom, safely hidden at map scale.
-  if (islandRadius >= 7) {
-    context.strokeStyle = "#6f3f20";
-    context.lineWidth = Math.max(1.3, islandRadius * 0.13);
+  // Concentric etched rings and rotating energy rails create depth and motion.
+  context.globalAlpha = presentation.phase === "cooldown" ? 0.22 : 0.66;
+  context.strokeStyle = tierPalette.bright;
+  for (const ratio of [0.78, 0.52]) {
+    context.lineWidth = Math.max(1, 1.2 * zoom);
     context.beginPath();
-    context.moveTo(center.x, center.y + islandRadius * 0.25);
-    context.quadraticCurveTo(
-      center.x - islandRadius * 0.15,
-      center.y - islandRadius * 0.18,
-      center.x + islandRadius * 0.06,
-      center.y - islandRadius * 0.58,
+    context.arc(center.x, center.y, padRadius * ratio, 0, TAU);
+    context.stroke();
+  }
+  const spin = now * 0.0018 + seed;
+  context.globalAlpha = active ? 0.92 : 0.46;
+  context.strokeStyle = active ? "#ffffff" : tierPalette.flare;
+  context.lineWidth = Math.max(2, padRadius * 0.07);
+  context.setLineDash([padRadius * 0.38, padRadius * 0.2]);
+  context.lineDashOffset = -spin * padRadius * 0.24;
+  context.beginPath();
+  context.arc(center.x, center.y, padRadius * 0.66, spin, spin + TAU * 1.72);
+  context.stroke();
+  context.setLineDash([]);
+  context.lineDashOffset = 0;
+
+  if (state && progress > 0) {
+    context.globalAlpha = 0.98;
+    context.strokeStyle = "#ffffff";
+    context.shadowColor = tierPalette.flare;
+    context.shadowBlur = active ? 16 : 8;
+    context.lineWidth = Math.max(4, padRadius * 0.1);
+    context.beginPath();
+    context.arc(
+      center.x,
+      center.y,
+      padRadius * 0.88,
+      -Math.PI / 2,
+      -Math.PI / 2 + TAU * progress,
     );
     context.stroke();
-    context.strokeStyle = "#76cf68";
-    context.lineWidth = Math.max(1.2, islandRadius * 0.14);
-    for (let frond = 0; frond < 5; frond += 1) {
-      const angle = -Math.PI * 0.92 + frond * Math.PI * 0.21;
-      context.beginPath();
-      context.moveTo(
-        center.x + islandRadius * 0.06,
-        center.y - islandRadius * 0.58,
-      );
-      context.lineTo(
-        center.x + Math.cos(angle) * islandRadius * 0.58,
-        center.y - islandRadius * 0.58 + Math.sin(angle) * islandRadius * 0.34,
-      );
-      context.stroke();
-    }
+    context.shadowBlur = 0;
   }
 
+  // Rising sparks make an occupied pad feel live without adding fake progress.
+  if (active) {
+    context.fillStyle = "#ffffff";
+    context.shadowColor = tierPalette.flare;
+    context.shadowBlur = 8;
+    for (let spark = 0; spark < 6; spark += 1) {
+      const phase = (now * 0.00055 + spark / 6 + seed * 0.013) % 1;
+      const angle = spin + spark * TAU / 6;
+      const radius = padRadius * (0.3 + (spark % 3) * 0.18);
+      const x = center.x + Math.cos(angle) * radius;
+      const y = center.y + Math.sin(angle) * radius - phase * padRadius * 0.55;
+      context.globalAlpha = (1 - phase) * 0.85;
+      context.beginPath();
+      context.arc(x, y, clamp((1 - phase) * 2.5 * zoom, 1.1, 4), 0, TAU);
+      context.fill();
+    }
+    context.shadowBlur = 0;
+  }
+
+  const hubRadius = Math.max(coreRadius, padRadius * 0.24);
+  const hub = context.createRadialGradient(
+    center.x - hubRadius * 0.3,
+    center.y - hubRadius * 0.35,
+    1,
+    center.x,
+    center.y,
+    hubRadius,
+  );
+  hub.addColorStop(0, "#ffffff");
+  hub.addColorStop(0.24, tierPalette.bright);
+  hub.addColorStop(1, tierPalette.mid);
+  context.globalAlpha = presentation.phase === "cooldown" ? 0.6 : 1;
+  context.fillStyle = hub;
+  context.beginPath();
+  context.arc(center.x, center.y, hubRadius, 0, TAU);
+  context.fill();
+
   context.globalAlpha = 1;
-  context.strokeStyle = color;
+  context.fillStyle = "#071226";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `950 ${clamp(hubRadius * 0.9, 9, 24)}px "Baloo 2", Inter, sans-serif`;
+  context.fillText(active ? `×${multiplier}` : "⚡", center.x, center.y + 1);
 }
 
 /**
@@ -393,6 +458,50 @@ export function drawChargingStationField(
     context.lineCap = "round";
     context.lineJoin = "round";
 
+    if (station.kind === "harbor") {
+      drawHarborChargingPad(
+        context,
+        station,
+        state,
+        presentation,
+        center,
+        outerRadius,
+        coreRadius,
+        color,
+        now,
+        zoom,
+      );
+
+      // One, two, or three light pips communicate the pad tier at a glance.
+      const pips = station.massReward >= 42 ? 3 : station.massReward >= 20 ? 2 : 1;
+      context.shadowColor = color;
+      context.shadowBlur = 8;
+      context.fillStyle = "#fff6c7";
+      for (let pip = 0; pip < pips; pip += 1) {
+        const x = center.x + (pip - (pips - 1) / 2) * Math.max(7, 9 * zoom);
+        const y = center.y + outerRadius + Math.max(9, 11 * zoom);
+        context.beginPath();
+        context.arc(x, y, clamp(2.4 * zoom, 2.4, 4.5), 0, TAU);
+        context.fill();
+      }
+      if (
+        presentation.phase === "cooldown" &&
+        state &&
+        state.massAwarded + 1e-6 >= station.massReward
+      ) {
+        context.shadowBlur = 14;
+        context.fillStyle = "#fff4bd";
+        context.font = `950 ${clamp(13 * zoom, 13, 24)}px "Baloo 2", Inter, sans-serif`;
+        context.fillText(
+          `+${compactNumber(station.massReward)}`,
+          center.x,
+          center.y - outerRadius - Math.max(9, 11 * zoom),
+        );
+      }
+      context.restore();
+      continue;
+    }
+
     // The translucent band is exactly the configured valid wrap tolerance.
     context.globalAlpha = presentation.phase === "cooldown" ? 0.12 : 0.18;
     context.strokeStyle = color;
@@ -418,9 +527,7 @@ export function drawChargingStationField(
       const arcLength = presentation.phase === "cooldown"
         ? TAU * presentation.progressRatio
         : station.requiredWrapRadians * presentation.progressRatio;
-      const start = station.kind === "harbor"
-        ? state.lapStartAngleRadians ?? station.dockAngleRadians
-        : station.dockAngleRadians;
+      const start = station.dockAngleRadians;
       const end = start + direction * arcLength;
       context.globalAlpha = pulse;
       context.strokeStyle = color;
@@ -446,79 +553,44 @@ export function drawChargingStationField(
     context.textBaseline = "middle";
     context.fillText("⚓", dock.x, dock.y + 1);
 
-    if (station.kind === "harbor") {
-      drawHarborIsland(context, station, center, coreRadius, dock, color);
-    } else {
-      // Capstan core uses the configured core radius. Spokes are decorative and
-      // remain inside that circle.
-      context.fillStyle = "rgba(15, 45, 55, 0.96)";
-      context.strokeStyle = color;
-      context.lineWidth = Math.max(2, 2.4 * zoom);
+    // Capstan core uses the configured core radius. Spokes are decorative and
+    // remain inside that circle.
+    context.fillStyle = "rgba(15, 45, 55, 0.96)";
+    context.strokeStyle = color;
+    context.lineWidth = Math.max(2, 2.4 * zoom);
+    context.beginPath();
+    context.arc(center.x, center.y, coreRadius, 0, TAU);
+    context.fill();
+    context.stroke();
+    context.globalAlpha = 0.78;
+    for (let spoke = 0; spoke < 6; spoke += 1) {
+      const angle = spoke / 6 * TAU;
       context.beginPath();
-      context.arc(center.x, center.y, coreRadius, 0, TAU);
-      context.fill();
+      context.moveTo(
+        center.x + Math.cos(angle) * coreRadius * 0.2,
+        center.y + Math.sin(angle) * coreRadius * 0.2,
+      );
+      context.lineTo(
+        center.x + Math.cos(angle) * coreRadius * 0.78,
+        center.y + Math.sin(angle) * coreRadius * 0.78,
+      );
       context.stroke();
-      context.globalAlpha = 0.78;
-      for (let spoke = 0; spoke < 6; spoke += 1) {
-        const angle = spoke / 6 * TAU;
-        context.beginPath();
-        context.moveTo(
-          center.x + Math.cos(angle) * coreRadius * 0.2,
-          center.y + Math.sin(angle) * coreRadius * 0.2,
-        );
-        context.lineTo(
-          center.x + Math.cos(angle) * coreRadius * 0.78,
-          center.y + Math.sin(angle) * coreRadius * 0.78,
-        );
-        context.stroke();
-      }
-      context.globalAlpha = 1;
-      context.fillStyle = color;
-      context.font = `900 ${clamp(coreRadius * 0.78, 10, 24)}px Inter, sans-serif`;
-      context.fillText(presentation.icon, center.x, center.y + 1);
     }
+    context.globalAlpha = 1;
+    context.fillStyle = color;
+    context.font = `900 ${clamp(coreRadius * 0.78, 10, 24)}px Inter, sans-serif`;
+    context.fillText(presentation.icon, center.x, center.y + 1);
 
-    if (station.kind === "harbor") {
-      // One, two, or three coin pips communicate the reward tier without
-      // placing instructions or numbers over live play.
-      const pips = station.massReward >= 7 ? 3 : station.massReward >= 4 ? 2 : 1;
-      context.shadowColor = "rgba(0, 8, 20, 0.8)";
-      context.shadowBlur = 4;
-      context.fillStyle = color;
-      for (let pip = 0; pip < pips; pip += 1) {
-        const x = center.x + (pip - (pips - 1) / 2) * Math.max(7, 8 * zoom);
-        const y = center.y + outerRadius + Math.max(7, 9 * zoom);
-        context.beginPath();
-        context.arc(x, y, clamp(2.2 * zoom, 2.2, 4), 0, TAU);
-        context.fill();
-      }
-      if (
-        presentation.phase === "cooldown" &&
-        state &&
-        state.massAwarded + 1e-6 >= station.massReward
-      ) {
-        context.shadowColor = color;
-        context.shadowBlur = 12;
-        context.fillStyle = "#fff4bd";
-        context.font = `950 ${clamp(13 * zoom, 13, 24)}px "Baloo 2", Inter, sans-serif`;
-        context.fillText(
-          `+${compactNumber(station.massReward)}`,
-          center.x,
-          center.y - outerRadius - Math.max(9, 11 * zoom),
-        );
-      }
-    } else {
-      const labelY = center.y + outerRadius + 16;
-      const labelWidth = Math.max(120, Math.min(330, width - 18));
-      context.shadowColor = "rgba(0, 8, 20, 0.96)";
-      context.shadowBlur = 6;
-      context.fillStyle = "#fff1bd";
-      context.font = `900 ${clamp(9 * zoom, 9, 13)}px Inter, sans-serif`;
-      context.fillText(presentation.heading.toUpperCase(), center.x, labelY, labelWidth);
-      context.fillStyle = color;
-      context.font = `800 ${clamp(7.5 * zoom, 7.5, 10.5)}px Inter, sans-serif`;
-      context.fillText(presentation.detail, center.x, labelY + 14, labelWidth);
-    }
+    const labelY = center.y + outerRadius + 16;
+    const labelWidth = Math.max(120, Math.min(330, width - 18));
+    context.shadowColor = "rgba(0, 8, 20, 0.96)";
+    context.shadowBlur = 6;
+    context.fillStyle = "#fff1bd";
+    context.font = `900 ${clamp(9 * zoom, 9, 13)}px Inter, sans-serif`;
+    context.fillText(presentation.heading.toUpperCase(), center.x, labelY, labelWidth);
+    context.fillStyle = color;
+    context.font = `800 ${clamp(7.5 * zoom, 7.5, 10.5)}px Inter, sans-serif`;
+    context.fillText(presentation.detail, center.x, labelY + 14, labelWidth);
     context.restore();
   }
 }

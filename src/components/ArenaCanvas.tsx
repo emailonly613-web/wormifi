@@ -790,7 +790,7 @@ export function ArenaCanvas({
           );
           setActionCallout(
             station?.kind === "harbor"
-              ? `${station.name.toUpperCase()} LOOP WON · +${Number(event.massAwarded.toFixed(1))} SIZE`
+              ? `${station.name.toUpperCase()} PAD CASHED · +${Number(event.massAwarded.toFixed(1))} SIZE`
               : `${station?.name.toUpperCase() ?? "CAPSTAN"} CHARGED · +${Number(event.massAwarded.toFixed(1))} SIZE`,
           );
           window.setTimeout(() => setActionCallout(null), 2_000);

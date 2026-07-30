@@ -18,10 +18,10 @@ export const BOARD_OPTIONS: readonly BoardOption[] = Object.freeze([
   Object.freeze({
     id: "open-seas",
     name: "Open Seas",
-    shortLabel: "FREE-ROAM + ISLAND LOOPS",
-    description: "Hunt treasure, grow, boost, and risk tight island laps while rivals close in.",
+    shortLabel: "FREE-ROAM + GROWTH PADS",
+    description: "Hunt treasure, boost, and hold luminous harbor pads as growth climbs ×1 → ×2 → ×3.",
     objectiveCount: 3,
-    objectiveDisclosure: "Three mini harbors: circle back to each buoy for +2.5, +4, or +7 size.",
+    objectiveDisclosure: "Three harbor pads: stay inside for up to +9, +20, or +42 size in real time.",
   }),
   Object.freeze({
     id: "black-pearl-relay",

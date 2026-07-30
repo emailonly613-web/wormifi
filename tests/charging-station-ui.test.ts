@@ -57,18 +57,18 @@ describe("charging station HUD and radar equivalents", () => {
     expect(markup).toContain("and 2 stations");
   });
 
-  it("shows harbor lap percentage and reward value without a text banner", () => {
+  it("shows harbor-pad multiplier and charge progress without a text banner", () => {
     const status: ChargingStationPresentation = {
       stationId: "coin-cay",
       stationName: "Coin Cay",
       kind: "harbor",
       phase: "charging",
-      icon: "↻",
-      heading: "Coin Cay · Your Loop",
-      detail: "CLOCKWISE · STAY IN THE MARKED LANE · +2.5 SIZE",
+      icon: "⚡",
+      heading: "Coin Cay · Your Pad",
+      detail: "×2 GROWTH · +3 NOW · 1.5S TO MAX",
       progressRatio: 0.42,
-      progressLabel: "42% LOOP",
-      visualValue: "42%",
+      progressLabel: "42% CHARGED",
+      visualValue: "×2",
       active: true,
       ownedByViewer: true,
     };
@@ -78,7 +78,7 @@ describe("charging station HUD and radar equivalents", () => {
     }));
 
     expect(markup).toContain('data-kind="harbor"');
-    expect(markup).toContain('<output class="station-status-value" aria-hidden="true">42%</output>');
-    expect(markup).toContain('aria-label="Coin Cay 42% LOOP"');
+    expect(markup).toContain('<output class="station-status-value" aria-hidden="true">×2</output>');
+    expect(markup).toContain('aria-label="Coin Cay 42% CHARGED"');
   });
 });

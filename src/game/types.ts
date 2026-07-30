@@ -67,7 +67,7 @@ export interface ChargingStationState {
   graceTicksRemaining: number;
   cooldownTicksRemaining: number;
   massAwarded: number;
-  /** Harbor-only head-path truth. Omitted for legacy wrap-and-hold capstans. */
+  /** Legacy harbor-lap snapshot fields retained for replay compatibility. */
   lapStartAngleRadians?: number;
   lapLastAngleRadians?: number;
   lapAccumulatedRadians?: number;

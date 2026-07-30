@@ -6,10 +6,7 @@ import {
 import {
   cloneAndValidateBoard,
   evaluateChargingWrap,
-  getChargingLoopAngle,
-  getChargingLoopAngleDelta,
-  HARBOR_PROGRESS_UNITS_PER_RADIAN,
-  isPointInChargingLoopLane,
+  isPointOnHarborPad,
   OPEN_SEAS_BOARD,
 } from "./chargingStations";
 import {
@@ -1422,8 +1419,17 @@ function advanceValidCharge(
 
   // Award against the progress high-water mark. Decay and resume can never
   // mint the same partial reward twice.
-  const targetMassAward = station.massReward *
-    (chargingState.progressTicks / chargingState.requiredTicks);
+  const progressRatio = chargingState.progressTicks / chargingState.requiredTicks;
+  // Harbor pads visibly accelerate through real x1, x2 and x3 payout stages.
+  // The curve is normalized so the configured reward is still exact at 100%.
+  const rewardRatio = station.kind === "harbor"
+    ? progressRatio <= 1 / 3
+      ? progressRatio / 2
+      : progressRatio <= 2 / 3
+        ? 1 / 6 + (progressRatio - 1 / 3)
+        : 1 / 2 + (progressRatio - 2 / 3) * 1.5
+    : progressRatio;
+  const targetMassAward = station.massReward * rewardRatio;
   const incrementalMass = Math.max(0, targetMassAward - chargingState.massAwarded);
   if (incrementalMass > EPSILON) {
     chargingState.massAwarded = targetMassAward;
@@ -1460,49 +1466,11 @@ function advanceValidCharge(
   });
 }
 
-function resetInterruptedHarborLap(
-  state: GameState,
-  station: Readonly<ChargingStationConfig>,
-  chargingState: GameState["chargingStations"][string],
-  events: GameEvent[],
-): void {
-  const playerId = chargingState.playerId;
-  if (playerId) {
-    events.push({
-      type: "chargingInterrupted",
-      tick: state.tick,
-      stationId: station.id,
-      playerId,
-      progressTicks: chargingState.progressTicks,
-    });
-    events.push({
-      type: "chargingReset",
-      tick: state.tick,
-      stationId: station.id,
-      playerId,
-      massAwarded: 0,
-    });
-  }
-  chargingState.phase = "cooldown";
-  chargingState.playerId = undefined;
-  chargingState.windingDirection = 0;
-  chargingState.progressTicks = 0;
-  chargingState.graceTicksRemaining = 0;
-  chargingState.cooldownTicksRemaining = cooldownTicks(
-    station.resetCooldownSeconds,
-    state.config.fixedStepSeconds,
-  );
-  chargingState.massAwarded = 0;
-  delete chargingState.lapStartAngleRadians;
-  delete chargingState.lapLastAngleRadians;
-  delete chargingState.lapAccumulatedRadians;
-}
-
 /**
- * Harbor rewards follow the captain's actually sailed head path. Entering the
- * visible loop lane starts a run; one consistent near-360-degree lap completes
- * it. This makes the landmark respond to normal steering instead of requiring
- * a perfect full-body coil on one hidden simulation frame.
+ * Harbor pads grow the occupying captain on every authoritative simulation
+ * tick. Progress, multiplier stages, partial payout, interruption, completion
+ * and contention all live here in the deterministic core; the renderer only
+ * displays snapshots of this truth.
  */
 function updateHarborStation(
   state: GameState,
@@ -1524,7 +1492,7 @@ function updateHarborStation(
       : undefined;
     if (
       priorPlayer?.alive &&
-      isPointInChargingLoopLane(priorPlayer.position, station)
+      isPointOnHarborPad(priorPlayer.position, station)
     ) {
       return;
     }
@@ -1532,98 +1500,91 @@ function updateHarborStation(
     return;
   }
 
-  if (!chargingState.playerId) {
-    const candidate = players.find((player) =>
-      !reservedPlayers.has(player.id) &&
-      isPointInChargingLoopLane(player.position, station)
+  if (chargingState.playerId) {
+    const player = state.players[chargingState.playerId];
+    const remainsOnPad = Boolean(
+      player?.alive &&
+      !player.lastInput.boost &&
+      isPointOnHarborPad(player.position, station),
     );
-    if (!candidate) return;
+    if (remainsOnPad && player) {
+      reservedPlayers.add(player.id);
+      advanceValidCharge(state, chargingState, player, events);
+      return;
+    }
 
-    const angle = getChargingLoopAngle(candidate.position, station);
-    reservedPlayers.add(candidate.id);
-    chargingState.phase = "charging";
-    chargingState.playerId = candidate.id;
+    if (chargingState.phase === "charging") {
+      chargingState.phase = "interrupted";
+      chargingState.graceTicksRemaining = cooldownTicks(
+        station.interruptionGraceSeconds,
+        state.config.fixedStepSeconds,
+      );
+      events.push({
+        type: "chargingInterrupted",
+        tick: state.tick,
+        stationId: station.id,
+        playerId: chargingState.playerId,
+        progressTicks: chargingState.progressTicks,
+      });
+      return;
+    }
+
+    if (chargingState.graceTicksRemaining > 0) {
+      chargingState.graceTicksRemaining -= 1;
+      return;
+    }
+    chargingState.progressTicks = Math.max(
+      0,
+      chargingState.progressTicks - station.interruptionDecayTicksPerTick,
+    );
+    if (chargingState.progressTicks > 0) return;
+
+    const interruptedPlayerId = chargingState.playerId;
+    const awardedMass = chargingState.massAwarded;
+    chargingState.phase = "cooldown";
+    chargingState.playerId = undefined;
     chargingState.windingDirection = 0;
-    chargingState.progressTicks = 0;
+    chargingState.cooldownTicksRemaining = cooldownTicks(
+      station.resetCooldownSeconds,
+      state.config.fixedStepSeconds,
+    );
     chargingState.graceTicksRemaining = 0;
     chargingState.massAwarded = 0;
-    chargingState.lapStartAngleRadians = angle;
-    chargingState.lapLastAngleRadians = angle;
-    chargingState.lapAccumulatedRadians = 0;
-    return;
-  }
-
-  const player = state.players[chargingState.playerId];
-  if (
-    !player?.alive ||
-    !isPointInChargingLoopLane(player.position, station)
-  ) {
-    resetInterruptedHarborLap(state, station, chargingState, events);
-    return;
-  }
-
-  const angle = getChargingLoopAngle(player.position, station);
-  const previousAngle = chargingState.lapLastAngleRadians ?? angle;
-  const delta = getChargingLoopAngleDelta(angle, previousAngle);
-  chargingState.lapLastAngleRadians = angle;
-  if (Math.abs(delta) <= EPSILON) return;
-
-  // No legitimate fixed-step movement crosses half an island in one frame.
-  // Rejecting that jump prevents teleports or malformed state from minting a
-  // lap while allowing ordinary high-speed steering around Coin Cay.
-  if (Math.abs(delta) > Math.PI / 2 + EPSILON) {
-    resetInterruptedHarborLap(state, station, chargingState, events);
-    return;
-  }
-
-  const deltaDirection: -1 | 1 = delta < 0 ? -1 : 1;
-  if (chargingState.windingDirection === 0) {
-    chargingState.windingDirection = deltaDirection;
-    chargingState.lapStartAngleRadians = previousAngle;
     events.push({
-      type: "chargingStarted",
+      type: "chargingReset",
       tick: state.tick,
       stationId: station.id,
-      playerId: player.id,
-      windingDirection: deltaDirection,
-      requiredTicks: chargingState.requiredTicks,
+      playerId: interruptedPlayerId,
+      massAwarded: awardedMass,
     });
+    return;
   }
 
-  let accumulated = chargingState.lapAccumulatedRadians ?? 0;
-  accumulated += delta * chargingState.windingDirection;
-  if (accumulated < 0) {
-    chargingState.windingDirection = deltaDirection;
-    chargingState.lapStartAngleRadians = previousAngle;
-    accumulated = Math.abs(delta);
-  }
-  accumulated = Math.min(station.requiredWrapRadians, accumulated);
-  chargingState.lapAccumulatedRadians = accumulated;
-  chargingState.progressTicks = Math.min(
-    chargingState.requiredTicks,
-    Math.floor(accumulated * HARBOR_PROGRESS_UNITS_PER_RADIAN + EPSILON),
+  const candidate = players.find((player) =>
+    !reservedPlayers.has(player.id) &&
+    !player.lastInput.boost &&
+    isPointOnHarborPad(player.position, station)
   );
-  if (accumulated + EPSILON < station.requiredWrapRadians) return;
+  if (!candidate) return;
 
-  player.mass += station.massReward;
-  player.stats.peakMass = Math.max(player.stats.peakMass, player.mass);
-  syncBodyLength(player, state.config);
-  chargingState.phase = "cooldown";
-  chargingState.progressTicks = chargingState.requiredTicks;
-  chargingState.massAwarded = station.massReward;
+  reservedPlayers.add(candidate.id);
+  chargingState.phase = "charging";
+  chargingState.playerId = candidate.id;
+  chargingState.windingDirection = 0;
+  chargingState.progressTicks = 0;
   chargingState.graceTicksRemaining = 0;
-  chargingState.cooldownTicksRemaining = cooldownTicks(
-    station.completionCooldownSeconds,
-    state.config.fixedStepSeconds,
-  );
+  chargingState.massAwarded = 0;
   events.push({
-    type: "chargingCompleted",
+    type: "chargingStarted",
     tick: state.tick,
     stationId: station.id,
-    playerId: player.id,
-    massAwarded: station.massReward,
-    cooldownTicks: chargingState.cooldownTicksRemaining,
+    playerId: candidate.id,
+    // The event keeps its legacy non-zero wire value; harbor state itself is
+    // directionless and remains zero.
+    windingDirection: 1,
+    requiredTicks: chargingState.requiredTicks,
   });
+  advanceValidCharge(state, chargingState, candidate, events);
 }
 
 function updateChargingStations(state: GameState, events: GameEvent[]): void {

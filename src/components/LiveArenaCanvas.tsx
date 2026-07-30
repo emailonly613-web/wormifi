@@ -1353,7 +1353,7 @@ export function LiveArenaCanvas({
               );
               showActionCallout(
                 station?.kind === "harbor"
-                  ? `${station.name.toUpperCase()} LOOP WON · +${Number(gameEvent.massAwarded.toFixed(1))} SIZE`
+                  ? `${station.name.toUpperCase()} PAD CASHED · +${Number(gameEvent.massAwarded.toFixed(1))} SIZE`
                   : `${station?.name.toUpperCase() ?? "CAPSTAN"} CHARGED · +${Number(gameEvent.massAwarded.toFixed(1))} SIZE`,
                 2_000,
               );
