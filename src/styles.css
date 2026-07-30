@@ -2601,6 +2601,33 @@ input:focus-visible {
   .site-guide-links { display: none; }
 }
 
+.charging-station-status[data-kind="harbor"] {
+  grid-template-columns: 27px minmax(29px, auto);
+  width: auto;
+  max-width: none;
+  min-width: 70px;
+  align-items: center;
+}
+
+.charging-station-status[data-kind="harbor"] progress {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.station-status-value {
+  color: #fff0a4;
+  font-family: "Baloo 2", sans-serif;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: .02em;
+  text-align: center;
+}
+
+.charging-station-status.active .station-status-value {
+  color: #8affea;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 1ms !important;

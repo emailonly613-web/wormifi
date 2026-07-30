@@ -13,6 +13,7 @@ export function ChargingStationStatus({ status, testId }: ChargingStationStatusP
       data-testid={testId}
       data-station-id={status.stationId}
       data-phase={status.phase}
+      data-kind={status.kind}
       data-active={status.active ? "true" : "false"}
       data-owned={status.ownedByViewer ? "true" : "false"}
       aria-label={`${status.heading}. ${status.detail}. ${status.progressLabel}.`}
@@ -20,6 +21,11 @@ export function ChargingStationStatus({ status, testId }: ChargingStationStatusP
       <span className="specialist-icon station-status-icon" aria-hidden="true">
         {status.icon}
       </span>
+      {status.visualValue && (
+        <output className="station-status-value" aria-hidden="true">
+          {status.visualValue}
+        </output>
+      )}
       <progress
         max={1}
         value={status.progressRatio}

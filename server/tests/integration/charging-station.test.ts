@@ -187,6 +187,7 @@ test("an ordinary room publishes all three server-owned Open Seas harbors", () =
     heatRing: false,
   });
   const capture = new CaptureSocket();
+  const surface = room as unknown as RoomTestSurface;
   try {
     room.join(capture as unknown as WebSocket, {
       type: "join",
@@ -206,6 +207,43 @@ test("an ordinary room publishes all three server-owned Open Seas harbors", () =
     );
     assert.equal(snapshot.chargingStations?.length, 3);
     assert.ok(snapshot.chargingStations?.every((station) => station.phase === "ready"));
+
+    const welcome = capture.latest("welcome") as WelcomeMessage;
+    const captain = room.state.players[welcome.playerId];
+    const coinCay = room.state.board.chargingStations[0];
+    assert.ok(captain);
+    assert.ok(coinCay);
+    room.state.config.baseSpeed = 0;
+    room.state.config.boostSpeed = 0;
+    const startingMass = captain.mass;
+    const startAngle = 0.25;
+    const angularStep = 0.18;
+    const placeHead = (angle: number) => {
+      captain.position = {
+        x: coinCay.position.x + Math.cos(angle) * coinCay.wrapRadius,
+        y: coinCay.position.y + Math.sin(angle) * coinCay.wrapRadius,
+      };
+      captain.previousPosition = { ...captain.position };
+    };
+
+    placeHead(startAngle);
+    surface.simulationStep();
+    const steps = Math.ceil(coinCay.requiredWrapRadians / angularStep) + 1;
+    for (let step = 1; step <= steps; step += 1) {
+      placeHead(startAngle + angularStep * step);
+      surface.simulationStep();
+    }
+    surface.broadcastSnapshot();
+
+    const completed = capture.latest("snapshot") as SnapshotMessage;
+    assert.ok(completed.events.some((event) =>
+      event.type === "chargingCompleted" &&
+      event.stationId === coinCay.id &&
+      event.playerId === captain.id &&
+      event.massAwarded === coinCay.massReward
+    ));
+    assert.equal(room.state.chargingStations[coinCay.id].phase, "cooldown");
+    assert.equal(captain.mass, startingMass + coinCay.massReward);
   } finally {
     room.stop();
   }

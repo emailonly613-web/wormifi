@@ -42,6 +42,41 @@ function placeValidCoil(
   player.previousBody = player.body.map((point) => ({ ...point }));
 }
 
+function placeOnHarborLane(
+  player: PlayerState,
+  station: ChargingStationConfig,
+  angleRadians: number,
+): void {
+  player.position = {
+    x: station.position.x + Math.cos(angleRadians) * station.wrapRadius,
+    y: station.position.y + Math.sin(angleRadians) * station.wrapRadius,
+  };
+  player.previousPosition = { ...player.position };
+}
+
+function sailHarborLap(
+  state: GameState,
+  player: PlayerState,
+  station: ChargingStationConfig,
+  direction: -1 | 1 = 1,
+) {
+  const events = [];
+  const startAngle = 0.35;
+  const angularStep = 0.18;
+  placeOnHarborLane(player, station, startAngle);
+  events.push(...stepGame(state).events);
+  const steps = Math.ceil(station.requiredWrapRadians / angularStep) + 1;
+  for (let step = 1; step <= steps; step += 1) {
+    placeOnHarborLane(
+      player,
+      station,
+      startAngle + direction * angularStep * step,
+    );
+    events.push(...stepGame(state).events);
+  }
+  return events;
+}
+
 function setup(fixedStepSeconds = 0.1) {
   const state = createGameState(
     "black-pearl-charge",
@@ -256,17 +291,12 @@ describe("authoritative body-wrap charging", () => {
 
     const coinCay = state.board.chargingStations[0];
     const startingMass = player.mass;
-    expect(player.body).toHaveLength(coinCay.minimumWrappedSegments);
-    placeValidCoil(state, player, coinCay);
-    expect(evaluateChargingWrap(player, coinCay).valid).toBe(true);
-
-    const lap = stepGame(state);
-    expect(lap.events).toEqual(expect.arrayContaining([
+    const lapEvents = sailHarborLap(state, player, coinCay);
+    expect(lapEvents).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: "chargingStarted",
         stationId: coinCay.id,
         playerId: player.id,
-        requiredTicks: 1,
       }),
       expect.objectContaining({
         type: "chargingCompleted",
@@ -287,8 +317,7 @@ describe("authoritative body-wrap charging", () => {
     );
     const coinCay = state.board.chargingStations[0];
     const player = spawnPlayer(state, { id: "captain", shieldSeconds: 60 });
-    placeValidCoil(state, player, coinCay);
-    stepGame(state);
+    sailHarborLap(state, player, coinCay);
     const firstLapMass = player.mass;
     const chargingState = state.chargingStations[coinCay.id];
 
@@ -297,14 +326,13 @@ describe("authoritative body-wrap charging", () => {
     expect(chargingState).toMatchObject({ phase: "cooldown", cooldownTicksRemaining: 0 });
     expect(player.mass).toBeCloseTo(firstLapMass, 8);
 
-    player.position = { x: 0, y: 0 };
+    player.position = { ...coinCay.position };
     player.previousPosition = { ...player.position };
     stepGame(state);
     expect(chargingState.phase).toBe("ready");
 
-    placeValidCoil(state, player, coinCay);
-    const secondLap = stepGame(state);
-    expect(secondLap.events).toContainEqual(expect.objectContaining({
+    const secondLapEvents = sailHarborLap(state, player, coinCay, -1);
+    expect(secondLapEvents).toContainEqual(expect.objectContaining({
       type: "chargingCompleted",
       stationId: coinCay.id,
       playerId: player.id,

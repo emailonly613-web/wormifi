@@ -6,6 +6,10 @@ import {
 import {
   cloneAndValidateBoard,
   evaluateChargingWrap,
+  getChargingLoopAngle,
+  getChargingLoopAngleDelta,
+  HARBOR_PROGRESS_UNITS_PER_RADIAN,
+  isPointInChargingLoopLane,
   OPEN_SEAS_BOARD,
 } from "./chargingStations";
 import {
@@ -21,6 +25,7 @@ import { MASS_PER_BODY_SEGMENT } from "./treasureEconomy";
 import type {
   BotInputContext,
   BotInputProviderMap,
+  ChargingStationConfig,
   CollisionRadiusConfig,
   DropState,
   GameConfig,
@@ -1355,6 +1360,9 @@ function resetChargingStateToReady(
   chargingState.graceTicksRemaining = 0;
   chargingState.cooldownTicksRemaining = 0;
   chargingState.massAwarded = 0;
+  delete chargingState.lapStartAngleRadians;
+  delete chargingState.lapLastAngleRadians;
+  delete chargingState.lapAccumulatedRadians;
 }
 
 function advanceValidCharge(
@@ -1425,6 +1433,172 @@ function advanceValidCharge(
   });
 }
 
+function resetInterruptedHarborLap(
+  state: GameState,
+  station: Readonly<ChargingStationConfig>,
+  chargingState: GameState["chargingStations"][string],
+  events: GameEvent[],
+): void {
+  const playerId = chargingState.playerId;
+  if (playerId) {
+    events.push({
+      type: "chargingInterrupted",
+      tick: state.tick,
+      stationId: station.id,
+      playerId,
+      progressTicks: chargingState.progressTicks,
+    });
+    events.push({
+      type: "chargingReset",
+      tick: state.tick,
+      stationId: station.id,
+      playerId,
+      massAwarded: 0,
+    });
+  }
+  chargingState.phase = "cooldown";
+  chargingState.playerId = undefined;
+  chargingState.windingDirection = 0;
+  chargingState.progressTicks = 0;
+  chargingState.graceTicksRemaining = 0;
+  chargingState.cooldownTicksRemaining = cooldownTicks(
+    station.resetCooldownSeconds,
+    state.config.fixedStepSeconds,
+  );
+  chargingState.massAwarded = 0;
+  delete chargingState.lapStartAngleRadians;
+  delete chargingState.lapLastAngleRadians;
+  delete chargingState.lapAccumulatedRadians;
+}
+
+/**
+ * Harbor rewards follow the captain's actually sailed head path. Entering the
+ * visible loop lane starts a run; one consistent near-360-degree lap completes
+ * it. This makes the landmark respond to normal steering instead of requiring
+ * a perfect full-body coil on one hidden simulation frame.
+ */
+function updateHarborStation(
+  state: GameState,
+  station: Readonly<ChargingStationConfig>,
+  chargingState: GameState["chargingStations"][string],
+  players: readonly PlayerState[],
+  reservedPlayers: Set<PlayerId>,
+  events: GameEvent[],
+): void {
+  if (chargingState.phase === "cooldown") {
+    chargingState.cooldownTicksRemaining = Math.max(
+      0,
+      chargingState.cooldownTicksRemaining - 1,
+    );
+    if (chargingState.cooldownTicksRemaining > 0) return;
+
+    const priorPlayer = chargingState.playerId
+      ? state.players[chargingState.playerId]
+      : undefined;
+    if (
+      priorPlayer?.alive &&
+      isPointInChargingLoopLane(priorPlayer.position, station)
+    ) {
+      return;
+    }
+    resetChargingStateToReady(chargingState);
+    return;
+  }
+
+  if (!chargingState.playerId) {
+    const candidate = players.find((player) =>
+      !reservedPlayers.has(player.id) &&
+      isPointInChargingLoopLane(player.position, station)
+    );
+    if (!candidate) return;
+
+    const angle = getChargingLoopAngle(candidate.position, station);
+    reservedPlayers.add(candidate.id);
+    chargingState.phase = "charging";
+    chargingState.playerId = candidate.id;
+    chargingState.windingDirection = 0;
+    chargingState.progressTicks = 0;
+    chargingState.graceTicksRemaining = 0;
+    chargingState.massAwarded = 0;
+    chargingState.lapStartAngleRadians = angle;
+    chargingState.lapLastAngleRadians = angle;
+    chargingState.lapAccumulatedRadians = 0;
+    return;
+  }
+
+  const player = state.players[chargingState.playerId];
+  if (
+    !player?.alive ||
+    !isPointInChargingLoopLane(player.position, station)
+  ) {
+    resetInterruptedHarborLap(state, station, chargingState, events);
+    return;
+  }
+
+  const angle = getChargingLoopAngle(player.position, station);
+  const previousAngle = chargingState.lapLastAngleRadians ?? angle;
+  const delta = getChargingLoopAngleDelta(angle, previousAngle);
+  chargingState.lapLastAngleRadians = angle;
+  if (Math.abs(delta) <= EPSILON) return;
+
+  // No legitimate fixed-step movement crosses half an island in one frame.
+  // Rejecting that jump prevents teleports or malformed state from minting a
+  // lap while allowing ordinary high-speed steering around Coin Cay.
+  if (Math.abs(delta) > Math.PI / 2 + EPSILON) {
+    resetInterruptedHarborLap(state, station, chargingState, events);
+    return;
+  }
+
+  const deltaDirection: -1 | 1 = delta < 0 ? -1 : 1;
+  if (chargingState.windingDirection === 0) {
+    chargingState.windingDirection = deltaDirection;
+    chargingState.lapStartAngleRadians = previousAngle;
+    events.push({
+      type: "chargingStarted",
+      tick: state.tick,
+      stationId: station.id,
+      playerId: player.id,
+      windingDirection: deltaDirection,
+      requiredTicks: chargingState.requiredTicks,
+    });
+  }
+
+  let accumulated = chargingState.lapAccumulatedRadians ?? 0;
+  accumulated += delta * chargingState.windingDirection;
+  if (accumulated < 0) {
+    chargingState.windingDirection = deltaDirection;
+    chargingState.lapStartAngleRadians = previousAngle;
+    accumulated = Math.abs(delta);
+  }
+  accumulated = Math.min(station.requiredWrapRadians, accumulated);
+  chargingState.lapAccumulatedRadians = accumulated;
+  chargingState.progressTicks = Math.min(
+    chargingState.requiredTicks,
+    Math.floor(accumulated * HARBOR_PROGRESS_UNITS_PER_RADIAN + EPSILON),
+  );
+  if (accumulated + EPSILON < station.requiredWrapRadians) return;
+
+  player.mass += station.massReward;
+  player.stats.peakMass = Math.max(player.stats.peakMass, player.mass);
+  syncBodyLength(player, state.config);
+  chargingState.phase = "cooldown";
+  chargingState.progressTicks = chargingState.requiredTicks;
+  chargingState.massAwarded = station.massReward;
+  chargingState.graceTicksRemaining = 0;
+  chargingState.cooldownTicksRemaining = cooldownTicks(
+    station.completionCooldownSeconds,
+    state.config.fixedStepSeconds,
+  );
+  events.push({
+    type: "chargingCompleted",
+    tick: state.tick,
+    stationId: station.id,
+    playerId: player.id,
+    massAwarded: station.massReward,
+    cooldownTicks: chargingState.cooldownTicksRemaining,
+  });
+}
+
 function updateChargingStations(state: GameState, events: GameEvent[]): void {
   if (state.board.chargingStations.length === 0) return;
 
@@ -1446,25 +1620,24 @@ function updateChargingStations(state: GameState, events: GameEvent[]): void {
     const chargingState = state.chargingStations[station.id];
     if (!chargingState) continue;
 
+    if (station.kind === "harbor") {
+      updateHarborStation(
+        state,
+        station,
+        chargingState,
+        players,
+        reservedPlayers,
+        events,
+      );
+      continue;
+    }
+
     if (chargingState.phase === "cooldown") {
       chargingState.cooldownTicksRemaining = Math.max(
         0,
         chargingState.cooldownTicksRemaining - 1,
       );
       if (chargingState.cooldownTicksRemaining === 0) {
-        // A harbor lap must physically sail clear before the same captain can
-        // earn again. Remaining parked in a completed coil never mints free
-        // repeated rewards after the public cooldown reaches zero.
-        const priorPlayer = chargingState.playerId
-          ? state.players[chargingState.playerId]
-          : undefined;
-        if (
-          station.kind === "harbor" &&
-          priorPlayer?.alive &&
-          evaluateChargingWrap(priorPlayer, station).valid
-        ) {
-          continue;
-        }
         resetChargingStateToReady(chargingState);
       }
       continue;

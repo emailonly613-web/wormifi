@@ -17,6 +17,7 @@ describe("charging station HUD and radar equivalents", () => {
       detail: "RESUME WITHIN 0.3S · 50% HELD",
       progressRatio: 0.5,
       progressLabel: "50% HELD",
+      visualValue: "",
       active: true,
       ownedByViewer: true,
     };
@@ -54,5 +55,30 @@ describe("charging station HUD and radar equivalents", () => {
     expect(markup.match(/data-testid="radar-station"/g)).toHaveLength(2);
     expect(markup).toContain("radar-station active");
     expect(markup).toContain("and 2 stations");
+  });
+
+  it("shows harbor lap percentage and reward value without a text banner", () => {
+    const status: ChargingStationPresentation = {
+      stationId: "coin-cay",
+      stationName: "Coin Cay",
+      kind: "harbor",
+      phase: "charging",
+      icon: "↻",
+      heading: "Coin Cay · Your Loop",
+      detail: "CLOCKWISE · STAY IN THE MARKED LANE · +2.5 SIZE",
+      progressRatio: 0.42,
+      progressLabel: "42% LOOP",
+      visualValue: "42%",
+      active: true,
+      ownedByViewer: true,
+    };
+    const markup = renderToStaticMarkup(createElement(ChargingStationStatus, {
+      status,
+      testId: "harbor-proof",
+    }));
+
+    expect(markup).toContain('data-kind="harbor"');
+    expect(markup).toContain('<output class="station-status-value" aria-hidden="true">42%</output>');
+    expect(markup).toContain('aria-label="Coin Cay 42% LOOP"');
   });
 });

@@ -11,6 +11,7 @@ const TAU = Math.PI * 2;
 const EPSILON = 1e-9;
 const MINIMUM_DIRECTION_CONSISTENCY = 0.82;
 const BOARD_ID_PATTERN = /^[a-z0-9-]{1,40}$/;
+export const HARBOR_PROGRESS_UNITS_PER_RADIAN = 1_000;
 
 /** Default arena: three progressively riskier one-lap island rewards. */
 export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
@@ -240,7 +241,11 @@ export function cloneAndValidateBoard(
       phase: "ready",
       windingDirection: 0,
       progressTicks: 0,
-      requiredTicks: Math.max(1, Math.ceil(station.chargeDurationSeconds / fixedStepSeconds)),
+      requiredTicks: station.kind === "harbor"
+        ? Math.max(1, Math.ceil(
+            station.requiredWrapRadians * HARBOR_PROGRESS_UNITS_PER_RADIAN,
+          ))
+        : Math.max(1, Math.ceil(station.chargeDurationSeconds / fixedStepSeconds)),
       graceTicksRemaining: 0,
       cooldownTicksRemaining: 0,
       massAwarded: 0,
@@ -266,6 +271,29 @@ function wrappedAngleDelta(next: number, previous: number): number {
   let delta = (next - previous + Math.PI) % TAU;
   if (delta < 0) delta += TAU;
   return delta - Math.PI;
+}
+
+export function getChargingLoopAngle(
+  position: Readonly<Vec2>,
+  station: Readonly<ChargingStationConfig>,
+): number {
+  return Math.atan2(
+    position.y - station.position.y,
+    position.x - station.position.x,
+  );
+}
+
+export function getChargingLoopAngleDelta(next: number, previous: number): number {
+  return wrappedAngleDelta(next, previous);
+}
+
+export function isPointInChargingLoopLane(
+  position: Readonly<Vec2>,
+  station: Readonly<ChargingStationConfig>,
+): boolean {
+  const radialDistance = distance(position, station.position);
+  return radialDistance + EPSILON >= station.wrapRadius - station.wrapTolerance &&
+    radialDistance <= station.wrapRadius + station.wrapTolerance + EPSILON;
 }
 
 /**

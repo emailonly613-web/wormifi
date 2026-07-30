@@ -37,6 +37,7 @@ export interface ChargingStationPresentation {
   detail: string;
   progressRatio: number;
   progressLabel: string;
+  visualValue: string;
   active: boolean;
   ownedByViewer: boolean;
 }
@@ -67,6 +68,7 @@ export function describeChargingStation(
       detail: "WAITING FOR AUTHORITATIVE STATION STATE",
       progressRatio: 0,
       progressLabel: "SYNCING",
+      visualValue: harbor ? `+${compactNumber(station.massReward)}` : "",
       active: false,
       ownedByViewer: false,
     };
@@ -90,10 +92,11 @@ export function describeChargingStation(
       icon: harbor ? "↻" : "⚓",
       heading: harbor ? `${station.name} · LOOP READY` : `${station.name} · READY`,
       detail: harbor
-        ? `CIRCLE ISLAND · RETURN HEAD TO BUOY · +${compactNumber(station.massReward)} SIZE`
+        ? `ENTER THE MARKED LANE · SAIL ONE FULL CIRCLE · +${compactNumber(station.massReward)} SIZE`
         : `DOCK HEAD · WRAP ${station.minimumWrappedSegments}+ CREW · HOLD ${secondsLabel(station.chargeDurationSeconds)} · +${compactNumber(station.massReward)} SIZE`,
       progressRatio: 0,
       progressLabel: "READY",
+      visualValue: harbor ? `+${compactNumber(station.massReward)}` : "",
       active: false,
       ownedByViewer,
     };
@@ -120,10 +123,11 @@ export function describeChargingStation(
             ? `${station.name} · YOUR CHARGE`
             : `${station.name} · WINDING`,
       detail: harbor
-        ? `${direction} · RETURNING TO BUOY · +${compactNumber(station.massReward)} SIZE`
+        ? `${direction} · STAY IN THE MARKED LANE · +${compactNumber(station.massReward)} SIZE`
         : `${direction} · ${percent}% · ${secondsLabel(remainingSeconds)} TO +${compactNumber(station.massReward)} SIZE`,
       progressRatio,
-      progressLabel: `${percent}% CHARGED`,
+      progressLabel: harbor ? `${percent}% LOOP` : `${percent}% CHARGED`,
+      visualValue: harbor ? `${percent}%` : "",
       active: true,
       ownedByViewer,
     };
@@ -143,6 +147,7 @@ export function describeChargingStation(
         : `${occupiedByOther ? "RIVAL " : ""}RESUME WITHIN ${secondsLabel(graceSeconds)} · ${percent}% HELD`,
       progressRatio,
       progressLabel: `${percent}% HELD`,
+      visualValue: harbor ? `${percent}%` : "",
       active: true,
       ownedByViewer,
     };
@@ -175,6 +180,9 @@ export function describeChargingStation(
       : `${secondsLabel(cooldownSeconds)} REMAINING · ${compactNumber(state.massAwarded)} SIZE BANKED`,
     progressRatio: cooldownRatio,
     progressLabel: `${secondsLabel(cooldownSeconds)} COOLDOWN`,
+    visualValue: harbor && fullCompletion
+      ? `+${compactNumber(station.massReward)}`
+      : "",
     active: false,
     ownedByViewer,
   };
@@ -410,7 +418,9 @@ export function drawChargingStationField(
       const arcLength = presentation.phase === "cooldown"
         ? TAU * presentation.progressRatio
         : station.requiredWrapRadians * presentation.progressRatio;
-      const start = station.dockAngleRadians;
+      const start = station.kind === "harbor"
+        ? state.lapStartAngleRadians ?? station.dockAngleRadians
+        : station.dockAngleRadians;
       const end = start + direction * arcLength;
       context.globalAlpha = pulse;
       context.strokeStyle = color;
@@ -481,6 +491,21 @@ export function drawChargingStationField(
         context.beginPath();
         context.arc(x, y, clamp(2.2 * zoom, 2.2, 4), 0, TAU);
         context.fill();
+      }
+      if (
+        presentation.phase === "cooldown" &&
+        state &&
+        state.massAwarded + 1e-6 >= station.massReward
+      ) {
+        context.shadowColor = color;
+        context.shadowBlur = 12;
+        context.fillStyle = "#fff4bd";
+        context.font = `950 ${clamp(13 * zoom, 13, 24)}px "Baloo 2", Inter, sans-serif`;
+        context.fillText(
+          `+${compactNumber(station.massReward)}`,
+          center.x,
+          center.y - outerRadius - Math.max(9, 11 * zoom),
+        );
       }
     } else {
       const labelY = center.y + outerRadius + 16;

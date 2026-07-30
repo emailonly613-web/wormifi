@@ -168,11 +168,28 @@ describe("charging station client presentation", () => {
       heading: "Coin Cay · LOOP READY",
       icon: "↻",
     });
-    expect(presentation.detail).toBe("CIRCLE ISLAND · RETURN HEAD TO BUOY · +2.5 SIZE");
+    expect(presentation.detail).toBe("ENTER THE MARKED LANE · SAIL ONE FULL CIRCLE · +2.5 SIZE");
+    expect(presentation.visualValue).toBe("+2.5");
+
+    const looping: ChargingStationState = {
+      ...ready,
+      phase: "charging",
+      playerId: "captain",
+      windingDirection: 1,
+      progressTicks: Math.floor(ready.requiredTicks / 2),
+      lapStartAngleRadians: 0.4,
+      lapLastAngleRadians: 3,
+      lapAccumulatedRadians: station.requiredWrapRadians / 2,
+    };
+    expect(describeChargingStation(station, looping, 1 / 30, "captain")).toMatchObject({
+      progressRatio: expect.closeTo(0.5, 2),
+      progressLabel: "50% LOOP",
+      visualValue: "50%",
+    });
 
     const { context, arcs, text } = recordingContext();
     drawChargingStationField(context, {
-      views: [{ station, state: ready }],
+      views: [{ station, state: looping }],
       worldToScreen: (point) => ({ x: 400 + point.x, y: 300 + point.y }),
       zoom: 2,
       width: 800,
