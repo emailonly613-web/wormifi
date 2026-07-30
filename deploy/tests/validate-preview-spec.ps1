@@ -32,7 +32,8 @@ Assert-SpecPattern '(?m)^\s*prefix:\s*/healthz\s*$' "Spec must expose /healthz t
 Assert-SpecPattern '(?m)^\s*prefix:\s*/arena\s*$' "Spec must route /arena to the authority service."
 Assert-SpecPattern '(?m)^\s*catchall_document:\s*index\.html\s*$' "Static Vite site must use the SPA catch-all."
 Assert-SpecPattern '(?m)^\s*value:\s*"24\.14\.1"\s*$' "Spec must pin the DigitalOcean-supported Node build version."
-Assert-SpecAbsent '(?mi)^domains:\s*$' "Preview spec must not attach any custom domain."
+Assert-SpecPattern '(?m)^\s*- domain:\s*wormifi\.com\s*$' "Live spec must attach the Wormifi apex only after the starter gate."
+Assert-SpecPattern '(?m)^\s*- domain:\s*www\.wormifi\.com\s*$' "Live spec must include the Wormifi www alias."
 Assert-SpecAbsent '(?i)fireyourcoworkers' "Preview spec must never reference Fire Your Coworkers."
 
 $repoReferences = [regex]::Matches(
@@ -68,7 +69,7 @@ Write-Output "SPEC_SCHEMA_VALID=YES"
 Write-Output "ISOLATED_APP_NAME=YES"
 Write-Output "DEDICATED_WORMIFI_REMOTE_ONLY=YES"
 Write-Output "FIRE_YOUR_COWORKERS_REFERENCED=NO"
-Write-Output "CUSTOM_DOMAIN_ATTACHED=NO"
+Write-Output "WORMIFI_CUSTOM_DOMAINS_DECLARED=YES"
 Write-Output "ARENA_INGRESS_PRESENT=YES"
 Write-Output "HEALTH_INGRESS_PRESENT=YES"
 Write-Output "DO_SUPPORTED_NODE_PINNED=YES"

@@ -65,9 +65,9 @@ corepack pnpm --dir server test:load
 corepack pnpm og:verify
 ```
 
-The DigitalOcean preview spec and isolation checks live under `deploy/`. That
-spec intentionally creates a new Wormifi application on a starter domain before
-any custom-domain attachment.
+The DigitalOcean deployment record and isolation checks live under `deploy/`.
+The application was first proven on its starter domain; the Wormifi apex and www
+alias were declared only after the public HTTPS/WSS/mobile/replay gate passed.
 
 ## Design and operating documents
 

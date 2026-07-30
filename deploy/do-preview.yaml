@@ -1,8 +1,17 @@
-# Wormifi preview only. This must create a brand-new DigitalOcean App Platform
-# app. It intentionally contains no custom-domain attachment and no reference
-# to the separate Fire Your Coworkers application.
+# Wormifi starter-first App Platform spec. It created a brand-new application
+# without a domain; the domain block below was added only after the starter URL
+# passed public HTTPS, WSS, desktop, mobile, replay, and reconnect proof. It has
+# no reference to the separate Fire Your Coworkers application.
 name: wormifi-preview
 region: nyc
+
+domains:
+  - domain: wormifi.com
+    type: PRIMARY
+    zone: wormifi.com
+  - domain: www.wormifi.com
+    type: ALIAS
+    zone: wormifi.com
 
 features:
   - buildpack-stack=ubuntu-22
@@ -107,6 +116,4 @@ ingress:
       component:
         name: web
 
-# Deliberately omitted:
-# domains:
-#   - domain: wormifi.com
+# Deliberately omitted: every Fire Your Coworkers app ID, source, and domain.

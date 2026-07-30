@@ -2,12 +2,13 @@
 
 ## Scope and isolation
 
-`do-preview.yaml` describes a **new** App Platform app named
+`do-preview.yaml` describes the isolated App Platform app named
 `wormifi-preview`. It uses only
 `https://github.com/emailonly613-web/wormifi.git`. It does not reference, update,
-or reuse either Fire Your Coworkers app, and it does not attach `wormifi.com`.
-The first deployment must use only the DigitalOcean-assigned
-`*.ondigitalocean.app` starter domain.
+or reuse either Fire Your Coworkers app. The first deployment used only the
+DigitalOcean-assigned `*.ondigitalocean.app` starter domain. The `wormifi.com`
+and `www.wormifi.com` declarations were added afterward, only after the starter
+passed public HTTPS, WSS, two-client/reconnect, desktop, mobile, and replay proof.
 
 The app has two components:
 
@@ -82,8 +83,9 @@ Before considering any custom domain:
 5. Review service CPU, memory, restarts, bandwidth, and connection stability in
    App Platform Insights.
 
-Only after that gate passes should a separate reviewed change add a `domains`
-block for `wormifi.com`.
+That gate passed on the isolated starter domain before the reviewed `domains`
+block was added. Domain health and certificate issuance remain separate checks;
+the declaration itself is not proof that DNS or TLS is ready.
 
 ## Platform limitations that affect this design
 
