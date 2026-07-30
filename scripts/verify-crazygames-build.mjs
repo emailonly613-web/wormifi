@@ -28,8 +28,8 @@ const files = await filesUnder(outputRoot);
 assert(files.some((file) => file.relative === "index.html"), "index.html must be at the ZIP root");
 assert(files.length <= 1500, `CrazyGames file limit exceeded: ${files.length}`);
 for (const requiredAsset of [
-  "assets/sprites/pirate-atlas/ground-treasure-rotations-1x.png",
-  "assets/sprites/pirate-atlas/ground-treasure-rotations-2x.png",
+  "assets/sprites/pirate-atlas/ground-treasure-v2-rotations-1x.png",
+  "assets/sprites/pirate-atlas/ground-treasure-v2-rotations-2x.png",
 ]) {
   assert(
     files.some((file) => file.relative === requiredAsset),

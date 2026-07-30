@@ -135,7 +135,7 @@ try {
     const png = Buffer.from(atlas.dataUrl.split(",", 2)[1], "base64");
     const outputPath = path.join(
       spriteDirectory,
-      `ground-treasure-rotations-${atlas.sourceScale}x.png`,
+      `ground-treasure-v2-rotations-${atlas.sourceScale}x.png`,
     );
     await writeFile(outputPath, png);
     console.log(

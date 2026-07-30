@@ -158,7 +158,7 @@ function groundTreasureSourceScale(
 function groundTreasureRotationAtlasPath(
   sourceScale: GroundTreasureSourceScale,
 ): string {
-  return `${SPRITE_ROOT}/ground-treasure-rotations-${sourceScale}x.png`;
+  return `${SPRITE_ROOT}/ground-treasure-v2-rotations-${sourceScale}x.png`;
 }
 
 function pumpGroundTreasureRotationAtlases(): void {
