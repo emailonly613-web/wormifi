@@ -103,6 +103,35 @@
             <p>A reconnect token can restore identity in the same browser tab. This preview behavior does not yet promise durable accounts or session survival across a service replacement.</p>
           </section>
         </div>
+        <section>
+          <h2>Why one authority instead of trusting each browser</h2>
+          <p>In a shared arena, something has to decide what actually happened. If two captains claim the same collision went their way, one of them is wrong, and a game that lets each browser judge its own outcome will eventually agree with whoever is most convenient — or most dishonest.</p>
+          <p>Wormifi resolves this by making the server the only authority. Your browser sends what you are trying to do and draws what it is told is true. It does not decide who was cut, who reached the chest, or whose crew occupied a piece of water. The arena you see is a rendering of the server's world, not a private simulation that happens to look similar.</p>
+          <p>The visible cost is honest: on a poor connection you will notice correction, because the server's version wins and your browser has to accept it. The benefit is that a cut means the same thing for everyone in the room, and that a fast machine, a modified client, or a lucky moment of lag cannot invent a result that never happened.</p>
+        </section>
+        <section>
+          <h2>What the live badge is actually promising</h2>
+          <p>The interface does not call a session live the moment a socket opens. That would be the easy claim to make and the wrong one — a connected socket proves the wire works, not that you are in a shared world. The live state appears only after your browser has been confirmed by the authority and has received a fresh snapshot of the running room.</p>
+          <p>Until both are true you are not shown as live, because until both are true you are not. That distinction is why the badge is worth reading: it is reporting a verified state rather than an optimistic one.</p>
+        </section>
+        <section>
+          <h2>Playing well in a shared room</h2>
+          <p>Live play rewards different instincts from a solo run. Against AI, threats are legible and behave consistently. Against people, the most dangerous captain is usually the one who has noticed something about you that you have not noticed about yourself — that you always turn the same way under pressure, that you cannot resist a chest, that you sprint the instant you are approached.</p>
+          <p>Two habits carry over from solo and matter more here. Keep your turning radius honest as you grow, because a human rival will herd you toward your own crew rather than crashing into it. And treat a rival's sprint wake as intelligence: in a room with real people, a trail of spent mass in someone else's colour tells you where they went, how recently, and how much they were willing to pay to get there.</p>
+        </section>
+        <section>
+          <h2>Common questions about live play</h2>
+          <dl>
+            <dt>Do I need an account to play live?</dt>
+            <dd>No. The live preview opens from the front page with no sign-up, no email, and no download.</dd>
+            <dt>What happens if nobody else is online?</dt>
+            <dd>The room stays playable with labeled AI backfill. The human count is shown separately, so an empty room is visibly an empty room rather than one dressed up as busy.</dd>
+            <dt>If I refresh, do I lose my run?</dt>
+            <dd>A reconnect token can restore your identity in the same browser tab. It is a preview behaviour, not a durable account — treat a closed tab as a finished run.</dd>
+            <dt>Why did my position jump?</dt>
+            <dd>Because the server disagreed with your browser and the server wins. Correction is the visible price of having one honest authority instead of several convenient ones.</dd>
+          </dl>
+        </section>
       </div>
     </main>
     <footer class="seo-shell seo-footer">

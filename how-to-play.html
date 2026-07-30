@@ -51,6 +51,60 @@
               { "@type": "ListItem", "position": 1, "name": "Wormifi", "item": "https://wormifi.com/" },
               { "@type": "ListItem", "position": 2, "name": "How to Play", "item": "https://wormifi.com/how-to-play.html" }
             ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://wormifi.com/how-to-play.html#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Is Wormifi free to play?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Wormifi runs free in a web browser with no account, no download, and no purchase. Solo modes and the live multiplayer preview are all open."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do I need to download or install anything?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Wormifi loads in any modern browser with Canvas support on desktop or mobile. You can optionally install it to your home screen as a progressive web app, which also lets solo modes run offline."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What ends a run in Wormifi?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Your head is the only vulnerable part of your crew. A run ends when your head strikes a rival crew. If a rival head strikes your crew instead, the rival is cut and its mass drops as rival-hoard treasure you can collect."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does sprinting cost anything?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Sprinting converts size into speed and leaves a visible wake of loot behind you in your own colour. The loot stays collectable, by you or by anyone else, so a long sprint can hand a chasing rival the mass you just spent."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are the other players in the live preview real people?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Some are. The live room shows a separate count of connected humans and labeled AI backfill, so the population is never overstated. When nobody else is online you are playing against clearly marked AI."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I play Wormifi on a phone?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Choose drag-anywhere steering or a fixed left or right helm before starting. The fixed helm keeps steering under one thumb and puts sprint under the other, which suits one-handed play."
+                }
+              }
+            ]
           }
         ]
       }
@@ -104,6 +158,29 @@
           <p>The dotted head-safe halo is temporary spawn protection for the head. It does not make the visible crew harmless. Rival collisions with that crew still use the normal collision rule.</p>
         </section>
         <section>
+          <h2>Reading the arena before you commit</h2>
+          <p>Most runs are decided before the collision that ends them. The arena gives you three things to read, and the players who last longest are reading all three at once.</p>
+          <p><strong>Length is a wall you are also carrying.</strong> Every length of crew you gain is another surface a rival can be cut against, and another surface you can accidentally steer your own head into. A long crew is a weapon pointed in every direction, including back at you. Early on you can turn inside your own body without consequence; past a certain size a tight turn is how a run ends.</p>
+          <p><strong>Treasure density tells you where the fight is.</strong> A thick field of neutral doubloons usually means nobody has swept that water recently. A patch of marked rival-hoard treasure means the opposite — something was cut there moments ago, and whoever did the cutting is probably still nearby and now larger than they were. Free mass sitting in the open is rarely free.</p>
+          <p><strong>Wake loot names its owner.</strong> Sprint loot carries the colour of the crew that paid for it. A fresh trail of someone else's colour is a live reading of where a rival went, how recently, and how much size they were willing to burn to get there. A rival burning mass in a straight line is either chasing something or running from something.</p>
+        </section>
+        <section>
+          <h2>Sprinting is a trade, not a button</h2>
+          <p>Sprint is the only control in Wormifi that spends a resource, and treating it as a panic button is the most common way a promising run ends small. Holding sprint converts size into speed and scatters that size behind you as wake loot in your own colour, which anyone can collect.</p>
+          <p>That makes sprint worth spending in three situations and expensive everywhere else. Spend it to close the last short gap on a rival head that has committed to a turn it cannot cancel. Spend it to break a converging pincer while you are still small enough that the size loss is cheap. Spend it to reach a treasure chest a moment before a rival who started closer. Everything else — crossing empty water, chasing loot with no contest, reacting to a threat that is not yet on top of you — is size handed over for nothing.</p>
+          <p>The tell of an experienced captain is a short sprint that ends the instant its purpose is served. The tell of a new one is a sprint held until the meter runs dry, arriving at the destination smaller than the rival waiting there.</p>
+        </section>
+        <section>
+          <h2>Five mistakes that end most early runs</h2>
+          <ol>
+            <li><strong>Turning tighter than your own crew.</strong> As you grow, the safe turning radius grows with you. The arena does not stop you steering your head into your own body.</li>
+            <li><strong>Chasing a cut you have not set up.</strong> To cut a rival you need their head to cross your crew. Steering your head at their head is not an attack, it is a coin flip you usually lose.</li>
+            <li><strong>Collecting a rival hoard without looking up.</strong> Fresh hoard treasure means a fight just happened. The winner is close, larger, and watching the same pile.</li>
+            <li><strong>Sprinting away from danger in a straight line.</strong> You are now faster, smaller, and completely predictable, and you are laying a trail of your own mass for the pursuer.</li>
+            <li><strong>Playing the edge of the map to feel safe.</strong> The boundary removes an escape direction. Rivals who understand this will pin you against it deliberately.</li>
+          </ol>
+        </section>
+        <section>
           <h2>Choose a game mode</h2>
           <dl>
             <dt>90-second solo rush</dt>
@@ -114,6 +191,33 @@
             <dd>A guided local run with the built-in steering, treasure, sprint, and collision tutorial.</dd>
             <dt>Live multiplayer preview</dt>
             <dd>A server-authoritative shared room with humans when present and clearly labeled AI backfill. It is a limited preview, not a claim of large-scale production capacity.</dd>
+          </dl>
+        </section>
+        <div class="seo-grid">
+          <section class="seo-card">
+            <h2>Playing without a connection</h2>
+            <p>Wormifi installs to a home screen as a progressive web app. Once installed, the solo modes and these guide pages work with no network at all — useful on a commute or a bad hotel connection. Only the live preview needs a server, because only the live preview has an authority to answer to.</p>
+          </section>
+          <section class="seo-card">
+            <h2>If motion or precision is a problem</h2>
+            <p>The arena honours your system's reduced-motion setting and keeps essential play readable without decorative movement. Runs can be exited from the keyboard, and focus lands somewhere sensible when a result panel appears rather than being dropped at the top of the page.</p>
+          </section>
+        </div>
+        <section>
+          <h2>Common questions</h2>
+          <dl>
+            <dt>Is Wormifi free?</dt>
+            <dd>Yes — free in the browser, no account, no download, no purchase. Solo modes and the live preview are all open.</dd>
+            <dt>Do I need to install anything?</dt>
+            <dd>No. Any modern browser with Canvas support runs it on desktop or mobile. Installing to your home screen is optional and adds offline solo play.</dd>
+            <dt>What actually ends a run?</dt>
+            <dd>Your head striking a rival crew. Your head is the only vulnerable part of you. If a rival head strikes <em>your</em> crew, the rival is cut instead and its mass drops as collectable rival-hoard treasure.</dd>
+            <dt>Does sprinting cost anything?</dt>
+            <dd>Yes. It converts size into speed and leaves a visible wake of your own loot behind you, collectable by anyone — including whoever is chasing you.</dd>
+            <dt>Are the other captains real people?</dt>
+            <dd>Some are. The live room counts connected humans and labeled AI separately, so the population is never overstated. With nobody else online you are playing clearly marked AI.</dd>
+            <dt>Can I play on a phone?</dt>
+            <dd>Yes. Pick drag-anywhere steering or a fixed left or right helm before you start. The fixed helm keeps steering under one thumb and sprint under the other.</dd>
           </dl>
         </section>
       </div>
