@@ -1,4 +1,4 @@
-import { WORM_MATERIAL_PATTERNS, type WormMaterialPattern } from "./wormMaterials";
+import { WORM_MATERIAL_PATTERNS, type WormMaterialPattern } from "./wormMaterialPatterns";
 
 /**
  * Visual-complexity ladder for the catalog. Every tier is free and equippable

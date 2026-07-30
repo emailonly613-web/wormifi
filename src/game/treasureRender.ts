@@ -942,56 +942,9 @@ function drawProceduralWormTail(
 }
 
 /**
- * Draws Wormifi's non-solid bow-wave signature just ahead of a living head.
- * The three lantern-colored crests communicate heading and close-pass motion,
- * but are deliberately outside the collision-faithful creature silhouette.
- */
-export function drawPirateBowWave(
-  context: CanvasRenderingContext2D,
-  head: Vec2,
-  headRadius: number,
-  direction: Vec2,
-  palette: readonly string[],
-  identity: number,
-  now: number,
-) {
-  if (headRadius <= 0) return;
-  const directionLength = Math.hypot(direction.x, direction.y);
-  const normalizedDirection = directionLength > 0.0001
-    ? { x: direction.x / directionLength, y: direction.y / directionLength }
-    : { x: 1, y: 0 };
-  const colors = [palette[2] ?? "#a0fff0", "#ffd56c", "#a56eff"];
-
-  context.save();
-  context.translate(head.x, head.y);
-  context.rotate(Math.atan2(normalizedDirection.y, normalizedDirection.x));
-  context.lineCap = "round";
-  context.lineJoin = "round";
-
-  for (let index = 0; index < colors.length; index += 1) {
-    const phase = now * 0.004 + identity * 0.17 + index * 0.82;
-    const pulse = Math.sin(phase) * headRadius * 0.06;
-    const endpointX = headRadius * (0.72 + index * 0.22);
-    const halfSpan = headRadius * (0.92 + index * 0.2);
-    const crestX = headRadius * (1.78 + index * 0.43) + pulse;
-    context.globalAlpha = 0.68 - index * 0.08 + Math.sin(phase) * 0.04;
-    context.strokeStyle = colors[index];
-    context.lineWidth = Math.max(1.1, headRadius * (0.13 - index * 0.018));
-    context.shadowColor = colors[index];
-    context.shadowBlur = Math.min(11, headRadius * 0.62);
-    context.beginPath();
-    context.moveTo(endpointX, -halfSpan);
-    context.quadraticCurveTo(crestX, 0, endpointX, halfSpan);
-    context.stroke();
-  }
-  context.restore();
-}
-
-/**
  * Paints one continuous, collision-faithful worm surface. The widest stroke is
  * exactly the authoritative body diameter; all authored atlas pieces are
- * clipped inside the corresponding head/body circle. The bow wave is the sole
- * outside-head flourish and is explicitly non-solid. No face-bead loop exists.
+ * clipped inside the corresponding head/body circle. No face-bead loop exists.
  */
 export function drawContinuousPirateWorm(
   context: CanvasRenderingContext2D,
@@ -1120,15 +1073,6 @@ export function drawContinuousPirateWorm(
   }
 
   const headPoint = points[0];
-  drawPirateBowWave(
-    context,
-    headPoint,
-    headRadius,
-    direction,
-    palette,
-    identity,
-    now,
-  );
   context.save();
   context.fillStyle = outer;
   context.beginPath();

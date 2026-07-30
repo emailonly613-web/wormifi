@@ -4,7 +4,6 @@ import { LiveArenaCanvas } from "./components/LiveArenaCanvas";
 import { PwaStatus } from "./components/PwaStatus";
 import { SkinStudio } from "./components/SkinStudio";
 import { BoardPicker } from "./components/BoardPicker";
-import { PacePicker } from "./components/PacePicker";
 import { CurrencyStoreLayout } from "./components/CurrencyStoreLayout";
 import {
   RoomIdentity,
@@ -37,16 +36,6 @@ import {
   resolveRoomBoardPreference,
   type GameBoardId,
 } from "./game/boardPreference";
-import {
-  DEFAULT_GAME_PACE_ID,
-  buildGamePacePreferenceUrl,
-  buildPaceAwareInviteUrl,
-  LEGACY_GAME_PACE_ID,
-  paceIdForJoin,
-  readGamePacePreference,
-  resolveRoomPacePreference,
-  type GamePaceId,
-} from "./game/gamePace";
 import {
   PhotoSkinImageCache,
   createPhotoSkinRenderPlan,
@@ -99,27 +88,6 @@ function rivalLabel(challenge: ChallengePayload) {
     .toUpperCase();
 }
 
-function isPortraitTouchViewport(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const touchCapable = navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-  return touchCapable && window.innerHeight > window.innerWidth;
-}
-
-async function requestLandscapeOrientation(): Promise<void> {
-  if (typeof screen === "undefined" || !screen.orientation) return;
-  const orientation = screen.orientation as ScreenOrientation & {
-    lock?: (orientation: "landscape") => Promise<void>;
-  };
-  if (typeof orientation.lock !== "function") return;
-  try {
-    await orientation.lock("landscape");
-  } catch {
-    // Browser tabs and embedded game portals often deny orientation locking.
-    // The visible rotate gate remains the deterministic fallback.
-  }
-}
-
 export function App() {
   const initialName = useMemo(makeGuestName, []);
   const initialChallenge = useMemo(readChallenge, []);
@@ -133,12 +101,6 @@ export function App() {
   const [roomDraft, setRoomDraft] = useState(readRoomId);
   const [requestedBoardId, setRequestedBoardId] = useState<GameBoardId>(() => readBoardPreference(window.location.search));
   const [authoritativeBoardId, setAuthoritativeBoardId] = useState<GameBoardId | undefined>();
-  const [requestedPaceId, setRequestedPaceId] = useState<GamePaceId>(() =>
-    initialChallenge
-      ? initialChallenge.paceId ?? LEGACY_GAME_PACE_ID
-      : readGamePacePreference(window.location.search)
-  );
-  const [authoritativePaceId, setAuthoritativePaceId] = useState<GamePaceId | undefined>();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [skinStudioOpen, setSkinStudioOpen] = useState(false);
   const [photoSkinState, setPhotoSkinState] = useState<PhotoSkinState>(() => readPhotoSkinState().state);
@@ -150,8 +112,6 @@ export function App() {
   const [doubloons] = useState(readDoubloons);
   const [rewardedSkinEquipped, setRewardedSkinEquipped] = useState(isRewardedCorsairSkinEquipped);
   const [currencyStoreOpen, setCurrencyStoreOpen] = useState(false);
-  const [portraitTouchViewport, setPortraitTouchViewport] = useState(isPortraitTouchViewport);
-  const [pendingLandscapeLaunch, setPendingLandscapeLaunch] = useState<LaunchMode | null>(null);
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
@@ -165,10 +125,6 @@ export function App() {
   const boardSelection = useMemo(
     () => resolveRoomBoardPreference(requestedBoardId, authoritativeBoardId),
     [authoritativeBoardId, requestedBoardId],
-  );
-  const paceSelection = useMemo(
-    () => resolveRoomPacePreference(requestedPaceId, authoritativePaceId),
-    [authoritativePaceId, requestedPaceId],
   );
   const photoSkinRenderPlan = useMemo(
     () => createPhotoSkinRenderPlan(photoSkinState),
@@ -191,19 +147,6 @@ export function App() {
   useEffect(() => {
     writeControlScheme(controlScheme);
   }, [controlScheme]);
-
-  useEffect(() => {
-    const synchronizeOrientation = () => {
-      setPortraitTouchViewport(isPortraitTouchViewport());
-    };
-    synchronizeOrientation();
-    window.addEventListener("resize", synchronizeOrientation);
-    screen.orientation?.addEventListener("change", synchronizeOrientation);
-    return () => {
-      window.removeEventListener("resize", synchronizeOrientation);
-      screen.orientation?.removeEventListener("change", synchronizeOrientation);
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -243,17 +186,14 @@ export function App() {
     ));
   }, [playing, session]);
 
-  const prepareRoom = useCallback((requestedRoom?: string) => {
-    const nextRoom = normalizeRoomId(requestedRoom ?? roomDraft);
-    if (nextRoom !== roomId) {
-      setAuthoritativeBoardId(undefined);
-      setAuthoritativePaceId(undefined);
-    }
+  const prepareRoom = (requestedRoom = roomDraft) => {
+    const nextRoom = normalizeRoomId(requestedRoom);
+    if (nextRoom !== roomId) setAuthoritativeBoardId(undefined);
     setRoomId(nextRoom);
     setRoomDraft(nextRoom);
     writeRoomIdToLocation(nextRoom);
     return nextRoom;
-  }, [roomDraft, roomId]);
+  };
 
   const chooseBoard = (boardId: GameBoardId) => {
     setRequestedBoardId(boardId);
@@ -261,38 +201,14 @@ export function App() {
     window.history.replaceState(null, "", nextUrl);
   };
 
-  const choosePace = (paceId: GamePaceId) => {
-    setRequestedPaceId(paceId);
-    const nextUrl = buildGamePacePreferenceUrl(window.location.href, paceId);
-    window.history.replaceState(null, "", nextUrl);
-  };
-
-  const beginStart = useCallback((nextMode: LaunchMode) => {
+  const start = (nextMode: LaunchMode = mode) => {
     if (nextMode === "live") prepareRoom();
     setCurrencyStoreOpen(false);
     setMode(nextMode);
     setSession((value) => value + 1);
     runStartedAtRef.current = performance.now();
     setPlaying(true);
-  }, [prepareRoom]);
-
-  const start = useCallback((nextMode: LaunchMode = mode) => {
-    if (isPortraitTouchViewport()) {
-      setPortraitTouchViewport(true);
-      setPendingLandscapeLaunch(nextMode);
-      void requestLandscapeOrientation();
-      return;
-    }
-    setPendingLandscapeLaunch(null);
-    beginStart(nextMode);
-  }, [beginStart, mode]);
-
-  useEffect(() => {
-    if (!pendingLandscapeLaunch || portraitTouchViewport) return;
-    const nextMode = pendingLandscapeLaunch;
-    setPendingLandscapeLaunch(null);
-    beginStart(nextMode);
-  }, [beginStart, pendingLandscapeLaunch, portraitTouchViewport]);
+  };
 
   const platformAdHooks = (grantReward?: () => void) => ({
     pauseGameplay: () => setAdActive(true),
@@ -362,14 +278,10 @@ export function App() {
   };
 
   const closeInvite = useCallback(() => setInviteOpen(false), []);
-  const inviteUrl = buildPaceAwareInviteUrl(
-    buildBoardAwareInviteUrl(
-      buildRoomInviteUrl(roomId),
-      requestedBoardId,
-      authoritativeBoardId,
-    ),
-    requestedPaceId,
-    authoritativePaceId,
+  const inviteUrl = buildBoardAwareInviteUrl(
+    buildRoomInviteUrl(roomId),
+    requestedBoardId,
+    authoritativeBoardId,
   );
   const copyInvite = async () => {
     try {
@@ -399,28 +311,20 @@ export function App() {
       : challenge
         ? "challenge"
         : "solo";
-  const landscapeBlocked = portraitTouchViewport &&
-    (playing || pendingLandscapeLaunch !== null);
 
   return (
-    <main
-      className="app-shell"
-      aria-busy={adRequestPending || adActive}
-      data-landscape-blocked={landscapeBlocked ? "true" : "false"}
-    >
+    <main className="app-shell" aria-busy={adRequestPending || adActive}>
       {playing && mode === "live" ? (
-        landscapeBlocked ? null : <LiveArenaCanvas
+        <LiveArenaCanvas
           playerName={name || "Guest"}
           running={playing}
           session={session}
           roomId={roomId}
           boardId={boardIdForJoin(boardSelection)}
-          paceId={paceIdForJoin(paceSelection)}
           themeId={photoSkinRenderPlan.multiplayerAppearance.themeId}
           photoSkin={localPhotoSkinAppearance}
           controlScheme={controlScheme}
           onBoardResolved={setAuthoritativeBoardId}
-          onPaceResolved={setAuthoritativePaceId}
           onExit={() => {
             setPlaying(false);
             setMode("rush");
@@ -432,10 +336,9 @@ export function App() {
           mode={mode === "live" ? "rush" : mode}
           challenge={challenge}
           running={playing}
-          paused={adRequestPending || adActive || landscapeBlocked}
+          paused={adRequestPending || adActive}
           session={session}
           boardId={boardSelection.boardId}
-          paceId={paceSelection.paceId}
           photoSkin={localPhotoSkinAppearance}
           controlScheme={controlScheme}
           onExit={() => setPlaying(false)}
@@ -514,12 +417,6 @@ export function App() {
               onChange={chooseBoard}
             />
           )}
-
-          <PacePicker
-            value={requestedPaceId}
-            existingRoomPaceId={authoritativePaceId}
-            onChange={choosePace}
-          />
 
           {!isCrazyGamesDistribution && <section className="friend-room-card" data-testid="friend-room-card" aria-labelledby="friend-room-title">
             <div className="friend-room-heading">
@@ -716,44 +613,6 @@ export function App() {
           <b>{adActive ? "AD BREAK" : "CHECKING FOR AD"}</b>
           <span>Gameplay and audio are paused safely.</span>
         </div>
-      )}
-      {landscapeBlocked && (
-        <section
-          className="landscape-gate"
-          data-testid="landscape-gate"
-          data-state={playing ? "interrupted" : "prelaunch"}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="landscape-gate-title"
-          aria-describedby="landscape-gate-copy"
-        >
-          <div className="landscape-gate__card">
-            <small>WORMIFI WIDE-SEA STANDARD</small>
-            <div className="landscape-gate__device" aria-hidden="true">
-              <span />
-              <b>↻</b>
-            </div>
-            <h2 id="landscape-gate-title">
-              {playing ? "ROTATE TO CONTINUE" : "ROTATE TO PLAY"}
-            </h2>
-            <p id="landscape-gate-copy">
-              Wormifi gameplay is landscape only. Turn your phone sideways for the full arena, safer turns, and readable rival space.
-            </p>
-            <strong>YOUR RUN {playing ? "IS PAUSED OR RECONNECTING" : "WILL START AUTOMATICALLY"} WHEN THE SCREEN IS WIDE</strong>
-            <button
-              type="button"
-              onClick={() => {
-                setPendingLandscapeLaunch(null);
-                if (playing) {
-                  setPlaying(false);
-                  setMode("rush");
-                }
-              }}
-            >
-              {playing ? "EXIT TO HARBOR" : "BACK TO HARBOR"}
-            </button>
-          </div>
-        </section>
       )}
     </main>
   );

@@ -19,30 +19,18 @@
  *   crowded 29-chain scenes; the frame budget is already spoken for.
  */
 
+import {
+  WORM_MATERIAL_PATTERNS,
+  isWormMaterialPattern,
+  type WormMaterialPattern,
+} from "./wormMaterialPatterns";
+
+export { WORM_MATERIAL_PATTERNS, isWormMaterialPattern, type WormMaterialPattern };
+
 const TAU = Math.PI * 2;
 
 /** The inner edge of the skin stroke; no material mark may cross it. */
 const MATERIAL_MAX_OFFSET = 0.71;
-
-export const WORM_MATERIAL_PATTERNS = [
-  "tidal-ribbon",
-  "crown-wake",
-  "signal-bloom",
-  "faceted-wake",
-  "raider-chevron",
-  "spectral-ripple",
-  "cutlass-flame",
-  "broadside-bolt",
-  "oracle-spiral",
-] as const;
-
-export type WormMaterialPattern = typeof WORM_MATERIAL_PATTERNS[number];
-
-const PATTERN_SET: ReadonlySet<string> = new Set(WORM_MATERIAL_PATTERNS);
-
-export function isWormMaterialPattern(value: unknown): value is WormMaterialPattern {
-  return typeof value === "string" && PATTERN_SET.has(value);
-}
 
 export interface WormMaterialPoint {
   x: number;
