@@ -273,15 +273,16 @@ export class AuthoritativeArenaServer {
         return;
       }
 
-      let room = this.rooms.get(join.value.roomId ?? "public-1");
+      const roomId = join.value.roomId ?? "public-1";
+      let room = this.rooms.get(roomId);
+      let createdRoom = false;
       if (!room) {
         if (this.rooms.size >= this.maxRooms) {
           this.send(socket, { type: "error", code: "RATE_LIMITED", message: "Room capacity is temporarily full." });
           return;
         }
-        room = new ArenaRoom(join.value.roomId ?? "public-1", this.roomOptions);
-        room.start();
-        this.rooms.set(room.id, room);
+        room = new ArenaRoom(roomId, this.roomOptions, (idleRoom) => this.retireIdleRoom(idleRoom));
+        createdRoom = true;
       }
 
       const result = room.join(socket, join.value);
@@ -290,6 +291,10 @@ export class AuthoritativeArenaServer {
           type: "error", code: "INVALID_JOIN", message: "Unable to join the room.",
         });
         return;
+      }
+      if (createdRoom) {
+        room.start();
+        this.rooms.set(room.id, room);
       }
       this.bindings.set(socket, { room, session: result.session });
       const state = this.connections.get(socket);
@@ -425,5 +430,11 @@ export class AuthoritativeArenaServer {
     if (binding) binding.room.disconnect(binding.session, socket);
     this.bindings.delete(socket);
     this.connections.delete(socket);
+  }
+
+  private retireIdleRoom(room: ArenaRoom): void {
+    if (this.rooms.get(room.id) !== room) return;
+    room.stop();
+    this.rooms.delete(room.id);
   }
 }

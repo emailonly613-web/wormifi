@@ -35,6 +35,11 @@ interface LiveArenaCanvasProps {
   onExit: () => void;
 }
 
+interface LiveLeaderboardEntry {
+  player: PublicPlayerState;
+  rank: number;
+}
+
 interface LiveUiState {
   phase: ConnectionPhase;
   detail: string;
@@ -48,7 +53,9 @@ interface LiveUiState {
   mass: number;
   length: number;
   rank: number;
-  leaderboard: PublicPlayerState[];
+  rankTotal: number;
+  nextRankGap?: number;
+  leaderboard: LiveLeaderboardEntry[];
   position: Vec2;
   exactMass: number;
   collisionHeadRadius: number;
@@ -332,6 +339,7 @@ function initialUi(roomId: string): LiveUiState {
     mass: 100,
     length: 0,
     rank: 1,
+    rankTotal: 1,
     leaderboard: [],
     position: { x: 0, y: 0 },
     exactMass: 100,
@@ -445,7 +453,6 @@ export function LiveArenaCanvas({
         second.mass - first.mass ||
         first.id.localeCompare(second.id),
       );
-    const leaderboard = rankedPlayers.slice(0, 6);
     const ownPlayer = snapshot.players.find((player) => player.id === playerId);
     const aliveRank = rankedPlayers.findIndex((player) => player.id === playerId);
     const rank = aliveRank >= 0
@@ -460,6 +467,20 @@ export function LiveArenaCanvas({
           )
           .findIndex((player) => player.id === playerId) + 1
         : Math.max(1, snapshot.players.length);
+    const leaderboardRanks = new Set<number>();
+    for (let index = 0; index < Math.min(4, rankedPlayers.length); index += 1) {
+      leaderboardRanks.add(index);
+    }
+    if (aliveRank > 0) leaderboardRanks.add(aliveRank - 1);
+    if (aliveRank >= 0) leaderboardRanks.add(aliveRank);
+    const leaderboard = [...leaderboardRanks]
+      .sort((first, second) => first - second)
+      .slice(0, 6)
+      .map((index) => ({ player: rankedPlayers[index], rank: index + 1 }))
+      .filter((entry): entry is LiveLeaderboardEntry => Boolean(entry.player));
+    const nextRankGap = ownPlayer && aliveRank > 0
+      ? Math.max(0, rankedPlayers[aliveRank - 1].score - ownPlayer.score)
+      : undefined;
     const collisionHeadRadius = ownPlayer ? getPlayerRadius(ownPlayer, world.collisionRadii) : 0;
     const collisionBodyRadius = ownPlayer ? getBodyRadius(ownPlayer, world.collisionRadii) : 0;
     const collectorRemaining = ownPlayer?.specialist?.kind === "collector"
@@ -479,6 +500,8 @@ export function LiveArenaCanvas({
       mass: Math.round(ownPlayer?.mass ?? 0),
       length: ownPlayer?.body.length ?? 0,
       rank,
+      rankTotal: Math.max(1, rankedPlayers.length),
+      nextRankGap,
       leaderboard,
       position: ownPlayer ? { ...ownPlayer.position } : { x: 0, y: 0 },
       exactMass: ownPlayer?.mass ?? 0,
@@ -976,10 +999,10 @@ export function LiveArenaCanvas({
       <div className="game-hud live-game-hud">
         <div className="hud-top">
           <div className="hud-pill hud-rank" data-testid="live-hud-rank">
-            <small>SCORE RANK</small><strong>#{ui.rank}</strong>
+            <small>RUN SCORE RANK</small><strong>#{ui.rank} / {ui.rankTotal}</strong>
           </div>
           <div className="hud-pill hud-size" data-testid="live-hud-score">
-            <small>SCORE</small><strong>{ui.score.toLocaleString()}</strong>
+            <small>RUN SCORE</small><strong>{ui.score.toLocaleString()}</strong>
           </div>
           <div className="hud-pill" data-testid="live-hud-length">
             <small>SIZE</small><strong>{ui.mass}</strong>
@@ -987,20 +1010,32 @@ export function LiveArenaCanvas({
         </div>
 
         <aside className="leaderboard live-leaderboard" aria-label="Live score leaderboard">
-          <h2>SCORE RANK · LIVE</h2>
+          <h2>RUN SCORE · RESETS ON CRASH</h2>
+          <p className="leaderboard-rule">SURVIVE +3/S · GROW · CUT RIVALS</p>
           <ol>
-            {ui.leaderboard.map((player) => (
-              <li key={player.id} className={player.id === ui.playerId ? "player" : ""}>
+            {ui.leaderboard.map(({ player, rank }) => (
+              <li
+                key={player.id}
+                className={player.id === ui.playerId ? "player" : ""}
+                data-rank={rank}
+              >
                 <span className="name">
-                  {player.name}
+                  {player.name}{player.id === ui.playerId ? " · YOU" : ""}
                   <em className={player.kind === "human" ? "human-tag" : "ai-tag"}>
                     {player.kind === "human" ? "HUMAN" : "AI"}
                   </em>
                 </span>
-                <span>{player.score}</span>
+                <span>{player.score.toLocaleString()}</span>
               </li>
             ))}
           </ol>
+          {ui.nextRankGap !== undefined && (
+            <p className="leaderboard-chase" data-testid="live-next-rank-gap">
+              {ui.nextRankGap === 0
+                ? "NEXT RANK · TIED"
+                : `NEXT RANK +${ui.nextRankGap.toLocaleString()}`}
+            </p>
+          )}
         </aside>
 
         <div

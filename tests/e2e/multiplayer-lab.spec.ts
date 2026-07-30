@@ -448,7 +448,10 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
   await expect(page.getByTestId("tutorial-coach")).toContainText("YOU'RE MOVING");
   await expect(page.getByTestId("live-hud-rank")).toContainText("SCORE RANK");
-  await expect(page.getByTestId("live-hud-rank")).toContainText("#2");
+  await expect(page.getByTestId("live-hud-rank")).toContainText("#2 / 2");
+  await expect(page.getByLabel("Live score leaderboard")).toContainText("RESETS ON CRASH");
+  await expect(page.getByLabel("Live score leaderboard")).toContainText("Touch Proof · YOU");
+  await expect(page.getByTestId("live-next-rank-gap")).toContainText("NEXT RANK +150");
   await expect(page.getByTestId("live-hud-length")).toContainText("SIZE");
   await page.keyboard.press("ArrowLeft");
   await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");

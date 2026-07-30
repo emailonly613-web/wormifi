@@ -568,10 +568,25 @@ input:focus-visible {
 }
 
 .leaderboard h2 {
-  margin: 0 0 7px;
+  margin: 0 0 4px;
   font-size: 9px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   color: #98b8c9;
+}
+
+.leaderboard-rule,
+.leaderboard-chase {
+  margin: 0 0 7px;
+  color: #7895a8;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+}
+
+.leaderboard-chase {
+  margin: 7px 0 0;
+  color: var(--gold);
 }
 
 .leaderboard ol {
@@ -580,11 +595,9 @@ input:focus-visible {
   margin: 0;
   padding: 0;
   list-style: none;
-  counter-reset: rank;
 }
 
 .leaderboard li {
-  counter-increment: rank;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 5px;
@@ -594,7 +607,7 @@ input:focus-visible {
 }
 
 .leaderboard li::before {
-  content: counter(rank);
+  content: attr(data-rank);
   color: #7895a8;
 }
 
@@ -1282,6 +1295,8 @@ input:focus-visible {
     opacity: .58;
   }
   .leaderboard h2 { display: none; }
+  .leaderboard-rule,
+  .leaderboard-chase { display: none; }
   .leaderboard li { grid-template-columns: 13px minmax(0, 1fr) auto; font-size: 8px; }
   .leaderboard li:nth-child(n+3) { display: none; }
   .hud-top { gap: 5px; left: 9px; top: max(9px, env(safe-area-inset-top)); }

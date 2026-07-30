@@ -95,7 +95,11 @@ export class ArenaRoom {
   private collectorBeaconNumber = 0;
   private nextCollectorBeaconTick?: number;
 
-  constructor(readonly id: string, options: ArenaRoomOptions = {}) {
+  constructor(
+    readonly id: string,
+    options: ArenaRoomOptions = {},
+    private readonly onIdle?: (room: ArenaRoom) => void,
+  ) {
     this.targetPopulation = Math.max(0, Math.floor(options.targetPopulation ?? 24));
     this.fixedStepHz = Math.max(1, Math.floor(options.fixedStepHz ?? 30));
     const snapshotHz = Math.max(1, Math.floor(options.snapshotHz ?? 15));
@@ -263,7 +267,7 @@ export class ArenaRoom {
 
     let steps = 0;
     while (this.schedulerAccumulatorMs >= stepMilliseconds && steps < MAX_CATCH_UP_STEPS) {
-      this.simulationStep();
+      if (this.simulationStep()) return;
       this.schedulerAccumulatorMs -= stepMilliseconds;
       steps += 1;
     }
@@ -276,8 +280,9 @@ export class ArenaRoom {
     }
   }
 
-  private simulationStep(): void {
-    this.expireDisconnectedSessions();
+  /** Returns true when this step retired the room through its idle callback. */
+  private simulationStep(): boolean {
+    if (this.expireDisconnectedSessions()) return true;
     this.respawnReleasedPlayers();
     const humanInputs: Record<string, PlayerInput> = {};
     for (const session of this.sessionsByToken.values()) {
@@ -294,7 +299,7 @@ export class ArenaRoom {
     this.pendingEvents.push(...result.events);
     this.reconcileCollectorBeacon(result.events);
     if (this.state.drops.length < this.targetDropCount - 48) this.seedArenaDrops();
-
+    return false;
   }
 
   private snapshot(): SnapshotMessage {
@@ -513,13 +518,22 @@ export class ArenaRoom {
       this.now() - session.disconnectedAtMs > this.reconnectGraceMs;
   }
 
-  private expireDisconnectedSessions(): void {
+  private expireDisconnectedSessions(): boolean {
+    let expiredSession = false;
     for (const session of [...this.sessionsByToken.values()]) {
       if (!this.isExpired(session)) continue;
+      expiredSession = true;
       this.sessionsByToken.delete(session.token);
       this.sessionsByPlayer.delete(session.playerId);
       delete this.state.players[session.playerId];
     }
+
+    if (expiredSession && this.sessionsByToken.size === 0 && this.onIdle) {
+      this.onIdle(this);
+      return true;
+    }
+
     this.restoreBackfill();
+    return false;
   }
 }
