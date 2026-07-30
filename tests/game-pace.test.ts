@@ -17,9 +17,13 @@ describe("published room pace selection", () => {
     expect(readGamePacePreference("")).toBe("harbor");
     expect(readGamePacePreference("?pace=warp-nine")).toBe("harbor");
     expect(readGamePacePreference("?pace=harbor")).toBe("harbor");
-    expect(getGamePaceProfile("harbor")).toMatchObject({ baseSpeed: 100, boostSpeed: 170 });
-    expect(getGamePaceProfile("classic")).toMatchObject({ baseSpeed: 212, boostSpeed: 330 });
-    expect(getGamePaceProfile("tempest")).toMatchObject({ baseSpeed: 235, boostSpeed: 365 });
+    expect(getGamePaceProfile("harbor")).toMatchObject({ baseSpeed: 100, boostSpeed: 200 });
+    expect(getGamePaceProfile("classic")).toMatchObject({ baseSpeed: 212, boostSpeed: 380 });
+    expect(getGamePaceProfile("tempest")).toMatchObject({ baseSpeed: 235, boostSpeed: 420 });
+    for (const paceId of ["harbor", "classic", "tempest"] as const) {
+      const pace = getGamePaceProfile(paceId);
+      expect(pace.boostSpeed / pace.baseSpeed).toBeGreaterThanOrEqual(1.78);
+    }
   });
 
   it("lets existing room truth win and omits a private override", () => {

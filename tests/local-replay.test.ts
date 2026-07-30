@@ -159,7 +159,7 @@ describe("deterministic local run replay", () => {
     expect(getLocalRunPaceId(run.recording)).toBe("tempest");
     const rebuilt = rebuildLocalRun(run.recording);
     expect(rebuilt.paceId).toBe("tempest");
-    expect(rebuilt.state.config).toMatchObject({ baseSpeed: 235, boostSpeed: 365 });
+    expect(rebuilt.state.config).toMatchObject({ baseSpeed: 235, boostSpeed: 420 });
     expect(rebuilt.checksum).toBe(run.recording.terminalChecksum);
 
     expect(() => rebuildLocalRun({ ...run.recording, paceId: "harbor" }))

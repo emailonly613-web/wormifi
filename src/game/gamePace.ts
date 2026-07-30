@@ -21,7 +21,7 @@ export const GAME_PACE_PROFILES: Readonly<Record<GamePaceId, GamePaceProfile>> =
       shortLabel: "PATIENT DEFAULT",
       description: "A slower long-run pace with time to read, plan, and survive.",
       baseSpeed: 100,
-      boostSpeed: 170,
+      boostSpeed: 200,
     }),
     classic: Object.freeze({
       id: "classic",
@@ -29,7 +29,7 @@ export const GAME_PACE_PROFILES: Readonly<Record<GamePaceId, GamePaceProfile>> =
       shortLabel: "FAST",
       description: "The previous Wormifi pace, preserved as an opt-in faster room.",
       baseSpeed: 212,
-      boostSpeed: 330,
+      boostSpeed: 380,
     }),
     tempest: Object.freeze({
       id: "tempest",
@@ -37,7 +37,7 @@ export const GAME_PACE_PROFILES: Readonly<Record<GamePaceId, GamePaceProfile>> =
       shortLabel: "HIGH PRESSURE",
       description: "Faster sailing for captains who want less reaction time.",
       baseSpeed: 235,
-      boostSpeed: 365,
+      boostSpeed: 420,
     }),
   });
 

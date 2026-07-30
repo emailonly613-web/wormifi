@@ -15,6 +15,7 @@ import type {
   WorldMessage,
 } from "../../server/src/protocol";
 import { DEFAULT_GAME_CONFIG, getBodyRadius, getPlayerRadius } from "../game/core";
+import { remainingSprintBurstMs } from "../game/sprintControl";
 import type {
   ActiveSpecialist,
   ChargingStationState,
@@ -93,6 +94,7 @@ import {
   type GameBoardId,
 } from "../game/boardPreference";
 import {
+  getGamePaceProfile,
   isGamePaceId,
   type GamePaceId,
 } from "../game/gamePace";
@@ -699,6 +701,8 @@ export function LiveArenaCanvas({
   photoSkinRef.current = photoSkin;
   const directionRef = useRef<Vec2>({ x: 1, y: 0 });
   const boostRef = useRef(false);
+  const sprintStartedAtRef = useRef<number | undefined>(undefined);
+  const sprintReleaseTimerRef = useRef<number | undefined>(undefined);
   const touchGuideRef = useRef<TouchGuide | null>(null);
   const tutorialSparkIdRef = useRef<string | null>(null);
   const tutorialRetargetRef = useRef<{
@@ -813,6 +817,13 @@ export function LiveArenaCanvas({
   }, [ensureAudio, tutorial.meaningfulSteer]);
 
   useEffect(() => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    sprintStartedAtRef.current = undefined;
+    boostRef.current = false;
+    setBoosting(false);
     tutorialSparkIdRef.current = null;
     tutorialRetargetRef.current = { count: 0 };
     tutorialTargetTrackingRef.current = {};
@@ -828,18 +839,62 @@ export function LiveArenaCanvas({
     nextHudRefreshAtRef.current = 0;
   }, [roomId, session]);
 
-  const pressSprint = useCallback(() => {
-    ensureAudio();
-    boostRef.current = true;
-    setBoosting(true);
-    tutorial.pressedSprint();
-  }, [ensureAudio, tutorial.pressedSprint]);
+  const sendInputNow = useCallback((boost: boolean) => {
+    const socket = socketRef.current;
+    const handshake = handshakeRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN || !handshake?.welcomed) return;
+    sequenceRef.current += 1;
+    socket.send(JSON.stringify({
+      type: "input",
+      sequence: sequenceRef.current,
+      clientTick: snapshotRef.current?.tick,
+      direction: directionRef.current,
+      boost,
+    }));
+  }, []);
 
-  const releaseSprint = useCallback(() => {
+  const finishSprint = useCallback(() => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    sprintStartedAtRef.current = undefined;
+    if (!boostRef.current) return;
     boostRef.current = false;
     setBoosting(false);
     tutorial.releasedSprint();
-  }, [tutorial.releasedSprint]);
+    sendInputNow(false);
+  }, [sendInputNow, tutorial.releasedSprint]);
+
+  const pressSprint = useCallback(() => {
+    ensureAudio();
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    if (boostRef.current) return;
+    sprintStartedAtRef.current = performance.now();
+    boostRef.current = true;
+    setBoosting(true);
+    tutorial.pressedSprint();
+    sendInputNow(true);
+  }, [ensureAudio, sendInputNow, tutorial.pressedSprint]);
+
+  const releaseSprint = useCallback(() => {
+    if (!boostRef.current) return;
+    const remainingMs = remainingSprintBurstMs(
+      sprintStartedAtRef.current,
+      performance.now(),
+    );
+    if (remainingMs <= 0) {
+      finishSprint();
+      return;
+    }
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+    }
+    sprintReleaseTimerRef.current = window.setTimeout(finishSprint, remainingMs);
+  }, [finishSprint]);
 
   const showDeathNotice = useCallback((message: string) => {
     setDeathNotice(message);
@@ -1459,6 +1514,7 @@ export function LiveArenaCanvas({
   useEffect(() => () => {
     if (deathNoticeTimerRef.current !== undefined) window.clearTimeout(deathNoticeTimerRef.current);
     if (actionCalloutTimerRef.current !== undefined) window.clearTimeout(actionCalloutTimerRef.current);
+    if (sprintReleaseTimerRef.current !== undefined) window.clearTimeout(sprintReleaseTimerRef.current);
     particlesRef.current = [];
     previousFrameAtRef.current = undefined;
     pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
@@ -1471,20 +1527,10 @@ export function LiveArenaCanvas({
   useEffect(() => {
     if (!running) return;
     const interval = window.setInterval(() => {
-      const socket = socketRef.current;
-      const handshake = handshakeRef.current;
-      if (!socket || socket.readyState !== WebSocket.OPEN || !handshake?.welcomed) return;
-      sequenceRef.current += 1;
-      socket.send(JSON.stringify({
-        type: "input",
-        sequence: sequenceRef.current,
-        clientTick: snapshotRef.current?.tick,
-        direction: directionRef.current,
-        boost: boostRef.current,
-      }));
+      sendInputNow(boostRef.current);
     }, INPUT_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [running, session]);
+  }, [running, sendInputNow, session]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1632,6 +1678,8 @@ export function LiveArenaCanvas({
   };
 
   const authoritative = ui.phase === "authoritative";
+  const activePace = worldRef.current?.pace ?? getGamePaceProfile(paceId);
+  const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
   const radarWorld = worldRef.current;
   const radarLandmarks: RadarLandmark[] = radarWorld
     ? [
@@ -1893,7 +1941,7 @@ export function LiveArenaCanvas({
         className={`boost-control ${boosting ? "active" : ""}`}
         data-testid="live-boost-control"
         disabled={!authoritative || ui.mass <= DEFAULT_GAME_CONFIG.minimumBoostMass}
-        aria-label={`Sprint, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
+        aria-label={`Turbo sprint, ${sprintMultiplierLabel} speed, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
         onPointerDown={(event) => {
           event.stopPropagation();
           pressSprint();
@@ -1909,7 +1957,7 @@ export function LiveArenaCanvas({
         }}
       >
         <span>SPRINT</span>
-        <small>−{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
+        <small>{sprintMultiplierLabel} · −{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
       </button>
     </div>
   );

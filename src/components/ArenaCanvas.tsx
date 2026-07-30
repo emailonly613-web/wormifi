@@ -114,7 +114,8 @@ import {
   type PhotoSkinCanvasAppearance,
 } from "../game/photoSkinCanvas";
 import type { GameBoardId } from "../game/boardPreference";
-import type { GamePaceId } from "../game/gamePace";
+import { getGamePaceProfile, type GamePaceId } from "../game/gamePace";
+import { remainingSprintBurstMs } from "../game/sprintControl";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -431,6 +432,8 @@ export function ArenaCanvas({
   const replayRuntimeRef = useRef<LocalReplayRuntime | null>(null);
   const directionRef = useRef<Vec2>({ x: 1, y: 0 });
   const boostRef = useRef(false);
+  const sprintStartedAtRef = useRef<number | undefined>(undefined);
+  const sprintReleaseTimerRef = useRef<number | undefined>(undefined);
   const touchGuideRef = useRef<TouchGuide | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const restartButtonRef = useRef<HTMLButtonElement>(null);
@@ -527,19 +530,52 @@ export function ArenaCanvas({
       : undefined;
   }, [tutorial.meaningfulSteer]);
 
+  const finishSprint = useCallback(() => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    sprintStartedAtRef.current = undefined;
+    if (!boostRef.current) return;
+    boostRef.current = false;
+    setBoosting(false);
+    tutorial.releasedSprint();
+  }, [tutorial.releasedSprint]);
+
   const pressSprint = useCallback(() => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    if (boostRef.current) return;
+    sprintStartedAtRef.current = performance.now();
     boostRef.current = true;
     setBoosting(true);
     tutorial.pressedSprint();
   }, [tutorial.pressedSprint]);
 
   const releaseSprint = useCallback(() => {
-    boostRef.current = false;
-    setBoosting(false);
-    tutorial.releasedSprint();
-  }, [tutorial.releasedSprint]);
+    if (!boostRef.current) return;
+    const remainingMs = remainingSprintBurstMs(
+      sprintStartedAtRef.current,
+      performance.now(),
+    );
+    if (remainingMs <= 0) {
+      finishSprint();
+      return;
+    }
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+    }
+    sprintReleaseTimerRef.current = window.setTimeout(finishSprint, remainingMs);
+  }, [finishSprint]);
 
   useEffect(() => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+      sprintReleaseTimerRef.current = undefined;
+    }
+    sprintStartedAtRef.current = undefined;
     const seed = running
       ? challenge?.seed ?? `wormifi-${session}-${mode}`
       : "wormifi-living-title";
@@ -578,6 +614,12 @@ export function ArenaCanvas({
     setLocalReplay(null);
     setHud(getInitialHud());
   }, [boardId, challenge, mode, paceId, playerName, running, session]);
+
+  useEffect(() => () => {
+    if (sprintReleaseTimerRef.current !== undefined) {
+      window.clearTimeout(sprintReleaseTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (runtimeRef.current) runtimeRef.current.reducedMotion = reducedMotion;
@@ -649,6 +691,11 @@ export function ArenaCanvas({
         recording,
       });
       onRunEndedRef.current();
+      if (sprintReleaseTimerRef.current !== undefined) {
+        window.clearTimeout(sprintReleaseTimerRef.current);
+        sprintReleaseTimerRef.current = undefined;
+      }
+      sprintStartedAtRef.current = undefined;
       boostRef.current = false;
       setBoosting(false);
       playTone(125, 0.24, 0.08);
@@ -1260,6 +1307,8 @@ export function ArenaCanvas({
     hud.currentTick,
     hud.fixedStepSeconds,
   );
+  const activePace = getGamePaceProfile(paceId);
+  const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
 
   return (
     <div
@@ -1451,10 +1500,10 @@ export function ArenaCanvas({
               releaseSprint();
             }}
             onPointerCancel={releaseSprint}
-            aria-label={`Sprint — costs ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
+            aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, costs ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
           >
             <span>SPRINT</span>
-            <small>−{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
+            <small>{sprintMultiplierLabel} · −{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
           </button>
         </>
       )}

@@ -143,7 +143,7 @@ test.describe("first Wormifi session", () => {
     await expect(arena).toHaveAttribute("data-tutorial-stage", "sprint-release");
     await expect(arena).toHaveAttribute("data-tutorial-sprint-spent", "true");
     await page.keyboard.up("Space");
-    await expect(arena).toHaveAttribute("data-boosting", "false");
+    await expect(arena).toHaveAttribute("data-boosting", "false", { timeout: 1_000 });
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collision");
     await expect(page.getByText("THEIR HEAD", { exact: true })).toBeVisible();
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collector", { timeout: 3_000 });
@@ -151,6 +151,17 @@ test.describe("first Wormifi session", () => {
     await page.getByTestId(gameContract.exit).click();
     await expectLauncher(page);
     expect(browserErrors).toEqual([]);
+  });
+
+  test("turns a quick Turbo button tap into a visible simulation burst", async ({ page }) => {
+    await expectLauncher(page);
+    await page.getByTestId("solo-run-button").click();
+    await expectActiveArena(page);
+
+    const arena = page.getByTestId(gameContract.arena);
+    await page.getByTestId(gameContract.boost).click();
+    await expect(arena).toHaveAttribute("data-boosting", "true");
+    await expect(arena).toHaveAttribute("data-boosting", "false", { timeout: 1_000 });
   });
 
   test("labels Practice bots honestly before and during play", async ({ page }, testInfo) => {

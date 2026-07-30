@@ -45,7 +45,7 @@ test("the first join locks one authoritative pace for every captain", async () =
       id: "tempest",
       name: "Tempest",
       baseSpeed: 235,
-      boostSpeed: 365,
+      boostSpeed: 420,
     });
 
     const ordinary = await connect(started.websocketUrl);
@@ -86,7 +86,7 @@ test("the first join locks one authoritative pace for every captain", async () =
       id: "harbor",
       name: "Harbor",
       baseSpeed: 100,
-      boostSpeed: 170,
+      boostSpeed: 200,
     });
   } finally {
     for (const socket of sockets) socket.close();

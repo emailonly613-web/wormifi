@@ -77,7 +77,7 @@ export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   minimumMass: 24,
   minimumBoostMass: 34,
   baseSpeed: 100,
-  boostSpeed: 170,
+  boostSpeed: 200,
   boostMassPerSecond: 12,
   shedDropMass: 2,
   shedPickupLockSeconds: 1.25,

@@ -217,18 +217,43 @@ test("two independent clients share one server-owned arena with bot backfill and
     true,
     "the room publishes actual server-granted sprint state",
   );
+  const sprintStart = sprintingSnapshot.players.find(
+    (player) => player.id === aliceWelcome.playerId,
+  );
+  assert.ok(sprintStart);
+  const sustainedSprintSnapshot = await alice.next(
+    (message): message is SnapshotMessage =>
+      message.type === "snapshot" &&
+      message.tick >= sprintingSnapshot.tick + 6 &&
+      message.players.find((player) => player.id === aliceWelcome.playerId)?.boosting === true,
+  );
+  const sprintEnd = sustainedSprintSnapshot.players.find(
+    (player) => player.id === aliceWelcome.playerId,
+  );
+  assert.ok(sprintEnd);
+  const sprintTicks = sustainedSprintSnapshot.tick - sprintingSnapshot.tick;
+  const sprintDisplacement = Math.hypot(
+    sprintEnd.position.x - sprintStart.position.x,
+    sprintEnd.position.y - sprintStart.position.y,
+  );
+  const minimumTurboDistance = DEFAULT_GAME_CONFIG.baseSpeed *
+    1.8 * aliceWelcome.fixedStepSeconds * sprintTicks;
+  assert.ok(
+    sprintDisplacement + 0.001 >= minimumTurboDistance,
+    `turbo must move at least 1.8x normal speed; moved ${sprintDisplacement} over ${sprintTicks} ticks`,
+  );
 
   alice.send({
     type: "input",
     sequence: 4,
-    clientTick: sprintingSnapshot.tick,
+    clientTick: sustainedSprintSnapshot.tick,
     direction: { x: 1, y: 0 },
     boost: false,
   });
   const settledSnapshot = await alice.next(
     (message): message is SnapshotMessage =>
       message.type === "snapshot" &&
-      message.tick > sprintingSnapshot.tick &&
+      message.tick > sustainedSprintSnapshot.tick &&
       message.players.find((player) => player.id === aliceWelcome.playerId)?.boosting === false,
   );
   assert.equal(
