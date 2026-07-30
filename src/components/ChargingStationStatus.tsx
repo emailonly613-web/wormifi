@@ -5,7 +5,7 @@ interface ChargingStationStatusProps {
   testId: string;
 }
 
-/** Color is supplemental: every phase also has a stable icon and text label. */
+/** Compact nonverbal objective state; full instructions stay in the lobby. */
 export function ChargingStationStatus({ status, testId }: ChargingStationStatusProps) {
   return (
     <div
@@ -20,15 +20,11 @@ export function ChargingStationStatus({ status, testId }: ChargingStationStatusP
       <span className="specialist-icon station-status-icon" aria-hidden="true">
         {status.icon}
       </span>
-      <span>
-        <small>{status.heading}</small>
-        <strong>{status.detail}</strong>
-        <progress
-          max={1}
-          value={status.progressRatio}
-          aria-label={`${status.stationName} ${status.progressLabel}`}
-        />
-      </span>
+      <progress
+        max={1}
+        value={status.progressRatio}
+        aria-label={`${status.stationName} ${status.progressLabel}`}
+      />
     </div>
   );
 }

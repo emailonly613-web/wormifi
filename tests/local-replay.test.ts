@@ -56,8 +56,17 @@ describe("deterministic local run replay", () => {
     expect(openSeas.boardId).toBe("open-seas");
     expect(openSeas.state.board).toMatchObject({
       id: "open-seas",
-      chargingStations: [],
     });
+    expect(openSeas.state.board.chargingStations.map((station) => station.id)).toEqual([
+      "coin-cay",
+      "coral-key",
+      "kraken-atoll",
+    ]);
+    expect(Object.keys(openSeas.state.chargingStations).sort()).toEqual([
+      "coin-cay",
+      "coral-key",
+      "kraken-atoll",
+    ]);
 
     const relay = buildLocalArena(
       "board-relay",

@@ -180,7 +180,7 @@ test("two clients receive the same server-owned board, charge, reward, and coold
   }
 });
 
-test("an ordinary room publishes an explicit station-free board", () => {
+test("an ordinary room publishes all three server-owned Open Seas harbors", () => {
   const room = new ArenaRoom("normal-authority", {
     targetPopulation: 0,
     targetDropCount: 0,
@@ -196,8 +196,16 @@ test("an ordinary room publishes an explicit station-free board", () => {
     const world = capture.latest("world") as WorldMessage;
     const snapshot = capture.latest("snapshot") as SnapshotMessage;
     assert.equal(world.board?.id, "open-seas");
-    assert.deepEqual(world.board?.chargingStations, []);
-    assert.deepEqual(snapshot.chargingStations, []);
+    assert.deepEqual(
+      world.board?.chargingStations.map((station) => [station.id, station.kind, station.massReward]),
+      [
+        ["coin-cay", "harbor", 2.5],
+        ["coral-key", "harbor", 4],
+        ["kraken-atoll", "harbor", 7],
+      ],
+    );
+    assert.equal(snapshot.chargingStations?.length, 3);
+    assert.ok(snapshot.chargingStations?.every((station) => station.phase === "ready"));
   } finally {
     room.stop();
   }

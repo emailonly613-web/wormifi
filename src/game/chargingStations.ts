@@ -12,11 +12,69 @@ const EPSILON = 1e-9;
 const MINIMUM_DIRECTION_CONSISTENCY = 0.82;
 const BOARD_ID_PATTERN = /^[a-z0-9-]{1,40}$/;
 
-/** The original arena profile. No station code runs on this board. */
+/** Default arena: three progressively riskier one-lap island rewards. */
 export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
   id: "open-seas",
   name: "Open Seas",
-  chargingStations: Object.freeze([]) as unknown as ChargingStationConfig[],
+  chargingStations: Object.freeze([
+    Object.freeze({
+      id: "coin-cay",
+      name: "Coin Cay",
+      kind: "harbor",
+      position: Object.freeze({ x: -360, y: -210 }),
+      coreRadius: 8,
+      wrapRadius: 22,
+      wrapTolerance: 7,
+      dockAngleRadians: 0,
+      dockRadius: 12,
+      requiredWrapRadians: 5.3,
+      minimumWrappedSegments: 6,
+      chargeDurationSeconds: 1 / 30,
+      massReward: 2.5,
+      interruptionGraceSeconds: 0,
+      interruptionDecayTicksPerTick: 1,
+      completionCooldownSeconds: 4,
+      resetCooldownSeconds: 1,
+    }),
+    Object.freeze({
+      id: "coral-key",
+      name: "Coral Key",
+      kind: "harbor",
+      position: Object.freeze({ x: 360, y: 220 }),
+      coreRadius: 14,
+      wrapRadius: 42,
+      wrapTolerance: 9,
+      dockAngleRadians: Math.PI,
+      dockRadius: 14,
+      requiredWrapRadians: 5.45,
+      minimumWrappedSegments: 10,
+      chargeDurationSeconds: 1 / 30,
+      massReward: 4,
+      interruptionGraceSeconds: 0,
+      interruptionDecayTicksPerTick: 1,
+      completionCooldownSeconds: 6,
+      resetCooldownSeconds: 1,
+    }),
+    Object.freeze({
+      id: "kraken-atoll",
+      name: "Kraken Atoll",
+      kind: "harbor",
+      position: Object.freeze({ x: 0, y: -440 }),
+      coreRadius: 24,
+      wrapRadius: 72,
+      wrapTolerance: 14,
+      dockAngleRadians: Math.PI / 2,
+      dockRadius: 18,
+      requiredWrapRadians: 5.55,
+      minimumWrappedSegments: 14,
+      chargeDurationSeconds: 1 / 30,
+      massReward: 7,
+      interruptionGraceSeconds: 0,
+      interruptionDecayTicksPerTick: 1,
+      completionCooldownSeconds: 8,
+      resetCooldownSeconds: 1,
+    }),
+  ]) as unknown as ChargingStationConfig[],
 });
 
 /**
@@ -113,6 +171,9 @@ export function cloneAndValidateBoard(
     }
     seenIds.add(station.id);
     if (!station.name.trim()) throw new Error(`charging station ${station.id} needs a name`);
+    if (station.kind !== undefined && station.kind !== "capstan" && station.kind !== "harbor") {
+      throw new Error(`charging station ${station.id} kind is invalid`);
+    }
     if (!Number.isFinite(station.position.x) || !Number.isFinite(station.position.y)) {
       throw new Error(`charging station ${station.id} position must be finite`);
     }

@@ -812,9 +812,9 @@ input:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "identity time"
-    "progress progress"
-    "disclosure disclosure"
-    "motion motion";
+    "progress progress";
+  width: auto;
+  max-width: 92px;
   column-gap: 8px;
   row-gap: 2px;
   color: #f8fff9;
@@ -967,6 +967,11 @@ input:focus-visible {
 
 .charging-station-status {
   bottom: max(103px, calc(env(safe-area-inset-bottom) + 97px));
+  display: grid;
+  width: 39px;
+  max-width: 39px;
+  gap: 4px;
+  padding: 5px;
   border-color: rgba(255, 213, 108, .56);
   color: #fff1bd;
   background: linear-gradient(120deg, rgba(72, 43, 17, .9), rgba(5, 31, 43, .84));
@@ -993,9 +998,9 @@ input:focus-visible {
 }
 
 .charging-station-status progress {
-  width: 100%;
-  height: 4px;
-  margin-top: 4px;
+  width: 27px;
+  height: 3px;
+  margin: 0 auto;
   overflow: hidden;
   border: 0;
   border-radius: 999px;
@@ -1455,6 +1460,28 @@ input:focus-visible {
   background: linear-gradient(145deg, rgba(3, 17, 38, 0.91), rgba(8, 40, 62, 0.86));
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34), 0 0 24px rgba(55, 227, 238, 0.12);
   backdrop-filter: blur(13px);
+  pointer-events: none;
+  animation: tutorial-in 260ms ease-out;
+}
+
+.tutorial-cue {
+  position: absolute;
+  z-index: 19;
+  left: 50%;
+  bottom: max(112px, calc(env(safe-area-inset-bottom) + 96px));
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(120, 241, 255, 0.46);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  color: #fff2a6;
+  background: rgba(3, 17, 38, 0.56);
+  box-shadow: 0 0 22px rgba(55, 227, 238, 0.16);
+  font-family: "Baloo 2", sans-serif;
+  font-size: 21px;
+  font-weight: 900;
   pointer-events: none;
   animation: tutorial-in 260ms ease-out;
 }
@@ -2253,6 +2280,97 @@ input:focus-visible {
   .live-arena-stage .tutorial-coach {
     width: calc(100% - 116px);
   }
+}
+
+/* Active play is visual-first. Full explanations remain in the launcher,
+ * semantic labels, and results; they never cover steering or collisions. */
+.room-identity-ribbon {
+  min-width: 32px;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  place-content: center;
+  border-radius: 50%;
+}
+
+.room-identity-ribbon strong,
+.game-hud .leaderboard,
+.mode-disclosure,
+.pirate-radar header,
+.pirate-radar footer {
+  display: none;
+}
+
+.room-identity-ribbon.scope-live .room-identity-pin {
+  display: none;
+}
+
+.room-identity-ribbon.scope-live button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff2a8;
+  background: transparent;
+  font-size: 0;
+  cursor: pointer;
+}
+
+.room-identity-ribbon.scope-live button::before {
+  content: "\2197";
+  font-size: 18px;
+  line-height: 1;
+}
+
+.room-identity-ribbon.scope-live button:focus-visible {
+  outline: 3px solid #fff2a8;
+  outline-offset: 2px;
+}
+
+.game-hud .hud-pill small {
+  display: none;
+}
+
+.live-authority-card {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.live-authority-card > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.live-authority-card::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffb35f;
+  box-shadow: 0 0 10px rgba(255, 179, 95, .72);
+}
+
+.live-authority-card[data-phase="authoritative"]::before {
+  background: #65f6cc;
+  box-shadow: 0 0 12px rgba(101, 246, 204, .78);
+}
+
+.live-authority-card[data-phase="error"]::before {
+  background: #ff668e;
+  box-shadow: 0 0 12px rgba(255, 102, 142, .78);
 }
 
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 460px) {
@@ -3536,4 +3654,32 @@ input:focus-visible {
   .relic-status__rival-disclosure {
     display: none;
   }
+}
+
+/* Final specificity guard: narrow-screen layout may reposition these controls,
+ * but may not restore verbose panels over active play. */
+.room-identity-ribbon,
+.controls-left-helm .room-identity-ribbon,
+.controls-right-helm .room-identity-ribbon {
+  min-width: 32px;
+  width: 32px;
+  max-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  gap: 0;
+}
+
+.live-authority-card,
+.controls-left-helm .live-authority-card,
+.controls-right-helm .live-authority-card {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.mode-disclosure,
+.controls-left-helm .mode-disclosure,
+.controls-right-helm .mode-disclosure {
+  display: none;
 }

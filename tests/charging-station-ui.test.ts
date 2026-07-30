@@ -10,6 +10,7 @@ describe("charging station HUD and radar equivalents", () => {
     const status: ChargingStationPresentation = {
       stationId: "port-capstan",
       stationName: "Port Capstan",
+      kind: "capstan",
       phase: "interrupted",
       icon: "⚠",
       heading: "Port Capstan · Coil Broken",
@@ -31,6 +32,8 @@ describe("charging station HUD and radar equivalents", () => {
     expect(markup).toContain("<progress");
     expect(markup).toContain('value="0.5"');
     expect(markup).toContain("Port Capstan 50% HELD");
+    expect(markup).not.toContain("<strong>");
+    expect(markup).not.toContain("<small>");
   });
 
   it("renders configured station markers through the existing radar hook", () => {

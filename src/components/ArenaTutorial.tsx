@@ -126,71 +126,45 @@ export function ArenaTutorial({
 }: ArenaTutorialProps) {
   if (stage === "complete") return null;
   const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
+  const cue = stage === "steer"
+    ? "↻"
+    : stage === "spark"
+      ? "◆"
+      : stage === "sprint"
+        ? "⚡"
+        : stage === "sprint-release"
+          ? "↥"
+          : stage === "collision"
+            ? "◎→●"
+            : "⌖";
+  const accessibleLabel = stage === "steer"
+    ? touch && controlScheme !== "drag-anywhere"
+      ? `Use the ${controlScheme === "left-helm" ? "left" : "right"} helm to turn.`
+      : alreadyMoving
+        ? "Turn your moving worm."
+        : "Steer to start."
+    : stage === "spark"
+      ? "Collect the ringed gem."
+      : stage === "sprint"
+        ? `Press and hold Turbo. Current size ${Math.round(size)}.`
+        : stage === "sprint-release"
+          ? "Release Turbo."
+          : stage === "collision"
+            ? "Keep your head safe and make a rival head hit your crew."
+            : "Collect the compass relic.";
 
   return (
     <section
       id="arena-tutorial"
-      className={`tutorial-coach tutorial-${stage}`}
+      className={`tutorial-cue tutorial-${stage}`}
       data-testid="tutorial-coach"
       data-stage={stage}
       role="status"
       aria-live="polite"
       aria-atomic="true"
+      aria-label={accessibleLabel}
     >
-      {stage === "steer" && (
-        <>
-          <small>STEP 1 OF 4 · STEER</small>
-          <strong>
-            {touch && controlScheme !== "drag-anywhere"
-              ? `USE THE ${controlScheme === "left-helm" ? "LEFT" : "RIGHT"} HELM TO TURN`
-              : alreadyMoving
-                ? touch ? "YOU'RE MOVING · DRAG TO TURN" : "YOU'RE MOVING · TURN NOW"
-                : touch ? "DRAG ANYWHERE TO START" : "MOVE YOUR POINTER TO START"}
-          </strong>
-          <span>
-            {touch && controlScheme !== "drag-anywhere"
-              ? "Move the fixed brass helm knob; the Sprint button mirrors to your free hand."
-              : touch
-                ? "The thumb ring starts where you touch."
-              : alreadyMoving ? "Your glowing HEAD follows your pointer." : "You stay safe here until you turn."}
-          </span>
-        </>
-      )}
-      {stage === "spark" && (
-        <>
-          <small>STEP 2 OF 4 · GROW</small>
-          <strong>GRAB THE RINGED GEM</strong>
-          <span>Touch the cut jewel to add SIZE and grow your crew.</span>
-        </>
-      )}
-      {(stage === "sprint" || stage === "sprint-release") && (
-        <>
-          <small>STEP 3 OF 4 · SPRINT · SIZE {Math.round(size)}</small>
-          <strong>{stage === "sprint" ? "PRESS + HOLD SPRINT" : "NOW RELEASE SPRINT"}</strong>
-          <span>Sprint moves faster but burns {SPRINT_SIZE_COST_PER_SECOND} SIZE each second.</span>
-        </>
-      )}
-      {stage === "collision" && (
-        <>
-          <small>STEP 4 OF 4 · COLLISION LAW</small>
-          <strong>HEAD SAFE · THEIR HEAD INTO YOUR CREW</strong>
-          <div className="collision-lesson" aria-label="Keep your head safe and make a rival head hit your crew">
-            <span className="lesson-rival-head">THEIR HEAD</span>
-            <span className="lesson-arrow">→</span>
-            <span className="lesson-crew"><i /><i /><i /> YOUR CREW</span>
-          </div>
-          <span className="collision-law">
-            Your opening dotted HEAD SAFE halo fades on its timer. Your crew can still cut rivals while your head is protected.
-          </span>
-        </>
-      )}
-      {stage === "collector" && (
-        <>
-          <small>BONUS · LOOT COMPASS</small>
-          <strong>GRAB THE BRASS COMPASS</strong>
-          <span>For 12s it pulls nearby gems + your wake loot. Rival hoards stay put.</span>
-        </>
-      )}
+      <span aria-hidden="true">{cue}</span>
     </section>
   );
 }

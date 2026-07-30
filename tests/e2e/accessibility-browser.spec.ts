@@ -148,7 +148,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expectVisibleFocus(arena);
     await expect(arena).toHaveAttribute("aria-describedby", "arena-keyboard-help");
     await expect(page.getByTestId("room-identity")).toHaveText(/SOLO RUN — NO LIVE ROOM/u);
-    await expect(page.getByRole("status")).toContainText("STEP 1 OF 4");
+    await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Steer to start.");
     await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/size rank \d+/i);
     await expect(page.getByTestId("hud-score")).toHaveAccessibleName(/score \d+/i);
     await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
@@ -158,7 +158,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
 
     await page.keyboard.press("ArrowDown");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
-    await expect(page.getByRole("status")).toContainText("STEP 2 OF 4");
+    await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Collect the ringed gem.");
 
     await page.keyboard.press("Tab");
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
@@ -283,7 +283,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const sprint = page.getByRole("button", { name: /sprint.*costs 4 size/i });
     await expectWithinViewport(exit, page);
     await expectWithinViewport(sprint, page);
-    await expect(page.getByRole("status")).toContainText("STEP 1 OF 4");
+    await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Steer to start.");
     await captureProof(page, testInfo, "05-narrow-game.png");
   });
 });

@@ -189,7 +189,6 @@ interface Particle {
   maxLife: number;
   radius: number;
   color: string;
-  label?: string;
 }
 
 interface ArenaRenderRuntime {
@@ -741,9 +740,8 @@ export function ArenaCanvas({
               vy: -44,
               life: 0.72,
               maxLife: 0.72,
-              radius: 0,
+              radius: event.mass >= RARE_TREASURE_CHEST_MASS ? 10 : 6,
               color: event.mass >= RARE_TREASURE_CHEST_MASS ? "#fff1a1" : "#eafffb",
-              label: `+${Number(event.mass.toFixed(1))} SIZE`,
             });
           }
           if (runtime.pickupCombo <= 5 || runtime.pickupCombo === 8) {
@@ -781,6 +779,21 @@ export function ArenaCanvas({
           const relic = resolveRelicPresentation(event.relicKind);
           setActionCallout(`${relic.label.toUpperCase()} SPENT · FIND ANOTHER RELIC`);
           window.setTimeout(() => setActionCallout(null), 800);
+        }
+
+        if (event.type === "chargingCompleted" && event.playerId === PLAYER_ID) {
+          const station = runtime.state.board.chargingStations.find(
+            (candidate) => candidate.id === event.stationId,
+          );
+          setActionCallout(
+            station?.kind === "harbor"
+              ? `${station.name.toUpperCase()} LOOP WON · +${Number(event.massAwarded.toFixed(1))} SIZE`
+              : `${station?.name.toUpperCase() ?? "CAPSTAN"} CHARGED · +${Number(event.massAwarded.toFixed(1))} SIZE`,
+          );
+          window.setTimeout(() => setActionCallout(null), 2_000);
+          playTone(470, 0.1, 0.04);
+          window.setTimeout(() => playTone(720, 0.16, 0.035), 85);
+          if (!runtime.reducedMotion) navigator.vibrate?.([10, 18, 28]);
         }
 
         if (event.type === "playerDied") {
@@ -1510,8 +1523,8 @@ export function ArenaCanvas({
             onPointerCancel={releaseSprint}
             aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, costs ${SPRINT_SIZE_COST_PER_SECOND} size per second, ${turboSecondsRemaining.toFixed(1)} seconds available`}
           >
-            <span>SPRINT</span>
-            <small>{sprintMultiplierLabel} · −{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
+            <span aria-hidden="true">⚡</span>
+            <small aria-hidden="true">{sprintMultiplierLabel}</small>
           </button>
         </>
       )}
@@ -1600,7 +1613,7 @@ export function ArenaCanvas({
       )}
 
       {running && actionCallout && (
-        <div className="action-callout" role="status" aria-live="polite">{actionCallout}</div>
+        <div className="sr-only" role="status" aria-live="polite">{actionCallout}</div>
       )}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
@@ -1747,17 +1760,7 @@ function renderArena(
     ) continue;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
     context.globalAlpha = alpha;
-    if (particle.label) {
-      context.fillStyle = particle.color;
-      context.shadowColor = particle.color;
-      context.shadowBlur = 12;
-      context.font = `900 ${clamp(15 * zoom, 12, 19)}px "Baloo 2", sans-serif`;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(particle.label, screen.x, screen.y);
-      continue;
-    }
-    // A label's glow must not leak onto every following shard in this frame.
+    // Each pickup stays a nonverbal glint; no reward sentence covers play.
     context.shadowBlur = 0;
     drawTreasureShard(
       context,
@@ -1923,12 +1926,6 @@ function drawDrops(
       context.arc(0, 0, Math.max(12, radius * 2.15), 0, Math.PI * 2);
       context.stroke();
       context.restore();
-      context.font = `900 ${clamp(9 * zoom, 8, 11)}px Inter, sans-serif`;
-      context.textAlign = "center";
-      context.fillStyle = "#eafffb";
-      context.shadowColor = "rgba(0,0,0,.9)";
-      context.shadowBlur = 5;
-      context.fillText("RINGED TREASURE · GROW", 0, -Math.max(18, radius * 3.1));
     }
 
     if (groundRelic) {
@@ -2141,40 +2138,6 @@ function drawLivingChain(
     context.arc(headScreen.x, headScreen.y, headRadius * 1.42, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-    if (player.id === PLAYER_ID || width >= 520) {
-      const graceSeconds = player.shieldTicksRemaining * state.config.fixedStepSeconds;
-      context.font = `900 ${clamp(9 * zoom, 8, 12)}px Inter, sans-serif`;
-      context.textAlign = "center";
-      context.fillStyle = "rgba(211, 255, 250, 0.96)";
-      context.shadowColor = "rgba(0, 8, 22, 0.95)";
-      context.shadowBlur = 5;
-      context.fillText(
-        `HEAD SAFE · ${graceSeconds.toFixed(1)}S`,
-        headScreen.x,
-        headScreen.y + headRadius * 2.15,
-      );
-    }
-  }
-
-  const focusedMobileLabel = Math.hypot(
-    headScreen.x - width / 2,
-    headScreen.y - height / 2,
-  ) <= Math.min(width, height) * 0.48;
-  const insideMobileLabelSafeZone =
-    headScreen.x >= 48 && headScreen.x <= width - 48 &&
-    headScreen.y >= 124 && headScreen.y <= height - 224;
-  if (
-    player.id === PLAYER_ID ||
-    width >= 520 ||
-    (focusedMobileLabel && insideMobileLabelSafeZone)
-  ) {
-    context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
-    context.textAlign = "center";
-    context.fillStyle = player.id === PLAYER_ID ? "#eaffff" : "rgba(230,244,255,0.84)";
-    context.shadowColor = "rgba(0,0,0,0.85)";
-    context.shadowBlur = 5;
-    const label = `${player.name}${player.kind === "bot" ? " · AI" : ""}`;
-    context.fillText(label, headScreen.x, headScreen.y - headRadius * 2.05);
   }
   context.restore();
 }

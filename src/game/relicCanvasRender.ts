@@ -93,32 +93,6 @@ export function groundRelicLabelLocalOffsetX(
   return cssOffset / localToCssScale;
 }
 
-function currentRelicLabelOffsetX(
-  context: CanvasRenderingContext2D,
-  labelWidth: number,
-): number {
-  const transform = context.getTransform();
-  const scaleX = Math.hypot(transform.a, transform.b);
-  const viewportWidthCss = context.canvas.clientWidth;
-  const backingScale = viewportWidthCss > 0
-    ? context.canvas.width / viewportWidthCss
-    : 0;
-  if (
-    !Number.isFinite(scaleX) ||
-    scaleX <= 0 ||
-    !Number.isFinite(backingScale) ||
-    backingScale <= 0
-  ) {
-    return 0;
-  }
-  return groundRelicLabelLocalOffsetX(
-    transform.e / backingScale,
-    viewportWidthCss,
-    labelWidth,
-    scaleX / backingScale,
-  );
-}
-
 function displaySeconds(seconds: number): string {
   return Number.isInteger(seconds) ? `${seconds}S` : `${seconds.toFixed(1)}S`;
 }
@@ -265,24 +239,8 @@ export function drawGroundRelicPickup(
     drawRelicFallback(context, relic, beaconRadius * 0.78);
   }
 
-  const labelFont = `900 ${clamp(9 * options.zoom, 8, 11)}px Inter, sans-serif`;
-  const effectFont = `800 ${clamp(7.5 * options.zoom, 7, 9)}px Inter, sans-serif`;
-  context.font = labelFont;
-  const labelWidth = context.measureText(model.label).width;
-  context.font = effectFont;
-  const effectWidth = context.measureText(model.effectText).width;
-  const labelOffsetX = currentRelicLabelOffsetX(context, Math.max(labelWidth, effectWidth));
-
-  context.font = labelFont;
-  context.textAlign = "center";
-  context.textBaseline = "alphabetic";
-  context.fillStyle = relic.carrierAccent;
-  context.shadowColor = "rgba(0,0,0,.92)";
-  context.shadowBlur = 5;
-  context.fillText(model.label, labelOffsetX, -beaconRadius * 2.05);
-  context.font = effectFont;
-  context.fillStyle = "#eafffb";
-  context.fillText(model.effectText, labelOffsetX, beaconRadius * 2.18);
+  // Icon, orbit, color, and pickup motion are the complete visible cue. Full
+  // names and effect copy stay in the lobby and accessible DOM status.
   context.restore();
   return model;
 }

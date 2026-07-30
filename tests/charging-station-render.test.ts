@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLACK_PEARL_RELAY_BOARD,
   cloneAndValidateBoard,
+  OPEN_SEAS_BOARD,
 } from "../src/game/chargingStations";
 import {
   describeChargingStation,
@@ -155,5 +156,36 @@ describe("charging station client presentation", () => {
     expect(text).toContain("↻");
     expect(text.some((entry) => entry.includes("YOUR CHARGE"))).toBe(true);
     expect(text.some((entry) => entry.includes("CLOCKWISE"))).toBe(true);
+  });
+
+  it("renders a mini-island harbor with one-lap copy and exact reward truth", () => {
+    const prepared = cloneAndValidateBoard(OPEN_SEAS_BOARD, 1 / 30, 1_450);
+    const station = { ...prepared.board.chargingStations[0], position: { x: 0, y: 0 } };
+    const ready = prepared.states[station.id];
+    const presentation = describeChargingStation(station, ready, 1 / 30, "captain");
+    expect(presentation).toMatchObject({
+      stationId: "coin-cay",
+      heading: "Coin Cay · LOOP READY",
+      icon: "↻",
+    });
+    expect(presentation.detail).toBe("CIRCLE ISLAND · RETURN HEAD TO BUOY · +2.5 SIZE");
+
+    const { context, arcs, text } = recordingContext();
+    drawChargingStationField(context, {
+      views: [{ station, state: ready }],
+      worldToScreen: (point) => ({ x: 400 + point.x, y: 300 + point.y }),
+      zoom: 2,
+      width: 800,
+      height: 600,
+      fixedStepSeconds: 1 / 30,
+      viewerPlayerId: "captain",
+      now: 1_000,
+    });
+
+    expect(arcs).toContain(station.wrapRadius * 2);
+    expect(arcs).toContain(station.dockRadius * 2);
+    expect(text).toContain("⚓");
+    expect(text.some((entry) => entry.includes("COIN CAY"))).toBe(false);
+    expect(text.some((entry) => entry.includes("RETURN HEAD TO BUOY"))).toBe(false);
   });
 });

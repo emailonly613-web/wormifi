@@ -35,7 +35,7 @@ test("keeps honest local identity and the pirate chart through play, results, an
   }));
   expect(localCrewCounts.other).toBeGreaterThan(0);
   expect(localCrewCounts.ai).toBe(localCrewCounts.other);
-  await expect(radar).toHaveAttribute("data-station-count", "0");
+  await expect(radar).toHaveAttribute("data-station-count", "3");
   await expect(radar).toHaveAttribute(
     "aria-label",
     /shows your position and heading, the arena boundary, \d+ ordinarily visible crew markers/i,

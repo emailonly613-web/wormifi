@@ -55,7 +55,7 @@ for (const viewport of [
     await page.setViewportSize(viewport.landscape);
     await expect(landscapeGate).toHaveCount(0);
     await expect(page.getByTestId("arena-canvas")).toBeVisible();
-    await expect(page.getByTestId("tutorial-coach")).toContainText("STEP 1 OF 4");
+    await expect(page.getByTestId("tutorial-coach")).toHaveAttribute("data-stage", "steer");
     await page.waitForTimeout(300);
 
     const room = await expectInsideViewport(page.getByTestId("room-identity"), page);
@@ -87,13 +87,12 @@ for (const viewport of [
       hudElement.insertAdjacentHTML("beforeend", `
         <aside class="relic-status relic-status--loot-compass specialist-status active"
           data-testid="relic-status" aria-label="Loot Compass Relic status">
-          <div class="relic-status__identity" role="status" aria-live="polite">
+          <div class="relic-status__identity" role="status" aria-live="polite"
+            aria-label="Loot Compass. Pulls nearby gems and your wake loot.">
             <img class="relic-status__icon" src="/assets/sprites/pirate-atlas/loot-compass.png" alt="" aria-hidden="true" />
-            <span class="relic-status__copy"><strong>LOOT COMPASS ACTIVE</strong><span>PULLS GEMS + YOUR WAKE LOOT</span></span>
           </div>
           <time class="relic-status__time" aria-label="8 seconds remaining">8.0S</time>
           <progress class="relic-status__progress" max="12" value="8" aria-label="Loot Compass duration remaining">67%</progress>
-          <span class="relic-status__rival-disclosure">EXTENDED PICKUP REACH</span>
         </aside>
       `);
       stage.insertAdjacentHTML("beforeend", `

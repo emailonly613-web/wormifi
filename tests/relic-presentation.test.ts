@@ -112,7 +112,7 @@ describe("Relic presentation contract", () => {
     expect(markup).toContain('data-carrier-tone="pepper-fire"');
     expect(markup).toContain('data-ground-sprite="pepper-cutlass"');
     expect(markup).toContain('/assets/sprites/pirate-atlas/pepper-cutlass.png');
-    expect(markup).toContain("PEPPER CUTLASS ACTIVE");
+    expect(markup).toContain('aria-label="Pepper Cutlass. BOOST COST -25% · SAME TOP SPEED.');
     expect(markup).toContain("BOOST COST -25% · SAME TOP SPEED");
     expect(markup).toContain('role="status"');
     expect(markup).toContain('aria-live="polite"');
@@ -130,8 +130,9 @@ describe("Relic presentation contract", () => {
     }));
     expect(markup).toContain('data-reduced-motion="true"');
     expect(markup).toContain('data-motion="static"');
-    expect(markup).toContain("STATIC TIMER · NO PULSE");
-    expect(markup).toContain("EMERALD SPYGLASS ACTIVE");
+    expect(markup).toContain('aria-label="Emerald Spyglass.');
+    expect(markup).not.toContain("relic-status__copy");
+    expect(markup).not.toContain("relic-status__rival-disclosure");
     expect(markup).not.toContain("LOOT COMPASS");
   });
 

@@ -235,18 +235,81 @@ describe("authoritative body-wrap charging", () => {
     expect(state.chargingStations[station.id].playerId).toBe("admiral");
   });
 
-  it("keeps stations opt-in so the original Open Seas board remains unchanged", () => {
+  it("ships three progressive one-lap harbors in the default Open Seas board", () => {
     const state = createGameState(
-      "open-seas-control",
-      { baseSpeed: 0 },
+      "open-seas-harbors",
+      { baseSpeed: 0, fixedStepSeconds: 1 / 30 },
       OPEN_SEAS_BOARD,
     );
-    spawnPlayer(state, { id: "captain", shieldSeconds: 0 });
+    const player = spawnPlayer(state, { id: "captain", shieldSeconds: 60 });
 
     expect(state.board.id).toBe("open-seas");
-    expect(state.board.chargingStations).toEqual([]);
-    expect(state.chargingStations).toEqual({});
-    expect(stepGame(state).events.some((event) => event.type.startsWith("charging")))
-      .toBe(false);
+    expect(state.board.chargingStations.map((station) => ({
+      id: station.id,
+      kind: station.kind,
+      reward: station.massReward,
+    }))).toEqual([
+      { id: "coin-cay", kind: "harbor", reward: 2.5 },
+      { id: "coral-key", kind: "harbor", reward: 4 },
+      { id: "kraken-atoll", kind: "harbor", reward: 7 },
+    ]);
+
+    const coinCay = state.board.chargingStations[0];
+    const startingMass = player.mass;
+    expect(player.body).toHaveLength(coinCay.minimumWrappedSegments);
+    placeValidCoil(state, player, coinCay);
+    expect(evaluateChargingWrap(player, coinCay).valid).toBe(true);
+
+    const lap = stepGame(state);
+    expect(lap.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "chargingStarted",
+        stationId: coinCay.id,
+        playerId: player.id,
+        requiredTicks: 1,
+      }),
+      expect.objectContaining({
+        type: "chargingCompleted",
+        stationId: coinCay.id,
+        playerId: player.id,
+        massAwarded: 2.5,
+      }),
+    ]));
+    expect(player.mass).toBeCloseTo(startingMass + 2.5, 8);
+    expect(state.chargingStations[coinCay.id].phase).toBe("cooldown");
+  });
+
+  it("never remints a harbor reward until the captain sails clear and completes another lap", () => {
+    const state = createGameState(
+      "open-seas-repeat-lap",
+      { baseSpeed: 0, fixedStepSeconds: 1 / 30 },
+      OPEN_SEAS_BOARD,
+    );
+    const coinCay = state.board.chargingStations[0];
+    const player = spawnPlayer(state, { id: "captain", shieldSeconds: 60 });
+    placeValidCoil(state, player, coinCay);
+    stepGame(state);
+    const firstLapMass = player.mass;
+    const chargingState = state.chargingStations[coinCay.id];
+
+    const cooldownTicks = chargingState.cooldownTicksRemaining;
+    for (let tick = 0; tick < cooldownTicks + 3; tick += 1) stepGame(state);
+    expect(chargingState).toMatchObject({ phase: "cooldown", cooldownTicksRemaining: 0 });
+    expect(player.mass).toBeCloseTo(firstLapMass, 8);
+
+    player.position = { x: 0, y: 0 };
+    player.previousPosition = { ...player.position };
+    stepGame(state);
+    expect(chargingState.phase).toBe("ready");
+
+    placeValidCoil(state, player, coinCay);
+    const secondLap = stepGame(state);
+    expect(secondLap.events).toContainEqual(expect.objectContaining({
+      type: "chargingCompleted",
+      stationId: coinCay.id,
+      playerId: player.id,
+      massAwarded: coinCay.massReward,
+    }));
+    expect(player.mass).toBeCloseTo(firstLapMass + coinCay.massReward, 8);
   });
 });

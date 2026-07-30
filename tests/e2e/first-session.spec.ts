@@ -98,7 +98,7 @@ test.describe("first Wormifi session", () => {
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
     await expect(page.getByTestId(gameContract.rank)).toContainText("SIZE RANK");
     await expect(page.getByTestId(gameContract.length)).toContainText("SIZE");
-    await expect(page.getByTestId(gameContract.boost)).toContainText("4 SIZE/S");
+    await expect(page.getByTestId(gameContract.boost)).toHaveAccessibleName(/costs 4 size per second/i);
 
     const frozenStart = await Promise.all([
       arena.getAttribute("data-player-x"),
@@ -145,7 +145,9 @@ test.describe("first Wormifi session", () => {
     await page.keyboard.up("Space");
     await expect(arena).toHaveAttribute("data-boosting", "false", { timeout: 1_000 });
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collision");
-    await expect(page.getByText("THEIR HEAD", { exact: true })).toBeVisible();
+    await expect(page.getByTestId(gameContract.tutorial)).toHaveAccessibleName(
+      "Keep your head safe and make a rival head hit your crew.",
+    );
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collector", { timeout: 3_000 });
 
     await page.getByTestId(gameContract.exit).click();
@@ -175,16 +177,12 @@ test.describe("first Wormifi session", () => {
     await page.getByRole("button", { name: /practice with labeled bots/i }).click();
 
     await expectActiveArena(page);
-    await expect(page.getByText(/practice.*labeled bots/i)).toBeVisible();
     const leaderboard = page.getByLabel("AI size leaderboard");
-    if (testInfo.project.name.includes("mobile")) {
-      await expect(leaderboard).toBeHidden();
-    } else {
-      await expect(leaderboard).toBeVisible();
-    }
+    await expect(leaderboard).toBeHidden();
     await expect(page.getByRole("heading", { name: "SIZE RANK · AI", includeHidden: true })).toHaveCount(1);
     await expect(page.getByText("LIVE ARENA")).toHaveCount(0);
     await expect(page.getByTestId("room-identity")).toHaveText(/PRACTICE — NO LIVE ROOM/u);
+    await expect(page.getByTestId("room-identity")).toHaveAttribute("data-scope", "practice");
     const radar = page.getByTestId("pirate-radar");
     await expect(radar).toBeVisible();
     await expect(radar).toHaveAttribute("data-room-id", "none");
@@ -198,7 +196,7 @@ test.describe("first Wormifi session", () => {
     expect(practiceCrewCounts.rivals).toBe(practiceCrewCounts.other);
     expect(practiceCrewCounts.ai).toBe(practiceCrewCounts.other);
     await expect(radar).toHaveAttribute("data-hazard-count", "0");
-    await expect(radar).toHaveAttribute("data-station-count", "0");
+    await expect(radar).toHaveAttribute("data-station-count", "3");
     await expect(radar).toHaveAttribute(
       "data-fair-intel",
       "arena-bounds,self-heading,coarse-players,collector,public-hazard,stations",

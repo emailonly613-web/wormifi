@@ -189,12 +189,22 @@ function validateConfig(config: GameConfig): void {
 export function createGameState(
   seed: string | number,
   overrides: Partial<GameConfig> = {},
-  board: Readonly<GameBoardConfig> = OPEN_SEAS_BOARD,
+  board?: Readonly<GameBoardConfig>,
 ): GameState {
   const config: GameConfig = { ...DEFAULT_GAME_CONFIG, ...overrides };
   validateConfig(config);
+  // Tiny deterministic core fixtures cannot physically contain the public
+  // landmarks. Only an omitted board may degrade to station-free Open Seas;
+  // any explicitly selected board still fails closed on invalid geometry.
+  const defaultBoardFits = OPEN_SEAS_BOARD.chargingStations.every((station) =>
+    Math.hypot(station.position.x, station.position.y) +
+      station.wrapRadius + station.wrapTolerance < config.arenaRadius
+  );
+  const selectedBoard = board ?? (defaultBoardFits
+    ? OPEN_SEAS_BOARD
+    : { id: OPEN_SEAS_BOARD.id, name: OPEN_SEAS_BOARD.name, chargingStations: [] });
   const preparedBoard = cloneAndValidateBoard(
-    board,
+    selectedBoard,
     config.fixedStepSeconds,
     config.arenaRadius,
   );
@@ -1319,6 +1329,7 @@ function isPlayerMooredForCharging(
       continue;
     }
     const station = getChargingStationConfig(state, chargingState.stationId);
+    if (station.kind === "harbor") continue;
     const geometry = evaluateChargingWrap(player, station);
     if (
       geometry.valid &&
@@ -1441,6 +1452,19 @@ function updateChargingStations(state: GameState, events: GameEvent[]): void {
         chargingState.cooldownTicksRemaining - 1,
       );
       if (chargingState.cooldownTicksRemaining === 0) {
+        // A harbor lap must physically sail clear before the same captain can
+        // earn again. Remaining parked in a completed coil never mints free
+        // repeated rewards after the public cooldown reaches zero.
+        const priorPlayer = chargingState.playerId
+          ? state.players[chargingState.playerId]
+          : undefined;
+        if (
+          station.kind === "harbor" &&
+          priorPlayer?.alive &&
+          evaluateChargingWrap(priorPlayer, station).valid
+        ) {
+          continue;
+        }
         resetChargingStateToReady(chargingState);
       }
       continue;

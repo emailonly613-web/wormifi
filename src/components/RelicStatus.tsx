@@ -53,6 +53,7 @@ export function RelicStatus({
         role="status"
         aria-live="polite"
         aria-atomic="true"
+        aria-label={`${relic.label}. ${model.effectText}. ${model.rivalDisclosure}.`}
       >
         <img
           className="relic-status__icon"
@@ -60,10 +61,6 @@ export function RelicStatus({
           alt=""
           aria-hidden="true"
         />
-        <span className="relic-status__copy">
-          <strong>{relic.label.toUpperCase()} ACTIVE</strong>
-          <span>{model.effectText}</span>
-        </span>
       </div>
       <time
         className="relic-status__time"
@@ -81,14 +78,6 @@ export function RelicStatus({
       >
         {Math.round(model.timerRatio * 100)}%
       </progress>
-      <span className="relic-status__rival-disclosure">
-        {model.rivalDisclosure}
-      </span>
-      {reducedMotion && (
-        <span className="relic-status__motion-equivalent">
-          STATIC TIMER · NO PULSE
-        </span>
-      )}
     </aside>
   );
 }

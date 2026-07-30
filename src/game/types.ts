@@ -16,6 +16,7 @@ export type PirateRelicKind =
   | "maelstrom-wheel"
   | "gilded-ledger";
 export type TreasureMultiplierTier = 2 | 3 | 5;
+export type ChargingStationKind = "capstan" | "harbor";
 
 /**
  * Static, server-owned geometry and tuning for a wrap charging station. A
@@ -25,6 +26,8 @@ export type TreasureMultiplierTier = 2 | 3 | 5;
 export interface ChargingStationConfig {
   id: string;
   name: string;
+  /** Omitted legacy/custom stations retain the original capstan behavior. */
+  kind?: ChargingStationKind;
   position: Vec2;
   coreRadius: number;
   wrapRadius: number;

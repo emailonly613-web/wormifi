@@ -238,7 +238,6 @@ interface LiveParticle {
   radius: number;
   color: string;
   streak?: boolean;
-  label?: string;
 }
 
 const palettes = [
@@ -528,7 +527,7 @@ function isStringTuple(value: unknown): value is [string, string] {
     value[0] !== value[1];
 }
 
-function isAuthoritativeEvent(value: unknown) {
+export function isAuthoritativeEvent(value: unknown) {
   if (!isRecord(value) || typeof value.type !== "string") return false;
   const validTick = typeof value.tick === "number" && Number.isSafeInteger(value.tick) && value.tick >= 0;
   if (!validTick) return false;
@@ -553,6 +552,36 @@ function isAuthoritativeEvent(value: unknown) {
     return tierValid && typeof value.playerId === "string" &&
       value.specialist === "collector" &&
       (value.relicKind === undefined || isPirateRelicKind(value.relicKind));
+  }
+  if (value.type === "chargingStarted") {
+    return typeof value.stationId === "string" && value.stationId.length > 0 &&
+      typeof value.playerId === "string" && value.playerId.length > 0 &&
+      (value.windingDirection === -1 || value.windingDirection === 1) &&
+      typeof value.requiredTicks === "number" && Number.isSafeInteger(value.requiredTicks) &&
+      value.requiredTicks > 0;
+  }
+  if (
+    value.type === "chargingInterrupted" ||
+    value.type === "chargingResumed"
+  ) {
+    return typeof value.stationId === "string" && value.stationId.length > 0 &&
+      typeof value.playerId === "string" && value.playerId.length > 0 &&
+      typeof value.progressTicks === "number" && Number.isSafeInteger(value.progressTicks) &&
+      value.progressTicks >= 0;
+  }
+  if (value.type === "chargingReset") {
+    return typeof value.stationId === "string" && value.stationId.length > 0 &&
+      typeof value.playerId === "string" && value.playerId.length > 0 &&
+      typeof value.massAwarded === "number" && Number.isFinite(value.massAwarded) &&
+      value.massAwarded >= 0;
+  }
+  if (value.type === "chargingCompleted") {
+    return typeof value.stationId === "string" && value.stationId.length > 0 &&
+      typeof value.playerId === "string" && value.playerId.length > 0 &&
+      typeof value.massAwarded === "number" && Number.isFinite(value.massAwarded) &&
+      value.massAwarded > 0 &&
+      typeof value.cooldownTicks === "number" && Number.isSafeInteger(value.cooldownTicks) &&
+      value.cooldownTicks >= 0;
   }
   if (value.type === "playerDied") {
     return typeof value.playerId === "string" &&
@@ -1272,9 +1301,8 @@ export function LiveArenaCanvas({
                     vy: -44,
                     life: 0.72,
                     maxLife: 0.72,
-                    radius: 0,
+                    radius: collectedPopCluster ? 10 : 6,
                     color: collectedPopCluster ? "#fff1a1" : "#eafffb",
-                    label: `+${Number(gameEvent.mass.toFixed(1))} SIZE`,
                   });
                 }
               }
@@ -1315,6 +1343,20 @@ export function LiveArenaCanvas({
             if (gameEvent.type === "specialistExpired" && gameEvent.playerId === handshake.playerId) {
               const relic = resolveRelicPresentation(gameEvent.relicKind);
               showActionCallout(`${relic.label.toUpperCase()} SPENT · FIND ANOTHER RELIC`, 900);
+            }
+            if (gameEvent.type === "chargingCompleted" && gameEvent.playerId === handshake.playerId) {
+              const station = world.board?.chargingStations.find(
+                (candidate) => candidate.id === gameEvent.stationId,
+              );
+              showActionCallout(
+                station?.kind === "harbor"
+                  ? `${station.name.toUpperCase()} LOOP WON · +${Number(gameEvent.massAwarded.toFixed(1))} SIZE`
+                  : `${station?.name.toUpperCase() ?? "CAPSTAN"} CHARGED · +${Number(gameEvent.massAwarded.toFixed(1))} SIZE`,
+                2_000,
+              );
+              playTone(470, 0.1, 0.04);
+              window.setTimeout(() => playTone(720, 0.16, 0.035), 85);
+              if (!reducedMotionRef.current) navigator.vibrate?.([10, 18, 28]);
             }
             if (gameEvent.type === "playerDied") {
               const victim = message.players.find((player) => player.id === gameEvent.playerId) ??
@@ -1935,8 +1977,13 @@ export function LiveArenaCanvas({
       )}
 
       {deathNotice && (
-        <div className="live-death-notice" data-testid="live-death-notice" role="status">
-          {deathNotice}
+        <div
+          className="live-death-notice"
+          data-testid="live-death-notice"
+          role="status"
+          aria-label={deathNotice}
+        >
+          <span aria-hidden="true">☠</span>
         </div>
       )}
       {!touchGuide && controlScheme !== "drag-anywhere" && (
@@ -1950,7 +1997,7 @@ export function LiveArenaCanvas({
       )}
 
       {actionCallout && (
-        <div className="action-callout" data-testid="live-action-callout" role="status">
+        <div className="sr-only" data-testid="live-action-callout" role="status">
           {actionCallout}
         </div>
       )}
@@ -1975,8 +2022,8 @@ export function LiveArenaCanvas({
           releaseSprint();
         }}
       >
-        <span>SPRINT</span>
-        <small>{sprintMultiplierLabel} · −{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
+        <span aria-hidden="true">⚡</span>
+        <small aria-hidden="true">{sprintMultiplierLabel}</small>
       </button>
     </div>
   );
@@ -2072,16 +2119,7 @@ function drawLiveParticles(
     if (screen.x < -40 || screen.y < -40 || screen.x > width + 40 || screen.y > height + 40) continue;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
     context.globalAlpha = alpha;
-    if (particle.label) {
-      context.fillStyle = particle.color;
-      context.shadowColor = particle.color;
-      context.shadowBlur = 12;
-      context.font = `900 ${clamp(15 * zoom, 12, 19)}px "Baloo 2", sans-serif`;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(particle.label, screen.x, screen.y);
-      continue;
-    }
+    // Each pickup stays a nonverbal glint; no reward sentence covers play.
     if (particle.streak) {
       context.strokeStyle = particle.color;
       context.lineWidth = Math.max(1.2, particle.radius * zoom * alpha);
@@ -2357,19 +2395,6 @@ function drawHeatRingTelegraph(
     context.moveTo(sword, -sword);
     context.lineTo(-sword, sword);
     context.stroke();
-    // The DOM callout already explains this event on phones. Keeping only the
-    // crossed-swords mark prevents duplicate copy from covering the live duel.
-    if (width >= 520) {
-      context.font = `900 ${clamp(11 * zoom, 9, 13)}px Inter, sans-serif`;
-      context.textAlign = "center";
-      context.fillStyle = "#ffe8a4";
-      context.shadowColor = "rgba(0, 8, 20, .95)";
-      context.shadowBlur = 5;
-      context.fillText("AI CORSAIR DUEL", 0, -sword - 13);
-      context.font = `800 ${clamp(8 * zoom, 7, 10)}px Inter, sans-serif`;
-      context.fillStyle = "#a9eee5";
-      context.fillText("REAL COLLISION · REAL HOARD", 0, sword + 18);
-    }
   }
   context.restore();
 }
@@ -2409,10 +2434,6 @@ function drawNetworkDrop(
     context.arc(0, 0, ringRadius, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-    context.font = "900 10px Inter, sans-serif";
-    context.textAlign = "center";
-    context.fillStyle = "#fff6b2";
-    context.fillText("RINGED TREASURE · GROW", 0, -ringRadius - 8);
     context.restore();
   }
 
@@ -2618,47 +2639,6 @@ function drawNetworkChain(
     context.arc(head.x, head.y, headRadius * 1.48, 0, Math.PI * 2);
     context.stroke();
     context.setLineDash([]);
-    if (isLocal || width >= 520) {
-      context.font = `900 ${clamp(9 * zoom, 8, 12)}px Inter, sans-serif`;
-      context.textAlign = "center";
-      context.fillStyle = "rgba(211,255,250,0.96)";
-      context.shadowColor = "rgba(0,8,22,0.95)";
-      context.shadowBlur = 5;
-      context.fillText(
-        `HEAD SAFE · ${(player.shieldTicksRemaining * fixedStepSeconds).toFixed(1)}S`,
-        head.x,
-        head.y + headRadius * 2.15,
-      );
-    }
-  }
-
-  const focusedMobileLabel = Math.hypot(
-    head.x - width / 2,
-    head.y - height / 2,
-  ) <= Math.min(width, height) * 0.48;
-  const insideMobileLabelSafeZone =
-    head.x >= 48 && head.x <= width - 48 &&
-    head.y >= 124 && head.y <= height - 224;
-  const corsair = isHeatCorsair;
-  if (
-    isLocal ||
-    (isHuman && insideMobileLabelSafeZone) ||
-    width >= 520 ||
-    ((focusedMobileLabel || corsair) && insideMobileLabelSafeZone)
-  ) {
-    context.font = `800 ${clamp(10 * zoom, 9, 13)}px Inter, sans-serif`;
-    context.textAlign = "center";
-    context.fillStyle = isLocal ? "#ffffff" : isHuman ? "#74ffe4" : "rgba(224,238,249,0.84)";
-    context.shadowColor = "rgba(0,0,0,0.9)";
-    context.shadowBlur = 5;
-    const identity = isLocal
-      ? "YOU · HUMAN"
-      : isHuman
-        ? "HUMAN"
-        : isHeatCorsair
-          ? "AI CORSAIR"
-          : "AI";
-    context.fillText(`${player.name} · ${identity}`, head.x, head.y - headRadius * 2.05);
   }
   context.restore();
 }

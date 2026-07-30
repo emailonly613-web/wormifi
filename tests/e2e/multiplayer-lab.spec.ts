@@ -663,8 +663,8 @@ test("Loot Compass is visible and active while Rival Remains stay outside its pu
   await page.screenshot({ path: "proof/browser/multiplayer/07-live-collector-celebration.png", fullPage: true });
   await page.keyboard.up("Space");
   await expect(collector).toHaveAttribute("data-relic-kind", "loot-compass");
-  await expect(collector).toContainText("LOOT COMPASS ACTIVE");
-  await expect(collector).toContainText(/PULLS GEMS \+ YOUR WAKE LOOT/u);
+  await expect(collector).toHaveAccessibleName("Loot Compass Relic status");
+  await expect(collector.getByRole("status")).toHaveAccessibleName(/PULLS GEMS \+ YOUR WAKE LOOT/u);
   await expect(arena).toHaveAttribute("data-neutral-spark-count", "1");
   await expect.poll(
     async () => Number(await arena.getAttribute("data-collector-pull-events")),
@@ -985,7 +985,7 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   const arena = page.getByTestId("live-arena-canvas");
   await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
-  await expect(page.getByTestId("tutorial-coach")).toContainText("YOU'RE MOVING");
+  await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Turn your moving worm.");
   await expect(page.getByTestId("live-hud-rank")).toContainText("SCORE RANK");
   await expect(page.getByTestId("live-hud-rank")).toContainText("#2 / 2");
   await expect(page.getByLabel("Live score leaderboard")).toContainText("RESETS ON CRASH");
@@ -1020,12 +1020,18 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   await page.keyboard.up("Space");
   await expect(arena).toHaveAttribute("data-tutorial-stage", "collision");
   await expect(arena).toHaveAttribute("data-player-alive", "false");
-  await expect(page.getByTestId("live-death-notice")).toContainText("YOUR HEAD HIT RANK RIVAL'S CREW");
+  await expect(page.getByTestId("live-death-notice")).toHaveAttribute(
+    "aria-label",
+    "YOU CRASHED · YOUR HEAD HIT RANK RIVAL'S CREW · RESPAWNING…",
+  );
   await expect(page.getByTestId("room-identity")).toContainText(`LIVE ROOM #${roomId.toUpperCase()}`);
   await expect(page.getByTestId("pirate-radar")).toContainText("RESPAWNING");
   await page.screenshot({ path: "proof/browser/multiplayer/06-live-mobile-death.png", fullPage: true });
   await expect(arena).toHaveAttribute("data-player-alive", "true", { timeout: 2_000 });
-  await expect(page.getByTestId("live-death-notice")).toContainText("HEAD SAFE 1.5S · EVERY CREW BODY STAYS LETHAL");
+  await expect(page.getByTestId("live-death-notice")).toHaveAttribute(
+    "aria-label",
+    "BACK IN · HEAD SAFE 1.5S · EVERY CREW BODY STAYS LETHAL",
+  );
 });
 
 test("an unreachable socket never receives a LIVE label", async ({ page }) => {

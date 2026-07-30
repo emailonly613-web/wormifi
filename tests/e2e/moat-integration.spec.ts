@@ -251,7 +251,7 @@ test("binds the selected board and private Photo Skin to play without putting ph
   await expect(arena).toHaveAttribute("data-charging-station-id", "port-capstan");
   await expect(arena).toHaveAttribute("data-charging-station-phase", "charging");
   await expect(page.getByTestId("live-charging-station-status")).toHaveAttribute("data-owned", "true");
-  await expect(page.getByTestId("live-charging-station-status")).toContainText("YOUR CHARGE");
+  await expect(page.getByTestId("live-charging-station-status")).toHaveAccessibleName(/YOUR CHARGE/u);
   await expect(page.getByTestId("pirate-radar")).toHaveAttribute("data-station-count", "2");
 
   expect(joinMessage).toMatchObject({
