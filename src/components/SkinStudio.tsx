@@ -28,6 +28,32 @@ import {
 } from "../game/photoSkin";
 import { drawPhotoSkinCanvas } from "../game/photoSkinCanvas";
 import { drawContinuousPirateWorm } from "../game/treasureRender";
+import {
+  MATERIAL_MOTION_LEVELS,
+  readRenderPreferences,
+  writeRenderPreferences,
+  type MaterialMotionLevel,
+  type RenderPreferences,
+} from "../game/renderPreferences";
+import type { CosmeticThemeTier } from "../game/cosmeticThemes";
+
+const MOTION_LEVEL_COPY: Record<MaterialMotionLevel, { label: string; detail: string }> = {
+  full: { label: "FULL", detail: "Materials flow at full speed." },
+  subtle: { label: "SUBTLE", detail: "Slower, quieter movement." },
+  off: { label: "OFF", detail: "Still materials, zero motion." },
+};
+
+const TIER_BADGES: Record<CosmeticThemeTier, string | null> = {
+  standard: null,
+  rare: "RARE",
+  legend: "LEGEND",
+};
+
+const PREVIEW_MOTION_SCALE: Record<MaterialMotionLevel, number> = {
+  full: 1,
+  subtle: 0.45,
+  off: 0,
+};
 
 export interface SkinStudioProps {
   /** Used once on mount. Omit it to load the private local-browser state. */
@@ -59,6 +85,11 @@ export function SkinStudio({
   }
 
   const [state, setState] = useState<PhotoSkinState>(loadedRef.current.state);
+  const [renderPrefs, setRenderPrefs] = useState<RenderPreferences>(() => readRenderPreferences());
+  const reducedMotionRef = useRef(
+    typeof window !== "undefined" &&
+    (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false),
+  );
   const [status, setStatus] = useState(
     state.photos.length > 0
       ? `${state.photos.length} sanitized local photo${state.photos.length === 1 ? "" : "s"} ready.`
@@ -83,15 +114,21 @@ export function SkinStudio({
     const canvas = previewCanvasRef.current;
     if (!canvas) return;
     let active = true;
+    let frameHandle = 0;
     const renderPlan = createPhotoSkinRenderPlan(state);
+    // Reduced motion wins over every studio control, exactly as in the arena.
+    const motionScale = reducedMotionRef.current ? 0 : PREVIEW_MOTION_SCALE[renderPrefs.materialMotion];
+    let decoded: ReadonlyMap<string, CanvasImageSource> = new Map();
 
-    const paintPreview = (decodedImages: ReadonlyMap<string, CanvasImageSource>) => {
+    const paintPreview = (now: number) => {
       if (!active) return;
       const width = Math.max(320, Math.round(canvas.clientWidth || 720));
       const height = Math.max(150, Math.round(canvas.clientHeight || 190));
       const scale = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      canvas.width = Math.round(width * scale);
-      canvas.height = Math.round(height * scale);
+      const backingWidth = Math.round(width * scale);
+      const backingHeight = Math.round(height * scale);
+      if (canvas.width !== backingWidth) canvas.width = backingWidth;
+      if (canvas.height !== backingHeight) canvas.height = backingHeight;
       const context = canvas.getContext("2d");
       if (!context) return;
       context.setTransform(scale, 0, 0, scale, 0, 0);
@@ -113,11 +150,14 @@ export function SkinStudio({
 
       const bodyRadius = Math.max(20, Math.min(31, height * 0.155));
       const headRadius = bodyRadius * 1.18;
+      // The preview worm swims: the same sine spine as before with a slow
+      // traveling phase, frozen when motion is off or reduced.
+      const swim = now * 0.0011 * motionScale;
       const points = Array.from({ length: 10 }, (_, index) => {
         const progress = index / 9;
         return {
           x: width * (0.84 - progress * 0.68),
-          y: height * 0.53 + Math.sin(progress * Math.PI * 1.72) * height * 0.16,
+          y: height * 0.53 + Math.sin(progress * Math.PI * 1.72 + swim) * height * 0.16,
         };
       });
       drawContinuousPirateWorm(context, {
@@ -128,18 +168,21 @@ export function SkinStudio({
         direction: { x: 1, y: 0 },
         shielded: false,
         identity: 26,
-        now: 0,
+        now: now * motionScale,
+        pattern: renderPlan.theme.pattern,
+        materialMotion: motionScale,
+        materialGlow: renderPrefs.materialGlow,
       });
       drawPhotoSkinCanvas(context, {
         points: points.slice(1),
         bodyRadius,
         direction: { x: -1, y: 0 },
-        decodedImages,
+        decodedImages: decoded,
         renderPlan,
       });
     };
 
-    paintPreview(new Map());
+    paintPreview(0);
     void Promise.all(renderPlan.localPhotos.map(async (photo) => {
       try {
         return [photo.id, await previewImageCacheRef.current.get(photo)] as const;
@@ -147,16 +190,26 @@ export function SkinStudio({
         return undefined;
       }
     })).then((entries) => {
-      const decodedImages = new Map(
+      decoded = new Map(
         entries.filter((entry): entry is readonly [string, HTMLImageElement] => entry !== undefined),
       );
-      paintPreview(decodedImages);
+      paintPreview(0);
     });
+
+    if (motionScale > 0 && typeof requestAnimationFrame === "function") {
+      const tick = (frameNow: number) => {
+        if (!active) return;
+        paintPreview(frameNow);
+        frameHandle = requestAnimationFrame(tick);
+      };
+      frameHandle = requestAnimationFrame(tick);
+    }
 
     return () => {
       active = false;
+      if (frameHandle) cancelAnimationFrame(frameHandle);
     };
-  }, [state]);
+  }, [renderPrefs, state]);
 
   const commit = (next: PhotoSkinState, nextStatus: string) => {
     setState(next);
@@ -267,11 +320,60 @@ export function SkinStudio({
               <span className="skin-theme-swatches" aria-hidden="true">
                 {theme.palette.map((color) => <i key={color} style={{ backgroundColor: color }} />)}
               </span>
-              <strong>{theme.label}</strong>
+              <strong>
+                {theme.label}
+                {TIER_BADGES[theme.tier] && (
+                  <em className={`skin-theme-tier tier-${theme.tier}`} data-testid="skin-theme-tier">
+                    {TIER_BADGES[theme.tier]}
+                  </em>
+                )}
+              </strong>
               <small>{theme.description}</small>
             </label>
           ))}
         </div>
+      </fieldset>
+
+      <fieldset className="skin-studio-motion" data-testid="skin-studio-motion">
+        <legend>MATERIAL MOTION &amp; GLOW · THIS DEVICE</legend>
+        <div className="skin-motion-levels" role="radiogroup" aria-label="Material motion level">
+          {MATERIAL_MOTION_LEVELS.map((level) => (
+            <label key={level} className={renderPrefs.materialMotion === level ? "selected" : ""}>
+              <input
+                type="radio"
+                name={`${titleId}-material-motion`}
+                value={level}
+                checked={renderPrefs.materialMotion === level}
+                onChange={() => {
+                  const next = writeRenderPreferences({ ...renderPrefs, materialMotion: level });
+                  setRenderPrefs(next);
+                  setStatus(`Material motion set to ${MOTION_LEVEL_COPY[level].label.toLowerCase()}.`);
+                }}
+              />
+              <strong>{MOTION_LEVEL_COPY[level].label}</strong>
+              <small>{MOTION_LEVEL_COPY[level].detail}</small>
+            </label>
+          ))}
+        </div>
+        <label className="skin-motion-glow">
+          <input
+            type="checkbox"
+            checked={renderPrefs.materialGlow}
+            onChange={(event) => {
+              const next = writeRenderPreferences({
+                ...renderPrefs,
+                materialGlow: event.currentTarget.checked,
+              });
+              setRenderPrefs(next);
+              setStatus(next.materialGlow ? "Material glow enabled." : "Material glow disabled.");
+            }}
+          />
+          <span>
+            <strong>LANTERN GLOW</strong>
+            Soft bloom on the material's brightest pass. Turn off on older devices.
+          </span>
+        </label>
+        <small>Graphics settings for this device only. Other captains still see your theme's material, painted at their own settings.</small>
       </fieldset>
 
       <div className="skin-studio-worm-preview" data-testid="skin-studio-worm-preview">

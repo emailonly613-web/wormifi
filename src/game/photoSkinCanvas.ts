@@ -35,6 +35,8 @@ export interface PhotoSkinCanvasRenderPlan {
   theme: {
     id?: string;
     palette: readonly string[];
+    /** Authored material name; validated by the renderer before use. */
+    pattern?: string;
   };
   localPhotosEnabled: boolean;
   localPhotos: readonly PhotoSkinCanvasPhoto[];
