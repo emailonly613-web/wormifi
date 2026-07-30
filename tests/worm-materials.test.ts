@@ -3,6 +3,7 @@ import {
   WORM_MATERIAL_PATTERNS,
   drawWormMaterial,
   isWormMaterialPattern,
+  wormMaterialForIdentity,
   type WormMaterialOptions,
   type WormMaterialPattern,
 } from "../src/game/wormMaterials";
@@ -133,6 +134,13 @@ describe("worm material engine", () => {
     expect(isWormMaterialPattern("crown-wake")).toBe(true);
     expect(isWormMaterialPattern("neon-hyperdrive")).toBe(false);
     expect(isWormMaterialPattern(undefined)).toBe(false);
+  });
+
+  it("assigns a stable authored material to unthemed crews", () => {
+    expect(wormMaterialForIdentity(0)).toBe(WORM_MATERIAL_PATTERNS[0]);
+    expect(wormMaterialForIdentity(-10)).toBe(WORM_MATERIAL_PATTERNS[1]);
+    expect(wormMaterialForIdentity(Number.NaN)).toBe(WORM_MATERIAL_PATTERNS[0]);
+    expect(WORM_MATERIAL_PATTERNS).toContain(wormMaterialForIdentity(98_765));
   });
 });
 

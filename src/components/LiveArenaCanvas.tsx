@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { decodeSnapshotFromWire, PROTOCOL_VERSION } from "../../server/src/protocol";
+import {
+  decodeSnapshotFromWire,
+  MIXED_ECHO_ORIGIN_ID,
+  PROTOCOL_VERSION,
+} from "../../server/src/protocol";
 import type {
   ErrorMessage,
   PublicHeatRingState,
@@ -63,13 +67,21 @@ import {
   createRelicStatusModel,
   getActiveRelicPresentation,
   getGroundRelicPresentation,
+  getRelicEffectText,
   isPirateRelicKind,
   resolveRelicPresentation,
 } from "../game/relicPresentation";
 import {
   getSpyglassDangerBearings,
+  isTreasureMultiplierTier,
   type SpyglassDangerBearing,
 } from "../game/relics";
+import {
+  getArenaCameraVisibleRadius,
+  getArenaCameraZoom,
+} from "../game/spatialFeel";
+import { RARE_TREASURE_CHEST_MASS } from "../game/treasureEconomy";
+import { wormMaterialForIdentity } from "../game/wormMaterials";
 import {
   fixedHelmAnchor,
   touchStartsHelm,
@@ -80,6 +92,10 @@ import {
   isGameBoardId,
   type GameBoardId,
 } from "../game/boardPreference";
+import {
+  isGamePaceId,
+  type GamePaceId,
+} from "../game/gamePace";
 import {
   getCosmeticTheme,
   isCosmeticThemeId,
@@ -115,10 +131,12 @@ interface LiveArenaCanvasProps {
   session: number;
   roomId: string;
   boardId?: GameBoardId;
+  paceId?: GamePaceId;
   themeId: CosmeticThemeId;
   photoSkin?: PhotoSkinCanvasAppearance;
   controlScheme: ControlScheme;
   onBoardResolved?: (boardId: GameBoardId) => void;
+  onPaceResolved?: (paceId: GamePaceId) => void;
   onExit: () => void;
 }
 
@@ -150,6 +168,7 @@ interface LiveUiState {
   collisionBodyRadius: number;
   collisionRadii: CollisionRadiusConfig;
   alive: boolean;
+  boosting: boolean;
   activeRelic?: ActiveSpecialist;
   fixedStepSeconds: number;
   neutralSparks: number;
@@ -178,6 +197,7 @@ interface LiveWorldState {
   collisionRadii: CollisionRadiusConfig;
   drops: Map<string, PublicDropState>;
   board?: WorldMessage["board"];
+  pace?: WorldMessage["pace"];
   chargingStations: Map<string, ChargingStationState>;
   heatRing?: PublicHeatRingState;
 }
@@ -270,13 +290,12 @@ export function createLiveRadarIntel(
 function liveRadarVisibleRadius(
   canvas: HTMLCanvasElement | null,
   mass: number,
+  activeRelic: ActiveSpecialist | undefined,
+  tick: number,
 ): number {
   const width = canvas?.clientWidth ?? 0;
   const height = canvas?.clientHeight ?? 0;
-  if (width <= 0 || height <= 0) return 0;
-  const zoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9 *
-    clamp(1 - Math.max(0, mass - 100) / 2_800, 0.67, 1);
-  return Math.hypot(width, height) / (2 * zoom);
+  return getArenaCameraVisibleRadius(width, height, mass, activeRelic, tick);
 }
 
 function stableNumber(text: string) {
@@ -398,7 +417,10 @@ function isVec2(value: unknown): value is Vec2 {
 
 function isActiveCollector(value: unknown) {
   if (!isRecord(value)) return false;
-  return value.kind === "collector" &&
+  const identityValid = value.relicKind === "gilded-ledger"
+    ? isTreasureMultiplierTier(value.relicTier)
+    : value.relicTier === undefined;
+  return identityValid && value.kind === "collector" &&
     (value.relicKind === undefined || isPirateRelicKind(value.relicKind)) &&
     typeof value.activatedAtTick === "number" && Number.isSafeInteger(value.activatedAtTick) && value.activatedAtTick >= 0 &&
     typeof value.expiresAtTick === "number" && Number.isSafeInteger(value.expiresAtTick) && value.expiresAtTick >= value.activatedAtTick &&
@@ -420,6 +442,7 @@ function isPublicPlayer(value: unknown): value is PublicPlayerState {
     typeof value.kills === "number" && Number.isFinite(value.kills) &&
     typeof value.score === "number" && Number.isFinite(value.score) &&
     typeof value.shieldTicksRemaining === "number" && Number.isFinite(value.shieldTicksRemaining) &&
+    (value.boosting === undefined || typeof value.boosting === "boolean") &&
     (value.themeId === undefined || isCosmeticThemeId(value.themeId)) &&
     (value.specialist === undefined || isActiveCollector(value.specialist));
 }
@@ -431,10 +454,14 @@ function isPublicDrop(value: unknown): value is PublicDropState {
     typeof value.mass === "number" && Number.isFinite(value.mass) && value.mass >= 0 &&
     typeof value.radius === "number" && Number.isFinite(value.radius) && value.radius > 0 &&
     (value.source === "arena" || value.source === "boost" || value.source === "death") &&
-    (value.originPlayerId === undefined || (typeof value.originPlayerId === "string" && value.originPlayerId.length > 0));
+    (value.originPlayerId === undefined || (typeof value.originPlayerId === "string" && value.originPlayerId.length > 0)) &&
+    (value.mixedOrigin === undefined || value.mixedOrigin === true);
   if (!baseValid) return false;
   if (value.relicKind !== undefined) {
-    return isPirateRelicKind(value.relicKind) &&
+    const tierValid = value.relicKind === "gilded-ledger"
+      ? isTreasureMultiplierTier(value.relicTier)
+      : value.relicTier === undefined;
+    return tierValid && isPirateRelicKind(value.relicKind) &&
       value.source === "arena" &&
       value.mass === 0 &&
       value.originPlayerId === undefined &&
@@ -444,15 +471,23 @@ function isPublicDrop(value: unknown): value is PublicDropState {
       Number.isSafeInteger(value.relicDurationTicks) &&
       value.relicDurationTicks > 0;
   }
-  if (value.relicDurationTicks !== undefined) return false;
+  if (value.relicDurationTicks !== undefined || value.relicTier !== undefined) return false;
   if (value.specialist === "collector") {
     return value.source === "arena" && value.mass === 0 && value.originPlayerId === undefined &&
+      value.mixedOrigin === undefined &&
       typeof value.specialistDurationTicks === "number" &&
       Number.isSafeInteger(value.specialistDurationTicks) &&
       value.specialistDurationTicks > 0;
   }
   if (value.specialist !== undefined || value.specialistDurationTicks !== undefined) return false;
-  return value.source === "arena" ? value.originPlayerId === undefined : typeof value.originPlayerId === "string";
+  if (value.source === "arena") {
+    return value.originPlayerId === undefined && value.mixedOrigin === undefined;
+  }
+  return typeof value.originPlayerId === "string" && (
+    value.mixedOrigin === true
+      ? value.originPlayerId === MIXED_ECHO_ORIGIN_ID
+      : value.originPlayerId !== MIXED_ECHO_ORIGIN_ID
+  );
 }
 
 function isPublicHeatRing(value: unknown): value is PublicHeatRingState {
@@ -492,13 +527,19 @@ function isAuthoritativeEvent(value: unknown) {
       typeof value.mass === "number" && Number.isFinite(value.mass) && value.mass >= 0;
   }
   if (value.type === "specialistActivated") {
-    return typeof value.playerId === "string" && typeof value.dropId === "string" &&
+    const tierValid = value.relicKind === "gilded-ledger"
+      ? isTreasureMultiplierTier(value.relicTier)
+      : value.relicTier === undefined;
+    return tierValid && typeof value.playerId === "string" && typeof value.dropId === "string" &&
       value.specialist === "collector" &&
       (value.relicKind === undefined || isPirateRelicKind(value.relicKind)) &&
       typeof value.durationTicks === "number" && Number.isSafeInteger(value.durationTicks) && value.durationTicks > 0;
   }
   if (value.type === "specialistExpired") {
-    return typeof value.playerId === "string" &&
+    const tierValid = value.relicKind === "gilded-ledger"
+      ? isTreasureMultiplierTier(value.relicTier)
+      : value.relicTier === undefined;
+    return tierValid && typeof value.playerId === "string" &&
       value.specialist === "collector" &&
       (value.relicKind === undefined || isPirateRelicKind(value.relicKind));
   }
@@ -566,6 +607,15 @@ function isPublicBoard(value: unknown): value is NonNullable<WorldMessage["board
     Array.isArray(value.chargingStations);
 }
 
+function isPublicPace(value: unknown): value is NonNullable<WorldMessage["pace"]> {
+  return isRecord(value) &&
+    isGamePaceId(value.id) &&
+    typeof value.name === "string" &&
+    typeof value.baseSpeed === "number" && Number.isFinite(value.baseSpeed) && value.baseSpeed > 0 &&
+    typeof value.boostSpeed === "number" && Number.isFinite(value.boostSpeed) &&
+    value.boostSpeed > value.baseSpeed;
+}
+
 function isWorld(value: unknown): value is WorldMessage {
   if (!isRecord(value)) return false;
   const collisionRadii = value.collisionRadii;
@@ -581,6 +631,7 @@ function isWorld(value: unknown): value is WorldMessage {
     typeof collisionRadii.bodyRadiusFactor === "number" && Number.isFinite(collisionRadii.bodyRadiusFactor) && collisionRadii.bodyRadiusFactor > 0 &&
     Array.isArray(value.drops) && value.drops.every(isPublicDrop) &&
     (value.board === undefined || isPublicBoard(value.board)) &&
+    (value.pace === undefined || isPublicPace(value.pace)) &&
     (value.heatRing === undefined || isPublicHeatRing(value.heatRing));
 }
 
@@ -611,6 +662,7 @@ function initialUi(roomId: string): LiveUiState {
     collisionBodyRadius: 0,
     collisionRadii: { baseRadius: 0, massRadiusFactor: 0, bodyRadiusFactor: 0 },
     alive: false,
+    boosting: false,
     activeRelic: undefined,
     fixedStepSeconds: DEFAULT_GAME_CONFIG.fixedStepSeconds,
     neutralSparks: 0,
@@ -628,10 +680,12 @@ export function LiveArenaCanvas({
   session,
   roomId,
   boardId,
+  paceId,
   themeId,
   photoSkin,
   controlScheme,
   onBoardResolved,
+  onPaceResolved,
   onExit,
 }: LiveArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -868,6 +922,7 @@ export function LiveArenaCanvas({
       collisionBodyRadius,
       collisionRadii: world.collisionRadii,
       alive: ownPlayer?.alive ?? false,
+      boosting: ownPlayer?.boosting === true,
       activeRelic,
       fixedStepSeconds: world.fixedStepSeconds,
       neutralSparks: drops.filter((drop) =>
@@ -876,7 +931,7 @@ export function LiveArenaCanvas({
       popClusters: drops.filter((drop) =>
         drop.source === "arena" &&
         !getGroundRelicPresentation(drop) &&
-        drop.mass >= 5.35
+        drop.mass >= RARE_TREASURE_CHEST_MASS
       ).length,
       sprintDrops: drops.filter((drop) => drop.source === "boost").length,
       rivalRemains: drops.filter((drop) => drop.source === "death").length,
@@ -900,7 +955,7 @@ export function LiveArenaCanvas({
     let disposed = false;
     let reconnectTimer: number | undefined;
     let attempts = 0;
-    let roomBoardResolved = false;
+    let roomRulesResolved = false;
     const storageKey = reconnectStorageKey(arenaUrl, roomId);
 
     const connect = () => {
@@ -930,15 +985,16 @@ export function LiveArenaCanvas({
       }
       socketRef.current = socket;
       let retriedWithoutToken = false;
-      let retriedWithoutBoard = false;
+      let retriedWithoutRoomRules = false;
 
-      const sendJoin = (reconnectToken?: string, includeBoard = true) => {
+      const sendJoin = (reconnectToken?: string, includeRoomRules = true) => {
         socket.send(JSON.stringify({
           type: "join",
           roomId,
           name: playerName || "Guest",
           ...(reconnectToken ? { reconnectToken } : {}),
-          ...(includeBoard && !roomBoardResolved && boardId ? { boardId } : {}),
+          ...(includeRoomRules && !roomRulesResolved && boardId ? { boardId } : {}),
+          ...(includeRoomRules && !roomRulesResolved && paceId ? { paceId } : {}),
           themeId,
         }));
       };
@@ -1001,12 +1057,16 @@ export function LiveArenaCanvas({
             collisionRadii: { ...message.collisionRadii },
             drops: new Map(message.drops.map((drop) => [drop.id, drop])),
             board: message.board,
+            pace: message.pace,
             chargingStations: new Map(),
             heatRing: message.heatRing,
           };
-          roomBoardResolved = true;
+          roomRulesResolved = true;
           if (message.board && isGameBoardId(message.board.id)) {
             onBoardResolved?.(message.board.id);
+          }
+          if (message.pace && isGamePaceId(message.pace.id)) {
+            onPaceResolved?.(message.pace.id);
           }
           if (message.heatRing) {
             heatRingUiRef.current = {
@@ -1062,6 +1122,7 @@ export function LiveArenaCanvas({
                 .map((id) => world.drops.get(id))
                 .filter((drop): drop is PublicDropState =>
                   drop?.source === "death" &&
+                  drop.mixedOrigin !== true &&
                   drop.originPlayerId !== undefined &&
                   gameEvent.botIds.includes(drop.originPlayerId)
                 );
@@ -1104,7 +1165,7 @@ export function LiveArenaCanvas({
               tutorial.collectedSpark(gameEvent.dropId, tutorialSparkIdRef.current);
               const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
               const collectedDrop = removedDrops.get(gameEvent.dropId);
-              const collectedPopCluster = (collectedDrop?.mass ?? 0) >= 5.35;
+              const collectedPopCluster = (collectedDrop?.mass ?? 0) >= RARE_TREASURE_CHEST_MASS;
               const combo = message.tick - pickupComboRef.current.lastTick < 21
                 ? Math.min(8, pickupComboRef.current.count + 1)
                 : 1;
@@ -1116,7 +1177,9 @@ export function LiveArenaCanvas({
                   ownPlayer.specialist.expiresAtTick > message.tick &&
                   collectedDrop &&
                   (collectedDrop.source === "arena" ||
-                    (collectedDrop.source === "boost" && collectedDrop.originPlayerId === ownPlayer.id));
+                    (collectedDrop.source === "boost" &&
+                      collectedDrop.mixedOrigin !== true &&
+                      collectedDrop.originPlayerId === ownPlayer.id));
                 if (collectorPull) {
                   collectorPullEventsRef.current += 1;
                   pushCollectorPull(
@@ -1168,6 +1231,7 @@ export function LiveArenaCanvas({
             if (gameEvent.type === "specialistActivated" && gameEvent.playerId === handshake.playerId) {
               tutorial.sawCollector();
               const relic = resolveRelicPresentation(gameEvent.relicKind);
+              const effectText = getRelicEffectText(relic, gameEvent.relicTier);
               const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
               if (ownPlayer) {
                 pushLiveBurst(
@@ -1179,7 +1243,7 @@ export function LiveArenaCanvas({
                   1.15,
                 );
               }
-              showActionCallout(`${relic.label.toUpperCase()} ON · ${relic.effectText}`, 2_200);
+              showActionCallout(`${relic.label.toUpperCase()} ON · ${effectText}`, 2_200);
               playTone(520, 0.11, 0.035);
               window.setTimeout(() => playTone(760, 0.14, 0.03), 80);
               if (!reducedMotionRef.current) navigator.vibrate?.([12, 24, 22]);
@@ -1306,21 +1370,21 @@ export function LiveArenaCanvas({
               phase: "joining",
               detail: "Old seat expired · requesting a clean server-owned seat…",
             }));
-            sendJoin(undefined, !retriedWithoutBoard);
+            sendJoin(undefined, !retriedWithoutRoomRules);
             return;
           }
           if (
-            message.code === "ROOM_BOARD_MISMATCH" &&
-            boardId &&
-            !retriedWithoutBoard &&
+            (message.code === "ROOM_BOARD_MISMATCH" || message.code === "ROOM_PACE_MISMATCH") &&
+            (boardId || paceId) &&
+            !retriedWithoutRoomRules &&
             !handshakeRef.current?.welcomed
           ) {
-            retriedWithoutBoard = true;
-            roomBoardResolved = true;
+            retriedWithoutRoomRules = true;
+            roomRulesResolved = true;
             setUi((current) => ({
               ...current,
               phase: "joining",
-              detail: "Existing room found · accepting its locked board…",
+              detail: "Existing room found · accepting its locked board and speed…",
             }));
             sendJoin(safeSessionGet(storageKey), false);
             return;
@@ -1379,6 +1443,9 @@ export function LiveArenaCanvas({
     running,
     session,
     onBoardResolved,
+    onPaceResolved,
+    boardId,
+    paceId,
     playTone,
     showActionCallout,
     showDeathNotice,
@@ -1589,7 +1656,12 @@ export function LiveArenaCanvas({
   const radarIntel = createLiveRadarIntel(
     radarSnapshot,
     ui.playerId,
-    liveRadarVisibleRadius(canvasRef.current, ui.exactMass),
+    liveRadarVisibleRadius(
+      canvasRef.current,
+      ui.exactMass,
+      ui.activeRelic,
+      ui.tick,
+    ),
   );
   const radarStations: RadarStation[] = radarWorld?.board
     ? radarWorld.board.chargingStations.map((station) => {
@@ -1614,6 +1686,7 @@ export function LiveArenaCanvas({
       data-authority={authoritative ? "server-confirmed" : "unconfirmed"}
       data-control-scheme={controlScheme}
       data-board-id={worldRef.current?.board?.id ?? boardId ?? ""}
+      data-pace-id={worldRef.current?.pace?.id ?? paceId ?? ""}
       data-theme-id={themeId}
       data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
       data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
@@ -1654,6 +1727,7 @@ export function LiveArenaCanvas({
       data-collector-beacon-count={ui.collectorBeacons}
       data-relic-beacon-count={ui.relicBeacons}
       data-player-alive={ui.alive ? "true" : "false"}
+      data-boosting={ui.boosting ? "true" : "false"}
       data-tutorial-stage={tutorial.stage}
       data-tutorial-target-id={tutorialSparkIdRef.current ?? ""}
       data-tutorial-sprint-spent={tutorial.sprintSpent ? "true" : "false"}
@@ -2006,8 +2080,13 @@ function renderLiveArena(
   const focus = ownPlayer?.position ?? { x: 0, y: 0 };
   camera.x += (focus.x - camera.x) * 0.11;
   camera.y += (focus.y - camera.y) * 0.11;
-  const zoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9 *
-    clamp(1 - Math.max(0, (ownPlayer?.mass ?? 100) - 100) / 2_800, 0.67, 1);
+  const zoom = getArenaCameraZoom(
+    width,
+    height,
+    ownPlayer?.mass ?? 100,
+    ownPlayer?.specialist,
+    snapshot?.tick ?? 0,
+  );
   const worldToScreen = (point: Vec2): Vec2 => ({
     x: width / 2 + (point.x - camera.x) * zoom,
     y: height / 2 + (point.y - camera.y) * zoom,
@@ -2068,7 +2147,7 @@ function renderLiveArena(
       getGroundRelicPresentation(drop) ||
       drop.source === "boost" ||
       drop.source === "death" ||
-      drop.mass >= 5.35
+      drop.mass >= RARE_TREASURE_CHEST_MASS
     ) continue;
     const screen = worldToScreen(drop.position);
     const cullMargin = 64;
@@ -2083,7 +2162,7 @@ function renderLiveArena(
       id: drop.id,
       position: drop.position,
       radius: drop.radius,
-      color: drop.originPlayerId
+      color: drop.originPlayerId && drop.mixedOrigin !== true
         ? palettes[stableNumber(drop.originPlayerId) % palettes.length][0]
         : dropColors[seed % dropColors.length],
       seed,
@@ -2106,7 +2185,7 @@ function renderLiveArena(
       !getGroundRelicPresentation(drop) &&
       drop.source !== "boost" &&
       drop.source !== "death" &&
-      drop.mass < 5.35
+      drop.mass < RARE_TREASURE_CHEST_MASS
     ) continue;
     drawNetworkDrop(
       context,
@@ -2124,6 +2203,8 @@ function renderLiveArena(
   const players = snapshot.players
     .filter((player) => player.alive)
     .sort((first, second) => first.mass - second.mass);
+  const wormMaterialMotion = now === 0 ? 0 : materialMotionScale();
+  const wormMaterialGlow = materialGlowEnabled();
   for (const player of players) {
     drawNetworkChain(
       context,
@@ -2140,6 +2221,8 @@ function renderLiveArena(
       now,
       debugHitboxes,
       player.id === playerId ? photoSkin : undefined,
+      wormMaterialMotion,
+      wormMaterialGlow,
     );
   }
 
@@ -2235,7 +2318,7 @@ function drawNetworkDrop(
   if (screen.x < -radius * 2 || screen.y < -radius * 2 || screen.x > width + radius * 2 || screen.y > height + radius * 2) return;
   const color = drop.specialist
     ? "#65ffe2"
-    : drop.originPlayerId
+    : drop.originPlayerId && drop.mixedOrigin !== true
       ? palettes[stableNumber(drop.originPlayerId) % palettes.length][0]
       : dropColors[stableNumber(drop.id) % dropColors.length];
   context.save();
@@ -2306,7 +2389,7 @@ function drawNetworkDrop(
     context.restore();
     return;
   }
-  if (drop.mass >= 5.35) {
+  if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
     // High-value neutral mass is one authoritative treasure chest collider.
     if (!drawPirateAtlasSprite(context, "treasure-chest", {
       x: 0,
@@ -2346,6 +2429,8 @@ function drawNetworkChain(
   now: number,
   debugHitboxes: boolean,
   photoSkin: PhotoSkinCanvasAppearance | undefined,
+  materialMotion: number,
+  materialGlow: boolean,
 ) {
   const head = worldToScreen(player.position);
   const points = [player.position, ...player.body].map(worldToScreen);
@@ -2382,9 +2467,14 @@ function drawNetworkChain(
     // themeId is the authored, multiplayer-safe cosmetic every player already
     // shares, so every captain's animated material is visible to the room —
     // never any photo data.
-    pattern: player.themeId ? getCosmeticTheme(player.themeId).pattern : undefined,
-    materialMotion: materialMotionScale(),
-    materialGlow: materialGlowEnabled(),
+    pattern: player.themeId
+      ? getCosmeticTheme(player.themeId).pattern
+      : wormMaterialForIdentity(identityNumber),
+    materialMotion,
+    // Every crew keeps its authored material; only the local captain spends
+    // this device's shadow-blur budget on bloom in a crowded room.
+    materialGlow: materialGlow && isLocal,
+    boosting: player.boosting === true,
   });
 
   if (photoSkin && points.length > 2) {

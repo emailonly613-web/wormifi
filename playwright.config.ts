@@ -12,7 +12,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // Canvas-heavy browser cases verify behavior, not browser-process load.
   // Keep that separate from the dedicated load and smoothness harnesses.
-  workers: process.env.CI ? 1 : 4,
+  // A single worker is intentional on both CI and local proof runs. Four
+  // simultaneous canvas arenas can starve hydration and game-time assertions
+  // on ordinary desktop hardware, which measures machine contention rather
+  // than Wormifi behavior. Dedicated load/smoothness gates remain parallel.
+  workers: 1,
   reporter: [
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
@@ -27,14 +31,20 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
-    serviceWorkers: "block",
+    // The broad release-shaped matrix must not manufacture the registration
+    // error UI by blocking the production service worker. Offline behavior has
+    // its own dedicated gate; here a normal registration may proceed.
+    serviceWorkers: "allow",
   },
   webServer: externalBaseUrl
     ? undefined
     : {
-        command: "corepack pnpm dev",
+        // Use the release-shaped client for the broad behavioral gate. The Vite
+        // development watcher can reload long canvas/replay tests while proof
+        // PNGs are being written elsewhere in the repository.
+        command: "corepack pnpm build && corepack pnpm preview --host 0.0.0.0 --port 4173 --strictPort",
         url: localBaseUrl,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120_000,
       },
   projects: [
@@ -48,7 +58,7 @@ export default defineConfig({
     {
       name: "mobile-chromium",
       use: {
-        ...devices["Pixel 7"],
+        ...devices["Pixel 7 landscape"],
       },
     },
   ],

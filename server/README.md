@@ -44,6 +44,7 @@ an active role do not pay repeated JSON cost.
 | `PublicDropState` | `specialist?: "collector"` | Marks a visible, zero-mass Collector beacon |
 | `PublicDropState` | `specialistDurationTicks?: number` | Exact effect duration granted by that beacon |
 | `PublicPlayerState` | `specialist?: ActiveSpecialist` | `{ kind, activatedAtTick, expiresAtTick, durationTicks }` from authoritative state |
+| `PublicPlayerState` | `boosting?: boolean` | Server-confirmed sprint actually granted above the mass floor; never raw button intent |
 | `PublicPlayerState` | `bodyQ4?: string` | Packed quarter-unit body path; the client may decode it but cannot author it |
 | `WorldMessage` | `heatRing?: PublicHeatRingState` | Active duel geometry, labeled AI IDs, newcomer safe radius, and start tick |
 | `SnapshotMessage.event` | `heatRingStarted`, `heatRingResolved`, or `heatRingAborted` | Authoritative lifecycle; resolution names exact real jewel IDs and conserved total mass |

@@ -11,9 +11,13 @@ import {
 import {
   getBoostMassCostMultiplier,
   getDropRelicKind,
+  getMovementSpeedMultiplier,
   getPirateRelicSpec,
+  getTreasureMassMultiplier,
   isRelicActiveAtTick,
+  isTreasureMultiplierTier,
 } from "./relics";
+import { MASS_PER_BODY_SEGMENT } from "./treasureEconomy";
 import type {
   BotInputContext,
   BotInputProviderMap,
@@ -72,8 +76,8 @@ export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   startMass: 48,
   minimumMass: 24,
   minimumBoostMass: 34,
-  baseSpeed: 235,
-  boostSpeed: 330,
+  baseSpeed: 100,
+  boostSpeed: 170,
   boostMassPerSecond: 12,
   shedDropMass: 2,
   shedPickupLockSeconds: 1.25,
@@ -81,20 +85,22 @@ export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   minimumTurnRadiansPerSecond: (145 * Math.PI) / 180,
   turnMassScale: 420,
   // A compact spawn must still read as a healthy worm. These radii keep the
-  // three-segment opener short while giving it a plump, collision-faithful
+  // six-segment opener readable while giving it a plump, collision-faithful
   // silhouette; sqrt(mass) then makes sustained growth visibly add girth.
   baseRadius: 8,
   massRadiusFactor: 0.68,
   bodyRadiusFactor: 0.98,
   segmentSpacingFactor: 0.82,
-  startingBodySegments: 3,
-  minimumBodySegments: 2,
+  startingBodySegments: 6,
+  minimumBodySegments: 4,
   maximumBodySegments: 72,
-  massPerSegment: 6,
+  massPerSegment: MASS_PER_BODY_SEGMENT,
   spawnShieldSeconds: 1.5,
   dropRadius: 4,
   deathDropTargetMass: 5,
   maximumDeathDrops: 80,
+  maximumBoostDropsInWorld: 96,
+  maximumDeathDropsInWorld: 192,
   collectorDurationSeconds: 12,
   collectorPickupRadiusMultiplier: 1.35,
 });
@@ -159,6 +165,14 @@ function validateConfig(config: GameConfig): void {
     throw new Error("death drop settings must be positive");
   }
   if (
+    !Number.isSafeInteger(config.maximumBoostDropsInWorld) ||
+    config.maximumBoostDropsInWorld < 1 ||
+    !Number.isSafeInteger(config.maximumDeathDropsInWorld) ||
+    config.maximumDeathDropsInWorld < 1
+  ) {
+    throw new Error("world Echo caps must be positive safe integers");
+  }
+  if (
     !Number.isFinite(config.collectorDurationSeconds) ||
     config.collectorDurationSeconds <= 0
   ) {
@@ -213,9 +227,23 @@ export function getBodyRadius(
   return getPlayerRadius(player, config) * config.bodyRadiusFactor;
 }
 
+/**
+ * Shared truth for whether sprint is really active this simulation tick. A
+ * held button at the mass floor is intent only and must not be presented to
+ * other players as movement the server did not grant.
+ */
+export function isPlayerBoosting(
+  player: Pick<PlayerState, "alive" | "lastInput" | "mass">,
+  config: Pick<GameConfig, "minimumBoostMass">,
+): boolean {
+  return player.alive &&
+    player.lastInput.boost &&
+    player.mass > config.minimumBoostMass + EPSILON;
+}
+
 function getTargetBodyLength(player: PlayerState, config: GameConfig): number {
   const growthSegments = Math.floor(
-    (player.mass - config.startMass) / config.massPerSegment,
+    (player.mass - config.startMass + EPSILON) / config.massPerSegment,
   );
   return Math.min(
     config.maximumBodySegments,
@@ -392,7 +420,14 @@ export function spawnDrop(
   }
   const resolvedRelicKind = options.relicKind ??
     (options.specialist === "collector" ? "loot-compass" : undefined);
+  if (
+    (resolvedRelicKind === "gilded-ledger" && !isTreasureMultiplierTier(options.relicTier)) ||
+    (resolvedRelicKind !== "gilded-ledger" && options.relicTier !== undefined)
+  ) {
+    throw new Error("Only Gilded Ledger may declare an x2, x3, or x5 tier");
+  }
   const isSpecialistPickup = resolvedRelicKind !== undefined;
+  const bankedMass = options.bankedMass ?? 0;
   if (
     !Number.isFinite(options.mass) ||
     options.mass < 0 ||
@@ -400,6 +435,20 @@ export function spawnDrop(
     (isSpecialistPickup && options.mass !== 0)
   ) {
     throw new Error("Drop mass must be positive; specialist pickups must be zero-mass");
+  }
+  if (
+    !Number.isFinite(bankedMass) ||
+    bankedMass < 0 ||
+    (isSpecialistPickup && bankedMass !== 0)
+  ) {
+    throw new Error("Banked drop mass must be finite and non-negative");
+  }
+  if (
+    options.pickupBlockedUntilTick !== undefined &&
+    (!Number.isSafeInteger(options.pickupBlockedUntilTick) ||
+      options.pickupBlockedUntilTick < 0)
+  ) {
+    throw new Error("Global pickup lock must be a non-negative safe tick");
   }
 
   const source = options.source ?? "arena";
@@ -435,6 +484,7 @@ export function spawnDrop(
     id,
     position: cloneVec(options.position),
     mass: options.mass,
+    ...(bankedMass > EPSILON ? { bankedMass } : {}),
     radius: options.radius ?? state.config.dropRadius,
     source,
     originPlayerId: options.originPlayerId,
@@ -452,15 +502,26 @@ export function spawnDrop(
           Math.ceil(specialistDurationSeconds / state.config.fixedStepSeconds),
         )
       : undefined,
+    relicTier: options.relicTier,
     collectorReachPolicy,
     blockedPlayerId: options.blockedPlayerId,
     blockedUntilTick: options.blockedUntilTick ?? 0,
+    ...(options.pickupBlockedUntilTick
+      ? { pickupBlockedUntilTick: options.pickupBlockedUntilTick }
+      : {}),
   };
 
   state.drops.push(drop);
   idCache.ids.add(drop.id);
   idCache.length = state.drops.length;
   return drop;
+}
+
+/** Exact authoritative mass represented by one visible pickup and its bank. */
+export function getDropStoredMass(
+  drop: Pick<DropState, "mass" | "bankedMass">,
+): number {
+  return drop.mass + (drop.bankedMass ?? 0);
 }
 
 function wrapAngle(angle: number): number {
@@ -711,27 +772,27 @@ function findCollisionDeaths(state: GameState): DeathCandidate[] {
   const candidates = new Map<PlayerId, DeathCandidate>();
 
   for (const attacker of players) {
-    if (attacker.shieldTicksRemaining > 0) continue;
-
     let earliest: DeathCandidate | undefined;
-    for (const owner of players) {
-      if (owner.id === attacker.id) continue;
+    if (attacker.shieldTicksRemaining <= 0) {
+      for (const owner of players) {
+        if (owner.id === attacker.id) continue;
 
-      const collisionTime = sweptHeadToBodyHitTime(attacker, owner, state.config);
-      if (collisionTime === null) continue;
+        const collisionTime = sweptHeadToBodyHitTime(attacker, owner, state.config);
+        if (collisionTime === null) continue;
 
-      if (
-        !earliest ||
-        collisionTime < earliest.collisionTime - EPSILON ||
-        (Math.abs(collisionTime - earliest.collisionTime) <= EPSILON &&
-          owner.id.localeCompare(earliest.killerId ?? "") < 0)
-      ) {
-        earliest = {
-          victimId: attacker.id,
-          cause: "collision",
-          killerId: owner.id,
-          collisionTime,
-        };
+        if (
+          !earliest ||
+          collisionTime < earliest.collisionTime - EPSILON ||
+          (Math.abs(collisionTime - earliest.collisionTime) <= EPSILON &&
+            owner.id.localeCompare(earliest.killerId ?? "") < 0)
+        ) {
+          earliest = {
+            victimId: attacker.id,
+            cause: "collision",
+            killerId: owner.id,
+            collisionTime,
+          };
+        }
       }
     }
 
@@ -756,6 +817,57 @@ function findCollisionDeaths(state: GameState): DeathCandidate[] {
   );
 }
 
+/**
+ * Samples a defeated creature's final centerline from head through tail. The
+ * result deliberately has no random radial offset: the collectible hoard must
+ * retain the recognizable shape of the creature that produced it.
+ */
+export function sampleDeathTracePositions(
+  player: Pick<PlayerState, "position" | "body">,
+  count: number,
+): Vec2[] {
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error("Death trace sample count must be a positive safe integer");
+  }
+  const points = [player.position, ...player.body];
+  const cumulativeLengths = [0];
+  let totalLength = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    totalLength += Math.hypot(
+      points[index].x - points[index - 1].x,
+      points[index].y - points[index - 1].y,
+    );
+    cumulativeLengths.push(totalLength);
+  }
+
+  if (totalLength <= EPSILON) {
+    return Array.from({ length: count }, () => cloneVec(player.position));
+  }
+
+  let segmentIndex = 1;
+  return Array.from({ length: count }, (_, index) => {
+    const ratio = count === 1 ? 0.5 : index / (count - 1);
+    const targetLength = totalLength * ratio;
+    while (
+      segmentIndex < cumulativeLengths.length - 1 &&
+      cumulativeLengths[segmentIndex] < targetLength
+    ) {
+      segmentIndex += 1;
+    }
+    const previousLength = cumulativeLengths[segmentIndex - 1];
+    const nextLength = cumulativeLengths[segmentIndex];
+    const segmentRatio = nextLength - previousLength <= EPSILON
+      ? 0
+      : (targetLength - previousLength) / (nextLength - previousLength);
+    const previous = points[segmentIndex - 1];
+    const next = points[segmentIndex];
+    return {
+      x: previous.x + (next.x - previous.x) * segmentRatio,
+      y: previous.y + (next.y - previous.y) * segmentRatio,
+    };
+  });
+}
+
 function createDeathDrops(state: GameState, player: PlayerState): void {
   // A boost can have shed less than one full configured drop when death occurs.
   // Release that buffered fraction here so simulation mass is never destroyed.
@@ -769,20 +881,25 @@ function createDeathDrops(state: GameState, player: PlayerState): void {
     ),
   );
   const massPerDrop = releasedMass / count;
+  const visibleMassPerDrop = Math.min(
+    massPerDrop,
+    state.config.deathDropTargetMass,
+  );
   const spread = Math.max(
     getPlayerRadius(player, state.config) * 2,
     Math.sqrt(count) * state.config.dropRadius * 2,
   );
+  const tracePositions = sampleDeathTracePositions(player, count);
 
   for (let index = 0; index < count; index += 1) {
+    // Preserve the historical deterministic RNG stream so unrelated future
+    // spawns do not change merely because drop placement became non-random.
     const randomOffset = randomPointInCircle(state.randomState, spread);
     state.randomState = randomOffset.state;
     spawnDrop(state, {
-      position: {
-        x: player.position.x + randomOffset.value.x,
-        y: player.position.y + randomOffset.value.y,
-      },
-      mass: massPerDrop,
+      position: tracePositions[index],
+      mass: visibleMassPerDrop,
+      bankedMass: massPerDrop - visibleMassPerDrop,
       source: "death",
       originPlayerId: player.id,
     });
@@ -799,6 +916,128 @@ export function isSpecialistActive(
     player.specialist?.kind === specialist &&
     isRelicActiveAtTick(player.specialist, state.tick, "loot-compass")
   );
+}
+
+/**
+ * Sprint and crash Echoes are arena drama, not an unbounded room-history list.
+ * Array position is the authoritative age order. The oldest Echo becomes the
+ * merge seed; overflow prefers the nearest Echoes from that same producer,
+ * then nearest other Echoes, with original array order as the final tie-break.
+ *
+ * Only one ordinary-sized pickup remains visible. Every other unit of mass is
+ * conserved in an authoritative bank which is deliberately omitted from the
+ * public wire shape. A fresh replacement ID makes the removal/upsert explicit
+ * to delta clients instead of silently mutating an already-broadcast drop.
+ */
+function compactTransientSource(
+  state: GameState,
+  source: "boost" | "death",
+  maximum: number,
+): void {
+  const sourceDrops = state.drops.filter((drop) => drop.source === source);
+  const overflow = sourceDrops.length - maximum;
+  if (overflow <= 0) return;
+
+  const seed = sourceDrops[0];
+  const mergeCandidates = sourceDrops
+    .slice(1)
+    .map((drop, index) => ({
+      drop,
+      index,
+      sameOrigin: drop.originPlayerId === seed.originPlayerId,
+      distance: distanceSquared(drop.position, seed.position),
+    }))
+    .sort((first, second) =>
+      Number(second.sameOrigin) - Number(first.sameOrigin) ||
+      first.distance - second.distance ||
+      first.index - second.index
+    );
+  // Folding overflow + the oldest seed into one replacement reduces the source
+  // count by exactly `overflow` while keeping merge selection deterministic.
+  const mergedDrops = [
+    seed,
+    ...mergeCandidates.slice(0, overflow).map((candidate) => candidate.drop),
+  ];
+  const mergedIds = new Set(mergedDrops.map((drop) => drop.id));
+  const storedMass = mergedDrops.reduce(
+    (sum, drop) => sum + getDropStoredMass(drop),
+    0,
+  );
+  if (!Number.isFinite(storedMass) || storedMass <= 0) {
+    throw new Error(`Compacted ${source} Echo mass must remain positive and finite`);
+  }
+  const weightedPosition = mergedDrops.reduce(
+    (position, drop) => ({
+      x: position.x + drop.position.x * getDropStoredMass(drop),
+      y: position.y + drop.position.y * getDropStoredMass(drop),
+    }),
+    { x: 0, y: 0 },
+  );
+  const origins = new Set(mergedDrops.map((drop) => drop.originPlayerId));
+  const sharedOrigin = origins.size === 1 ? mergedDrops[0].originPlayerId : undefined;
+  const blockedPlayers = new Set(mergedDrops.map((drop) => drop.blockedPlayerId));
+  const sharedBlockedPlayer = blockedPlayers.size === 1
+    ? mergedDrops[0].blockedPlayerId
+    : undefined;
+  const latestOwnerLock = Math.max(
+    0,
+    ...mergedDrops.map((drop) => drop.blockedUntilTick),
+  );
+  const globalPickupLock = Math.max(
+    0,
+    ...mergedDrops.map((drop) => drop.pickupBlockedUntilTick ?? 0),
+    ...(source === "boost" && !sharedBlockedPlayer ? [latestOwnerLock] : []),
+  );
+  const visibleMassLimit = source === "boost"
+    ? state.config.shedDropMass
+    : state.config.deathDropTargetMass;
+  const visibleMass = Math.min(storedMass, visibleMassLimit);
+
+  state.drops = state.drops.filter((drop) => !mergedIds.has(drop.id));
+  spawnDrop(state, {
+    position: {
+      x: weightedPosition.x / storedMass,
+      y: weightedPosition.y / storedMass,
+    },
+    mass: visibleMass,
+    bankedMass: storedMass - visibleMass,
+    radius: Math.max(...mergedDrops.map((drop) => drop.radius)),
+    source,
+    originPlayerId: sharedOrigin,
+    blockedPlayerId: source === "boost" ? sharedBlockedPlayer : undefined,
+    blockedUntilTick: source === "boost" && sharedBlockedPlayer
+      ? latestOwnerLock
+      : 0,
+    pickupBlockedUntilTick: globalPickupLock,
+  });
+}
+
+function compactTransientDrops(state: GameState): void {
+  let boostDropCount = 0;
+  let deathDropCount = 0;
+  for (const drop of state.drops) {
+    if (drop.source === "boost") boostDropCount += 1;
+    else if (drop.source === "death") deathDropCount += 1;
+  }
+
+  // Practice advances the authoritative core in the browser. Avoid allocating
+  // and sorting full drop lists on every fixed tick while both transient
+  // classes are already inside their caps; the deterministic merge path is
+  // needed only on the ticks that actually overflow.
+  if (boostDropCount > state.config.maximumBoostDropsInWorld) {
+    compactTransientSource(
+      state,
+      "boost",
+      state.config.maximumBoostDropsInWorld,
+    );
+  }
+  if (deathDropCount > state.config.maximumDeathDropsInWorld) {
+    compactTransientSource(
+      state,
+      "death",
+      state.config.maximumDeathDropsInWorld,
+    );
+  }
 }
 
 export function isRelicActive(
@@ -850,6 +1089,7 @@ function expireSpecialists(state: GameState, events: GameEvent[]): void {
       playerId: player.id,
       specialist: active.kind,
       ...(active.relicKind ? { relicKind: active.relicKind } : {}),
+      ...(active.relicTier ? { relicTier: active.relicTier } : {}),
     });
   }
 }
@@ -889,6 +1129,7 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
     .filter((player) => player.alive)
     .sort((first, second) => first.id.localeCompare(second.id));
   const remainingDrops: DropState[] = [];
+  const bankReleases: SpawnDropOptions[] = [];
   // Snapshot at the start of collection so a beacon never expands reach for
   // later array entries in the same tick. Drop order cannot grant hidden range.
   const activeCollectors = new Set(
@@ -903,8 +1144,11 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
 
     for (const player of livingPlayers) {
       if (
-        drop.blockedPlayerId === player.id &&
-        state.tick < drop.blockedUntilTick
+        state.tick < (drop.pickupBlockedUntilTick ?? 0) ||
+        (
+          drop.blockedPlayerId === player.id &&
+          state.tick < drop.blockedUntilTick
+        )
       ) {
         continue;
       }
@@ -936,16 +1180,48 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
       continue;
     }
 
-    collector.mass += drop.mass;
-    collector.stats.collectedMass += drop.mass;
+    const storedMass = getDropStoredMass(drop);
+    const collectedMass = drop.source === "boost"
+      ? Math.min(storedMass, state.config.shedDropMass)
+      : drop.source === "death"
+        ? Math.min(storedMass, state.config.deathDropTargetMass)
+        : storedMass;
+    const bankRemainder = storedMass - collectedMass;
+    const treasureMultiplier = drop.source === "arena" && collectedMass > 0
+      ? getTreasureMassMultiplier(collector.specialist, state.tick)
+      : 1;
+    const awardedMass = collectedMass * treasureMultiplier;
+    collector.mass += awardedMass;
+    collector.stats.collectedMass += awardedMass;
     collector.stats.peakMass = Math.max(collector.stats.peakMass, collector.mass);
     events.push({
       type: "dropCollected",
       tick: state.tick,
       playerId: collector.id,
       dropId: drop.id,
-      mass: drop.mass,
+      mass: awardedMass,
     });
+    if (bankRemainder > EPSILON) {
+      const visibleMassLimit = drop.source === "boost"
+        ? state.config.shedDropMass
+        : state.config.deathDropTargetMass;
+      const nextVisibleMass = Math.min(bankRemainder, visibleMassLimit);
+      bankReleases.push({
+        position: drop.position,
+        mass: nextVisibleMass,
+        bankedMass: bankRemainder - nextVisibleMass,
+        radius: drop.radius,
+        source: drop.source,
+        originPlayerId: drop.originPlayerId,
+        collectorReachPolicy: drop.collectorReachPolicy,
+        blockedPlayerId: drop.blockedPlayerId,
+        blockedUntilTick: drop.blockedUntilTick,
+        pickupBlockedUntilTick: Math.max(
+          drop.pickupBlockedUntilTick ?? 0,
+          state.tick + 1,
+        ),
+      });
+    }
     const relicKind = getDropRelicKind(drop);
     if (relicKind) {
       const durationTicks = drop.relicDurationTicks ??
@@ -969,11 +1245,13 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
           ...(previousRelic.relicKind
             ? { relicKind: previousRelic.relicKind }
             : {}),
+          ...(previousRelic.relicTier ? { relicTier: previousRelic.relicTier } : {}),
         });
       }
       collector.specialist = {
         kind: "collector",
         ...(relicKind === "loot-compass" ? {} : { relicKind }),
+        ...(drop.relicTier ? { relicTier: drop.relicTier } : {}),
         activatedAtTick: state.tick,
         expiresAtTick: state.tick + durationTicks,
         durationTicks,
@@ -985,12 +1263,14 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
         dropId: drop.id,
         specialist: "collector",
         ...(relicKind === "loot-compass" ? {} : { relicKind }),
+        ...(drop.relicTier ? { relicTier: drop.relicTier } : {}),
         durationTicks,
       });
     }
   }
 
   state.drops = remainingDrops;
+  for (const release of bankReleases) spawnDrop(state, release);
   for (const player of livingPlayers) syncBodyLength(player, state.config);
 }
 
@@ -1268,17 +1548,22 @@ export function stepGame(
       continue;
     }
 
-    const maximumTurn =
-      getTurnRate(player, state.config) * state.config.fixedStepSeconds;
+    const maximumTurn = isRelicActiveAtTick(
+        player.specialist,
+        state.tick,
+        "maelstrom-wheel",
+      )
+      ? Math.PI
+      : getTurnRate(player, state.config) * state.config.fixedStepSeconds;
     player.direction = rotateToward(
       player.direction,
       normalize(player.lastInput.direction, player.direction),
       maximumTurn,
     );
 
-    const canBoost =
-      player.lastInput.boost && player.mass > state.config.minimumBoostMass + EPSILON;
-    const speed = canBoost ? state.config.boostSpeed : state.config.baseSpeed;
+    const canBoost = isPlayerBoosting(player, state.config);
+    const speed = (canBoost ? state.config.boostSpeed : state.config.baseSpeed) *
+      getMovementSpeedMultiplier(player.specialist, state.tick);
     player.position.x += player.direction.x * speed * state.config.fixedStepSeconds;
     player.position.y += player.direction.y * speed * state.config.fixedStepSeconds;
 
@@ -1299,6 +1584,7 @@ export function stepGame(
 
   resolveDeaths(state, findCollisionDeaths(state), events);
   collectDrops(state, events);
+  compactTransientDrops(state);
   updateChargingStations(state, events);
 
   for (const player of Object.values(state.players)) {

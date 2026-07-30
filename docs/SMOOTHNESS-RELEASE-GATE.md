@@ -25,7 +25,7 @@ loopback authority. It does not alter the production deployment configuration.
 The default gate measures each scene for 60 seconds:
 
 - **Crowded Practice:** the product's 28 labeled bots and 1,050-drop target.
-- **Authoritative Live:** a real local WebSocket room with 24 actors, 720 target
+- **Authoritative Live:** a real local WebSocket room with 32 actors, 600 target
   drops, 30 Hz simulation, and 15 Hz snapshots.
 
 The versioned machine-readable result is written to
@@ -80,7 +80,7 @@ artifact is diagnostic and never substitutes for the unprofiled release run.
 | Sampled JavaScript heap trend | <= 8 MiB/min on 60-minute+ soaks |
 | Live snapshot delivery | >= 14.7 snapshots/s |
 | Live snapshot gap | p95 <= 100 ms; p99 <= 135 ms |
-| Browser-applied Live ground set | never below 600 or above 1,500 drops |
+| Browser-applied Live ground set | never below 552 or above 1,500 drops |
 
 The report also includes a 28 FPS / 35 ms p95 environment diagnostic so a
 headless scheduler limitation can be distinguished from catastrophic stalls.
@@ -120,6 +120,29 @@ Before a broad launch, the same source commit also needs:
    server tick health, snapshot cadence, regional latency, and crash-free runs.
 6. A low-bandwidth and degraded-connection indicator that tells the truth instead
    of silently replacing a disconnected person with a bot.
+
+## Four-hour human consistency review
+
+Automated 60-minute, six-hour and 24-hour soaks prove technical continuity; they
+cannot prove that an experienced person still wants to play or that presentation
+quality remains perceptually consistent. Before category-parity or 10/10 language,
+one uninterrupted four-hour session on the exact immutable candidate must record:
+
+- a timestamped capture and telemetry sample at start, every 30 minutes, after
+  major growth/collisions/reconnects, and at the end;
+- stable steering response, boost behavior, camera scale, food density, audio,
+  HUD, body skin continuity, head attachment and bow-wave alignment;
+- no progressive frame-gap, heap, RSS, thermal, battery, snapshot-cadence,
+  reconnect or input-latency deterioration beyond the published budgets;
+- no missing skins, detached decorations, false collision reach, invisible
+  obstacles, stale room state, unexplained deaths or quality drop after restart;
+- a short human log of fatigue, frustration, confusion, fun peaks, retry intent
+  and the exact reason the session continued or stopped.
+
+This is a release-quality observation, not retention proof. Longer sessions and
+return behavior must still be measured across external players with consented
+analytics. A developer or owner session is useful evidence but cannot by itself
+establish market preference.
 
 ## Release rule
 

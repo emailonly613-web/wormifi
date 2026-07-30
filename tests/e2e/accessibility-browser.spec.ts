@@ -9,7 +9,23 @@ function proofPath(testInfo: TestInfo, fileName: string) {
 async function captureProof(page: Page, testInfo: TestInfo, fileName: string) {
   const target = proofPath(testInfo, fileName);
   await mkdir(path.dirname(target), { recursive: true });
-  await page.screenshot({ path: target, fullPage: true });
+  try {
+    await page.screenshot({ path: target, fullPage: true, timeout: 15_000 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/unknown error, open/iu.test(message)) throw error;
+
+    // Windows image viewers can hold a previously inspected proof PNG open.
+    // Preserve it and write the current proof beside it instead of deleting or
+    // falsely failing an otherwise complete behavioral accessibility gate.
+    const extension = path.extname(target);
+    const fallback = `${target.slice(0, -extension.length)}-${process.pid}-${Date.now()}${extension}`;
+    await page.screenshot({ path: fallback, fullPage: true, timeout: 15_000 });
+    testInfo.annotations.push({
+      type: "proof-fallback",
+      description: `Canonical proof was locked; current capture: ${fallback}`,
+    });
+  }
 }
 
 async function expectWithinViewport(locator: Locator, page: Page) {
@@ -45,6 +61,9 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const openSeas = page.getByRole("radio", { name: /open seas/i });
     const blackPearl = page.getByRole("radio", { name: /black pearl/i });
     const boardPicker = page.getByTestId("board-picker");
+    const harborPace = page.getByRole("radio", { name: /harbor.*patient default/i });
+    const classicPace = page.getByRole("radio", { name: /classic.*fast/i });
+    const pacePicker = page.getByTestId("pace-picker");
     const roomCode = page.getByRole("textbox", { name: "Room number or code" });
     const joinRoom = page.getByRole("button", { name: "JOIN ROOM" });
     const newRoom = page.getByRole("button", { name: "NEW ROOM" });
@@ -83,6 +102,13 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(blackPearl).toBeFocused();
     await expect(blackPearl).toBeChecked();
     await expect(boardPicker).toHaveAttribute("data-board-id", "black-pearl-relay");
+    await page.keyboard.press("Tab");
+    await expect(harborPace).toBeFocused();
+    await expectVisibleFocus(harborPace);
+    await page.keyboard.press("ArrowRight");
+    await expect(classicPace).toBeFocused();
+    await expect(classicPace).toBeChecked();
+    await expect(pacePicker).toHaveAttribute("data-pace-id", "classic");
     await page.keyboard.press("Tab");
     await expect(roomCode).toBeFocused();
     await expectVisibleFocus(roomCode);
@@ -246,6 +272,13 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await play.scrollIntoViewIfNeeded();
     await play.focus();
     await page.keyboard.press("Enter");
+    if (testInfo.project.name.includes("mobile")) {
+      const landscapeGate = page.getByTestId("landscape-gate");
+      await expect(landscapeGate).toBeVisible();
+      await expect(landscapeGate).toContainText("ROTATE TO PLAY");
+      await page.setViewportSize({ width: 568, height: 320 });
+      await expect(landscapeGate).toHaveCount(0);
+    }
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
     const sprint = page.getByRole("button", { name: /sprint.*costs 12 size/i });
     await expectWithinViewport(exit, page);

@@ -18,27 +18,27 @@
       "measured": {
         "initialApplicationJoinMs": {
           "count": 2,
-          "min": 134.613,
-          "p50": 134.613,
-          "p95": 290.876,
-          "p99": 290.876,
-          "max": 290.876,
-          "mean": 212.744
+          "min": 120.288,
+          "p50": 120.288,
+          "p95": 122.916,
+          "p99": 122.916,
+          "max": 122.916,
+          "mean": 121.602
         },
         "applicationPingRoundTripMs": {
           "count": 7,
-          "min": 106.733,
-          "p50": 122.238,
-          "p95": 296.667,
-          "p99": 296.667,
-          "max": 296.667,
-          "mean": 165.917
+          "min": 108.439,
+          "p50": 123.626,
+          "p95": 125.489,
+          "p99": 125.489,
+          "max": 125.489,
+          "mean": 119.979
         },
-        "inputToObservedDirectionMs": 768.237,
-        "initialTick": 6,
-        "finalTick": 237,
-        "tickProgress": 231,
-        "reconnectApplicationMs": 276.263,
+        "inputToObservedDirectionMs": 363.359,
+        "initialTick": 2,
+        "finalTick": 164,
+        "tickProgress": 162,
+        "reconnectApplicationMs": 122.058,
         "reconnectLastAcceptedSequence": 121,
         "staleInputErrorsObserved": 0,
         "proxy": {
@@ -62,17 +62,17 @@
             }
           },
           "serverToClient": {
-            "receivedMessages": 205,
-            "deliveredMessages": 201,
-            "scheduledButNotYetDelivered": 4,
+            "receivedMessages": 174,
+            "deliveredMessages": 172,
+            "scheduledButNotYetDelivered": 2,
             "plannedDelayMs": {
-              "count": 205,
-              "min": 45.106,
+              "count": 174,
+              "min": 45.285,
               "p50": 50.657,
               "p95": 54.523,
               "p99": 54.844,
               "max": 54.968,
-              "mean": 50.367
+              "mean": 50.404
             }
           }
         }
@@ -105,29 +105,29 @@
       "measured": {
         "initialApplicationJoinMs": {
           "count": 2,
-          "min": 214.68,
-          "p50": 214.68,
-          "p95": 362.437,
-          "p99": 362.437,
-          "max": 362.437,
-          "mean": 288.559
+          "min": 211.146,
+          "p50": 211.146,
+          "p95": 215.604,
+          "p99": 215.604,
+          "max": 215.604,
+          "mean": 213.375
         },
         "applicationPingRoundTripMs": {
           "count": 7,
-          "min": 240.943,
-          "p50": 264.221,
-          "p95": 353.009,
-          "p99": 353.009,
-          "max": 353.009,
-          "mean": 283.011
+          "min": 185.723,
+          "p50": 201.166,
+          "p95": 233.191,
+          "p99": 233.191,
+          "max": 233.191,
+          "mean": 207.67
         },
-        "inputToObservedDirectionMs": 531.685,
+        "inputToObservedDirectionMs": 467.93,
         "initialTick": 6,
-        "finalTick": 261,
-        "tickProgress": 255,
-        "reconnectApplicationMs": 217.937,
+        "finalTick": 196,
+        "tickProgress": 190,
+        "reconnectApplicationMs": 215.006,
         "reconnectLastAcceptedSequence": 121,
-        "staleInputErrorsObserved": 6,
+        "staleInputErrorsObserved": 4,
         "proxy": {
           "downstreamConnections": 3,
           "clientToServer": {
@@ -136,7 +136,7 @@
             "inputMessages": 120,
             "droppedInputs": 1,
             "injectedReorderedInputs": 5,
-            "observedOutOfOrderInputDeliveries": 6,
+            "observedOutOfOrderInputDeliveries": 4,
             "scheduledButNotYetDelivered": 0,
             "plannedDelayMs": {
               "count": 130,
@@ -145,21 +145,21 @@
               "p95": 111.834,
               "p99": 169.661,
               "max": 170.131,
-              "mean": 102.38
+              "mean": 102.328
             }
           },
           "serverToClient": {
-            "receivedMessages": 228,
-            "deliveredMessages": 224,
-            "scheduledButNotYetDelivered": 4,
+            "receivedMessages": 209,
+            "deliveredMessages": 204,
+            "scheduledButNotYetDelivered": 5,
             "plannedDelayMs": {
-              "count": 228,
+              "count": 209,
               "min": 88.086,
-              "p50": 99.167,
-              "p95": 110.591,
-              "p99": 111.722,
-              "max": 111.978,
-              "mean": 100.036
+              "p50": 98.863,
+              "p95": 109.953,
+              "p99": 111.106,
+              "max": 111.777,
+              "mean": 99.624
             }
           }
         }
@@ -192,27 +192,27 @@
       "measured": {
         "initialApplicationJoinMs": {
           "count": 2,
-          "min": 344.99,
-          "p50": 344.99,
-          "p95": 550.259,
-          "p99": 550.259,
-          "max": 550.259,
-          "mean": 447.625
+          "min": 334.499,
+          "p50": 334.499,
+          "p95": 386.511,
+          "p99": 386.511,
+          "max": 386.511,
+          "mean": 360.505
         },
         "applicationPingRoundTripMs": {
           "count": 7,
-          "min": 339.488,
-          "p50": 375.097,
-          "p95": 623.689,
-          "p99": 623.689,
-          "max": 623.689,
-          "mean": 432.782
+          "min": 326.608,
+          "p50": 369.739,
+          "p95": 389.996,
+          "p99": 389.996,
+          "max": 389.996,
+          "mean": 367.47
         },
-        "inputToObservedDirectionMs": 577.59,
-        "initialTick": 13,
-        "finalTick": 297,
-        "tickProgress": 284,
-        "reconnectApplicationMs": 333.024,
+        "inputToObservedDirectionMs": 584.311,
+        "initialTick": 10,
+        "finalTick": 246,
+        "tickProgress": 236,
+        "reconnectApplicationMs": 342.648,
         "reconnectLastAcceptedSequence": 121,
         "staleInputErrorsObserved": 14,
         "proxy": {
@@ -232,21 +232,21 @@
               "p95": 251.982,
               "p99": 280.938,
               "max": 284.306,
-              "mean": 183.708
+              "mean": 183.652
             }
           },
           "serverToClient": {
-            "receivedMessages": 280,
-            "deliveredMessages": 272,
-            "scheduledButNotYetDelivered": 8,
+            "receivedMessages": 267,
+            "deliveredMessages": 260,
+            "scheduledButNotYetDelivered": 7,
             "plannedDelayMs": {
-              "count": 280,
+              "count": 267,
               "min": 150.383,
-              "p50": 177.589,
-              "p95": 197.006,
+              "p50": 176.552,
+              "p95": 196.984,
               "p99": 199.671,
               "max": 199.825,
-              "mean": 176.715
+              "mean": 176.156
             }
           }
         }
@@ -280,5 +280,5 @@
     "Reconnect uses the same in-process room owner and does not prove multi-instance routing, external persistence, rolling deployment recovery, regional failover, or sticky-room infrastructure.",
     "Two isolated rooms and three downstream connections per profile prove bounded semantics only, not scale, retention, fairness, fun, or Wormate market parity."
   ],
-  "measuredAtUtc": "2026-07-30T06:58:02.477Z"
+  "measuredAtUtc": "2026-07-30T20:38:46.715Z"
 }

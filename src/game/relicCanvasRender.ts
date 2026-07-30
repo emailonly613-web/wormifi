@@ -2,6 +2,7 @@ import { drawPirateAtlasSprite } from "./pirateSpriteAtlas";
 import {
   getActiveRelicPresentation,
   getGroundRelicPresentation,
+  getRelicEffectText,
   type RelicPresentation,
 } from "./relicPresentation";
 import { drawLootCompass } from "./treasureRender";
@@ -9,6 +10,7 @@ import type {
   ActiveSpecialist,
   PirateRelicKind,
   SpecialistKind,
+  TreasureMultiplierTier,
   Vec2,
 } from "./types";
 
@@ -17,6 +19,7 @@ interface GroundRelicIdentity {
   specialistDurationTicks?: number;
   relicKind?: PirateRelicKind;
   relicDurationTicks?: number;
+  relicTier?: TreasureMultiplierTier;
 }
 
 export interface GroundRelicCanvasModel {
@@ -24,6 +27,7 @@ export interface GroundRelicCanvasModel {
   durationSeconds: number;
   durationLabel: string;
   label: string;
+  effectText: string;
   spriteRotation: number;
   orbitRotation: number;
 }
@@ -143,12 +147,17 @@ export function createGroundRelicCanvasModel(
     : presentation.publishedDurationSeconds;
   const durationSeconds = Number(configuredDuration.toFixed(1));
   const safeNow = Number.isFinite(now) ? now : 0;
+  const effectText = getRelicEffectText(presentation, drop.relicTier);
+  const tierLabel = presentation.relicKind === "gilded-ledger" && drop.relicTier
+    ? ` x${drop.relicTier}`
+    : "";
 
   return {
     presentation,
     durationSeconds,
     durationLabel: displaySeconds(durationSeconds),
-    label: `${presentation.label.toUpperCase()} · ${displaySeconds(durationSeconds)}`,
+    label: `${presentation.label.toUpperCase()}${tierLabel} · ${displaySeconds(durationSeconds)}`,
+    effectText,
     spriteRotation: spriteRotation(presentation.relicKind, safeNow),
     orbitRotation: safeNow * (
       presentation.relicKind === "loot-compass"
@@ -261,7 +270,7 @@ export function drawGroundRelicPickup(
   context.font = labelFont;
   const labelWidth = context.measureText(model.label).width;
   context.font = effectFont;
-  const effectWidth = context.measureText(relic.effectText).width;
+  const effectWidth = context.measureText(model.effectText).width;
   const labelOffsetX = currentRelicLabelOffsetX(context, Math.max(labelWidth, effectWidth));
 
   context.font = labelFont;
@@ -273,7 +282,7 @@ export function drawGroundRelicPickup(
   context.fillText(model.label, labelOffsetX, -beaconRadius * 2.05);
   context.font = effectFont;
   context.fillStyle = "#eafffb";
-  context.fillText(relic.effectText, labelOffsetX, beaconRadius * 2.18);
+  context.fillText(model.effectText, labelOffsetX, beaconRadius * 2.18);
   context.restore();
   return model;
 }

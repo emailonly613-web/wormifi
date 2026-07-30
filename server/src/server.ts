@@ -3,6 +3,10 @@ import { performance } from "node:perf_hooks";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { getGameBoardProfile } from "../../src/game/chargingStations.ts";
+import {
+  getGamePaceProfile,
+  isGamePaceId,
+} from "../../src/game/gamePace.ts";
 
 import {
   PROTOCOL_VERSION,
@@ -111,6 +115,7 @@ export class AuthoritativeArenaServer {
       arenaRadius: options.arenaRadius,
       targetDropCount: options.targetDropCount,
       board: options.board,
+      paceId: options.paceId,
       heatRing: options.heatRing,
       now: options.now,
     };
@@ -288,11 +293,22 @@ export class AuthoritativeArenaServer {
       const requestedBoard = join.value.boardId
         ? getGameBoardProfile(join.value.boardId)
         : undefined;
+      const requestedPace = join.value.paceId && isGamePaceId(join.value.paceId)
+        ? getGamePaceProfile(join.value.paceId)
+        : undefined;
       if (join.value.boardId && !requestedBoard) {
         this.send(socket, {
           type: "error",
           code: "UNKNOWN_BOARD",
           message: `Unknown board: ${join.value.boardId}.`,
+        });
+        return;
+      }
+      if (join.value.paceId && !requestedPace) {
+        this.send(socket, {
+          type: "error",
+          code: "UNKNOWN_PACE",
+          message: `Unknown pace: ${join.value.paceId}.`,
         });
         return;
       }
@@ -304,6 +320,14 @@ export class AuthoritativeArenaServer {
         });
         return;
       }
+      if (room && requestedPace && room.paceId !== requestedPace.id) {
+        this.send(socket, {
+          type: "error",
+          code: "ROOM_PACE_MISMATCH",
+          message: `Room ${roomId} already uses ${getGamePaceProfile(room.paceId).name} speed.`,
+        });
+        return;
+      }
       if (!room) {
         if (this.rooms.size >= this.maxRooms) {
           this.send(socket, { type: "error", code: "RATE_LIMITED", message: "Room capacity is temporarily full." });
@@ -311,7 +335,11 @@ export class AuthoritativeArenaServer {
         }
         room = new ArenaRoom(
           roomId,
-          { ...this.roomOptions, board: requestedBoard ?? this.roomOptions.board },
+          {
+            ...this.roomOptions,
+            board: requestedBoard ?? this.roomOptions.board,
+            paceId: requestedPace?.id ?? this.roomOptions.paceId,
+          },
           (idleRoom) => this.retireIdleRoom(idleRoom),
         );
         createdRoom = true;

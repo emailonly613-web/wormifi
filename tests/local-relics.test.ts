@@ -207,8 +207,9 @@ describe("local pirate Relic parity", () => {
     const rebuilt = rebuildLocalRun(recording);
 
     expect(recording).toMatchObject({
-      version: 2,
+      version: 3,
       boardId: "black-pearl-relay",
+      paceId: "harbor",
       terminalChecksum: checksumLocalArena(session.state),
     });
     expect(rebuilt.checksum).toBe(recording.terminalChecksum);

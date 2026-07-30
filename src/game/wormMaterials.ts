@@ -22,10 +22,16 @@
 import {
   WORM_MATERIAL_PATTERNS,
   isWormMaterialPattern,
+  wormMaterialForIdentity,
   type WormMaterialPattern,
 } from "./wormMaterialPatterns";
 
-export { WORM_MATERIAL_PATTERNS, isWormMaterialPattern, type WormMaterialPattern };
+export {
+  WORM_MATERIAL_PATTERNS,
+  isWormMaterialPattern,
+  wormMaterialForIdentity,
+  type WormMaterialPattern,
+};
 
 const TAU = Math.PI * 2;
 

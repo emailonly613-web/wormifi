@@ -1,5 +1,6 @@
 import { isRelicActive, spawnDrop } from "./core";
 import {
+  GILDED_LEDGER_TIERS,
   getDropRelicKind,
   getPirateRelicSpec,
   LEGACY_COLLECTOR_RELIC,
@@ -14,6 +15,9 @@ export const PIRATE_RELIC_RADIUS = 9;
 export const SERVER_DIRECTED_RELIC_KINDS = Object.freeze([
   "emerald-spyglass",
   "pepper-cutlass",
+  "gale-pennant",
+  "maelstrom-wheel",
+  "gilded-ledger",
 ] as const satisfies readonly PirateRelicKind[]);
 
 /** Local play owns the complete initial Relic set through one director. */
@@ -101,6 +105,9 @@ export class PirateRelicDirector {
     const number = (this.spawnNumbers.get(relicKind) ?? 0) + 1;
     this.spawnNumbers.set(relicKind, number);
     const durationSeconds = getPirateRelicSpec(relicKind).durationSeconds;
+    const relicTier = relicKind === "gilded-ledger"
+      ? GILDED_LEDGER_TIERS[(number - 1) % GILDED_LEDGER_TIERS.length]
+      : undefined;
     spawnDrop(this.state, {
       id: `${relicKind}-relic-${number}`,
       position: point.value,
@@ -115,6 +122,7 @@ export class PirateRelicDirector {
         : {
             relicKind,
             relicDurationSeconds: durationSeconds,
+            ...(relicTier ? { relicTier } : {}),
           }),
     });
   }

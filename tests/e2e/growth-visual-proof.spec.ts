@@ -32,8 +32,11 @@ test("captures the compact plump spawn and the same worm's length-and-girth buil
     { x: 182, y: 0 },
     { x: 164, y: 0 },
     { x: 146, y: 0 },
+    { x: 128, y: 0 },
+    { x: 110, y: 0 },
+    { x: 92, y: 0 },
   ]);
-  const grownPlayer = playerAt(480, Array.from({ length: 28 }, (_, index) => ({
+  const grownPlayer = playerAt(480, Array.from({ length: 20 }, (_, index) => ({
     x: 200 - (index + 1) * 18,
     y: Math.sin(index * 0.34) * 62,
   })));
@@ -51,7 +54,7 @@ test("captures the compact plump spawn and the same worm's length-and-girth buil
     events: [],
   });
 
-  await page.routeWebSocket("ws://growth-proof.test/arena", (socket) => {
+  await page.routeWebSocket(/\/arena$/u, (socket) => {
     socketSend = (data) => socket.send(data);
     socket.onMessage((raw) => {
       const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as { type?: string };
@@ -89,12 +92,12 @@ test("captures the compact plump spawn and the same worm's length-and-girth buil
     });
   });
 
-  await page.goto(`/?room=${roomId}&arena_ws=${encodeURIComponent("ws://growth-proof.test/arena")}`);
+  await page.goto(`/?room=${roomId}`);
   await page.getByTestId("live-lab-button").click();
   const arena = page.getByTestId("live-arena-canvas");
   await expect(arena).toHaveAttribute("data-authority", "server-confirmed");
   await expect(arena).toHaveAttribute("data-player-mass", "48");
-  await expect(arena).toHaveAttribute("data-player-length", "3");
+  await expect(arena).toHaveAttribute("data-player-length", "6");
   const spawnBodyRadius = Number(await arena.getAttribute("data-collision-body-radius"));
   await page.screenshot({
     path: `proof/browser/growth-${testInfo.project.name}-spawn.png`,
@@ -103,7 +106,7 @@ test("captures the compact plump spawn and the same worm's length-and-girth buil
 
   socketSend?.(JSON.stringify(snapshot(90, grownPlayer)));
   await expect(arena).toHaveAttribute("data-player-mass", "480");
-  await expect(arena).toHaveAttribute("data-player-length", "28");
+  await expect(arena).toHaveAttribute("data-player-length", "20");
   const grownBodyRadius = Number(await arena.getAttribute("data-collision-body-radius"));
   expect(grownBodyRadius).toBeGreaterThan(spawnBodyRadius * 1.65);
   await page.screenshot({

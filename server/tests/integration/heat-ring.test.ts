@@ -333,7 +333,7 @@ test("ordinary collision remains lethal when the human deliberately enters the r
   }
 });
 
-test("undersized rooms fail closed and target-24 placement remains bounded", () => {
+test("undersized rooms fail closed and launch-density placement remains bounded", () => {
   const undersized = new ArenaRoom("heat-too-small", {
     targetPopulation: 2,
     targetDropCount: 0,
@@ -350,14 +350,14 @@ test("undersized rooms fail closed and target-24 placement remains bounded", () 
 
   for (let seed = 0; seed < 100; seed += 1) {
     const room = new ArenaRoom(`heat-capacity-${seed}`, {
-      targetPopulation: 24,
+      targetPopulation: 32,
       targetDropCount: 0,
       fixedStepHz: 30,
     });
     try {
       const joined = joinFirstHuman(room);
-      assert.ok(joined.world.heatRing, `target-24 seed ${seed} must prepare or fail before exposure`);
-      assert.equal(joined.initial.players.length, 24);
+      assert.ok(joined.world.heatRing, `target-32 seed ${seed} must prepare or fail before exposure`);
+      assert.equal(joined.initial.players.length, 32);
     } finally {
       room.stop();
     }

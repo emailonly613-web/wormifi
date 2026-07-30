@@ -5,7 +5,7 @@ import {
   PWA_UPDATE_EVENT,
 } from "../pwa";
 
-export function PwaStatus() {
+export function PwaStatus({ activeMatch }: { activeMatch: boolean }) {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [updateReady, setUpdateReady] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
@@ -46,6 +46,14 @@ export function PwaStatus() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!updateReady || activeMatch) return;
+    const timeout = window.setTimeout(() => {
+      if (applyWormifiUpdate()) setUpdateReady(false);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [activeMatch, updateReady]);
+
   if (online && !updateReady && !registrationError) return null;
   return (
     <aside className="pwa-notice" data-offline={!online ? "true" : "false"} aria-live="polite">
@@ -56,15 +64,19 @@ export function PwaStatus() {
         </div>
       )}
       {updateReady && (
-        <button
-          type="button"
-          data-testid="pwa-update-button"
-          onClick={() => {
-            if (applyWormifiUpdate()) setUpdateReady(false);
-          }}
-        >
-          UPDATE WORMIFI
-        </button>
+        activeMatch
+          ? (
+              <div data-testid="pwa-update-ready">
+                <b>NEW VERSION READY</b>
+                <span>Auto-updates safely when this run ends.</span>
+              </div>
+            )
+          : (
+              <div data-testid="pwa-update-applying">
+                <b>UPDATING WORMIFI</b>
+                <span>Loading the latest release…</span>
+              </div>
+            )
       )}
       {registrationError && online && (
         <button

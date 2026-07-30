@@ -1,8 +1,19 @@
 # Wormifi Relic Launch Contract
 
-Status: **LOCAL CANDIDATE INTEGRATED — CORE + SERVER + DETERMINISTIC SOLO + CLIENT PRESENTATION/RADAR; LAUNCH PROOF PENDING**
+Status: **SUPERSEDED INITIAL-SET CONTRACT — 2026-07-30 OWNER EXPANSION NOW GOVERNS**
 Deployment: **NOT DEPLOYED**
 External fairness acceptance: **NOT YET TESTED**
+
+## 2026-07-30 owner amendment
+
+`PIRATE-POWER-PARITY-CONTRACT.md` is now authoritative for the launch power
+set and pre-run pace choice. This document remains the evidence record for the
+original three-Relic candidate, but it no longer limits launch to three Relics.
+In particular, its former rule that Emerald Spyglass performs **no camera
+zoom** is explicitly withdrawn: the amended Spyglass must pull the camera back
+to show 25% farther while preserving coarse danger bearings. Gale Pennant,
+Maelstrom Wheel and tiered Gilded Ledger are also required before the power set
+can be called complete.
 
 Wormifi keeps the proven category value of readable temporary powers, but makes
 each effect pirate-specific, server-authoritative and counterable. One active
@@ -13,7 +24,7 @@ Relic slot prevents hidden stacks and unreadable outcomes.
 | Relic | Duration | Effect | What it deliberately does not do |
 | --- | ---: | --- | --- |
 | **Loot Compass** | 12 s | +35% pickup reach for neutral treasure and the carrier's own wake loot | Never pulls rival hoards, objectives, other-player wake loot or Relics; no score/mass multiplier |
-| **Emerald Spyglass** | 10 s | Adds coarse off-screen danger bearings to the radar so the player can plan a turn | No exact remote positions, camera zoom, hidden-room data, speed or collision change |
+| **Emerald Spyglass** | 10 s | Original candidate added coarse off-screen danger bearings; amended launch behavior also pulls the camera back | No exact remote positions, hidden-room data, speed or collision change |
 | **Pepper Cutlass** | 8 s | Reduces boost mass cost by 25% while preserving normal maximum speed and lethal collision | Never makes boost free, blinds rivals, raises top speed or grants invulnerability |
 
 The supplied original sprite atlas provides distinct silhouettes for these

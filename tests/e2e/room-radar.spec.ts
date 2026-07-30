@@ -58,7 +58,16 @@ test("keeps honest local identity and the pirate chart through play, results, an
   });
   await expect(roomIdentity).toContainText("SOLO RUN — NO LIVE ROOM");
   await expect(radar).toBeVisible();
-  expect(Number(await radar.getAttribute("data-other-player-count"))).toBeGreaterThan(0);
+  const replayCrewCounts = await radar.evaluate((element) => ({
+    other: Number(element.getAttribute("data-other-player-count")),
+    rivals: Number(element.getAttribute("data-rival-marker-count")),
+    ai: Number(element.getAttribute("data-ai-player-count")),
+  }));
+  // The final six seconds can honestly have no rival inside a landscape-phone
+  // camera. Never manufacture a marker: any visible replay crew must remain
+  // consistently labeled as AI and represented by one radar marker.
+  expect(replayCrewCounts.ai).toBe(replayCrewCounts.other);
+  expect(replayCrewCounts.rivals).toBe(replayCrewCounts.other);
   await expectInsideViewport(radar, page);
 
   await expect(page.getByTestId("arena-canvas")).toHaveAttribute("data-replay-state", "complete", {
@@ -94,7 +103,7 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
     shieldTicksRemaining: 0,
   });
 
-  await page.routeWebSocket("ws://radar-proof.test/arena", (socket) => {
+  await page.routeWebSocket(/\/arena$/u, (socket) => {
     const sendSnapshot = (events: SnapshotMessage["events"] = []) => {
       const snapshot: SnapshotMessage = {
         type: "snapshot",
@@ -180,7 +189,7 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
     });
   });
 
-  await page.goto(`/?room=${roomId}&arena_ws=${encodeURIComponent("ws://radar-proof.test/arena")}`);
+  await page.goto(`/?room=${roomId}`);
   await page.getByTestId("live-lab-button").click();
   const arena = page.getByTestId("live-arena-canvas");
   const roomIdentity = page.getByTestId("room-identity");

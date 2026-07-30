@@ -157,6 +157,7 @@ $payload = @{
   keyLocation = "https://wormifi.com/$IndexNowKey.txt"
   urlList     = @(
     'https://wormifi.com/'
+    'https://wormifi.com/press.html'
     'https://wormifi.com/how-to-play.html'
     'https://wormifi.com/multiplayer.html'
     'https://wormifi.com/pirate-treasure.html'

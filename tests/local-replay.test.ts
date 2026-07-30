@@ -6,6 +6,7 @@ import {
   checksumLocalArena,
   finalizeLocalRun,
   getLocalRunBoardId,
+  getLocalRunPaceId,
   createLocalReplayPreparation,
   prepareLocalReplay,
   rebuildLocalRun,
@@ -15,16 +16,18 @@ import {
   type LegacyLocalRunRecording,
 } from "../src/game/localArena";
 import type { GameBoardId } from "../src/game/chargingStations";
+import type { GamePaceId } from "../src/game/gamePace";
 
 function recordDeterministicRun(
   maximumTicks = 210,
   boardId: GameBoardId = "open-seas",
+  paceId: GamePaceId = "classic",
 ) {
   const seed = "local-replay-proof-seed";
   const mode = "practice" as const;
   const playerName = "Replay Proof";
-  const session = buildLocalArena(seed, playerName, mode, boardId);
-  const draft: LocalRunDraft = { seed, mode, playerName, boardId, inputs: [] };
+  const session = buildLocalArena(seed, playerName, mode, boardId, paceId);
+  const draft: LocalRunDraft = { seed, mode, playerName, boardId, paceId, inputs: [] };
 
   for (let tick = 1; tick <= maximumTicks; tick += 1) {
     const player = session.state.players[LOCAL_PLAYER_ID];
@@ -119,14 +122,15 @@ describe("deterministic local run replay", () => {
       run.originalState.players[LOCAL_PLAYER_ID].position,
     );
     expect(first.state.randomState).toBe(run.originalState.randomState);
-    expect(run.recording).toMatchObject({ version: 2, boardId: "open-seas" });
+    expect(run.recording).toMatchObject({ version: 3, boardId: "open-seas", paceId: "classic" });
   }, 20_000);
 
   it("records Black Pearl identity and cannot silently replay it on Open Seas", () => {
     const run = recordDeterministicRun(120, "black-pearl-relay");
     expect(run.recording).toMatchObject({
-      version: 2,
+      version: 3,
       boardId: "black-pearl-relay",
+      paceId: "classic",
     });
     expect(getLocalRunBoardId(run.recording)).toBe("black-pearl-relay");
 
@@ -147,6 +151,19 @@ describe("deterministic local run replay", () => {
     expect(() => rebuildLocalRun(silentlySwitched)).toThrow(
       /checksum mismatch.*open-seas/i,
     );
+  });
+
+  it("binds a non-default pace into deterministic recording and replay", () => {
+    const run = recordDeterministicRun(120, "open-seas", "tempest");
+    expect(run.recording).toMatchObject({ version: 3, paceId: "tempest" });
+    expect(getLocalRunPaceId(run.recording)).toBe("tempest");
+    const rebuilt = rebuildLocalRun(run.recording);
+    expect(rebuilt.paceId).toBe("tempest");
+    expect(rebuilt.state.config).toMatchObject({ baseSpeed: 235, boostSpeed: 365 });
+    expect(rebuilt.checksum).toBe(run.recording.terminalChecksum);
+
+    expect(() => rebuildLocalRun({ ...run.recording, paceId: "harbor" }))
+      .toThrow(/checksum mismatch/u);
   });
 
   it("replays legacy version-1 recordings as Open Seas with their original checksum", () => {
@@ -172,8 +189,9 @@ describe("deterministic local run replay", () => {
     const prepared = createLocalReplayPreparation(legacy, 2);
     expect(prepared.boardId).toBe("open-seas");
     expect(prepared.recording).toMatchObject({
-      version: 2,
+      version: 3,
       boardId: "open-seas",
+      paceId: "classic",
       terminalChecksum: legacy.terminalChecksum,
     });
   });

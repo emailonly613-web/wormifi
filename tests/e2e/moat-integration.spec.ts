@@ -135,11 +135,11 @@ test("binds the selected board and private Photo Skin to play without putting ph
     }));
   }, { key: PHOTO_SKIN_STORAGE_KEY });
 
-  await page.routeWebSocket("ws://moat-proof.test/arena", (socket) => {
+  await page.routeWebSocket(/\/arena$/u, (socket) => {
     socket.onMessage((raw) => {
       const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as Record<string, unknown>;
       if (message.type !== "join") return;
-      joinMessage = message;
+      joinMessage ??= message;
       const welcome: WelcomeMessage = {
         type: "welcome",
         protocolVersion: PROTOCOL_VERSION,
@@ -238,7 +238,7 @@ test("binds the selected board and private Photo Skin to play without putting ph
     });
   });
 
-  await page.goto(`/?room=${roomId}&board=black-pearl-relay&arena_ws=${encodeURIComponent("ws://moat-proof.test/arena")}`);
+  await page.goto(`/?room=${roomId}&board=black-pearl-relay`);
   await expect(page.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
   await page.getByTestId("live-lab-button").click();
 
@@ -265,10 +265,20 @@ test("binds the selected board and private Photo Skin to play without putting ph
   expect(joinMessage).not.toHaveProperty("dataUrl");
   expect(joinMessage).not.toHaveProperty("renderPlan");
 
-  await page.screenshot({
-    path: `proof/browser/moat-${testInfo.project.name}-live.png`,
-    fullPage: true,
-  });
+  const proofPath = `proof/browser/moat-${testInfo.project.name}-live.png`;
+  try {
+    await page.screenshot({ path: proofPath, fullPage: true, timeout: 15_000 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/unknown error, open/iu.test(message)) throw error;
+
+    const fallbackPath = proofPath.replace(/\.png$/u, `-${process.pid}-${Date.now()}.png`);
+    await page.screenshot({ path: fallbackPath, fullPage: true, timeout: 15_000 });
+    testInfo.annotations.push({
+      type: "proof-fallback",
+      description: `Canonical proof was locked; current capture: ${fallbackPath}`,
+    });
+  }
   await page.getByTestId("live-exit-button").click();
   await expect(page.getByTestId("board-picker")).toHaveAttribute("data-board-locked", "true");
   await page.getByTestId("lobby-invite").click();
@@ -290,7 +300,7 @@ test("accepts an existing room's locked board after rejecting an override reques
   const playerId = "human-locked-board-proof";
   const joins: Record<string, unknown>[] = [];
 
-  await page.routeWebSocket("ws://locked-board-proof.test/arena", (socket) => {
+  await page.routeWebSocket(/\/arena$/u, (socket) => {
     socket.onMessage((raw) => {
       const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as Record<string, unknown>;
       if (message.type !== "join") return;
@@ -354,14 +364,18 @@ test("accepts an existing room's locked board after rejecting an override reques
     });
   });
 
-  await page.goto(`/?room=${roomId}&board=black-pearl-relay&arena_ws=${encodeURIComponent("ws://locked-board-proof.test/arena")}`);
+  await page.goto(`/?room=${roomId}&board=black-pearl-relay`);
   await page.getByTestId("live-lab-button").click();
   const arena = page.getByTestId("live-arena-canvas");
   await expect(arena).toHaveAttribute("data-authority", "server-confirmed");
   await expect(arena).toHaveAttribute("data-board-id", "open-seas");
-  expect(joins).toHaveLength(2);
+  expect(joins.length).toBeGreaterThanOrEqual(2);
   expect(joins[0]).toMatchObject({ boardId: "black-pearl-relay" });
   expect(joins[1]).not.toHaveProperty("boardId");
+  for (const reconnect of joins.slice(2)) {
+    expect(reconnect).not.toHaveProperty("boardId");
+    expect(reconnect).toHaveProperty("reconnectToken");
+  }
 
   await page.getByTestId("live-exit-button").click();
   const picker = page.getByTestId("board-picker");

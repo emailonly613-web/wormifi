@@ -90,7 +90,7 @@ async function navigationResponse(request) {
   const pathname = new URL(request.url).pathname;
   const canonicalPage = CANONICAL_PAGE_URLS.includes(pathname);
   try {
-    const response = await fetch(request);
+    const response = await fetch(new Request(request, { cache: "no-store" }));
     if (response.ok && canonicalPage) {
       const cache = await caches.open(CACHE_NAME);
       await cache.put(cacheKey(pathname), response.clone());

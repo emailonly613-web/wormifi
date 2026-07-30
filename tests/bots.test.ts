@@ -20,13 +20,13 @@ function contextFor(state: GameState, self: PlayerState, tick: number): BotInput
 }
 
 describe("deterministic legal bot roster", () => {
-  it("supports the 28-name arena roster and spawns unique legal bot providers", () => {
+  it("supports the 32-name arena roster and spawns unique legal bot providers", () => {
     const state = createGameState("full-roster");
-    const roster = spawnBotRoster(state, 24);
+    const roster = spawnBotRoster(state, 32);
 
-    expect(roster.ids).toHaveLength(24);
-    expect(new Set(roster.ids).size).toBe(24);
-    expect(BOT_NAMES).toHaveLength(28);
+    expect(roster.ids).toHaveLength(32);
+    expect(new Set(roster.ids).size).toBe(32);
+    expect(BOT_NAMES).toHaveLength(32);
     expect(Object.keys(roster.providers)).toEqual(roster.ids);
 
     for (const id of roster.ids) {

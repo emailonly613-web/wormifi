@@ -26,13 +26,34 @@ function overlapArea(
 }
 
 for (const viewport of [
-  { width: 390, height: 844, label: "390" },
-  { width: 320, height: 568, label: "320" },
+  {
+    portrait: { width: 390, height: 844 },
+    landscape: { width: 844, height: 390 },
+    label: "390",
+  },
+  {
+    portrait: { width: 320, height: 568 },
+    landscape: { width: 568, height: 320 },
+    label: "320",
+  },
 ] as const) {
-  test(`${viewport.label}px solo HUD stays compact, reachable and in bounds`, async ({ page }) => {
-    await page.setViewportSize(viewport);
+  test(`${viewport.label}px portrait is blocked and landscape play stays in bounds`, async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes("mobile"), "Orientation proof requires a touch-capable phone profile.");
+    await page.setViewportSize(viewport.portrait);
     await page.goto("/?mobile-hud-proof=1");
     await page.getByTestId("solo-run-button").click();
+    const landscapeGate = page.getByTestId("landscape-gate");
+    await expect(landscapeGate).toBeVisible();
+    await expect(landscapeGate).toHaveAttribute("data-state", "prelaunch");
+    await expect(landscapeGate).toContainText("ROTATE TO PLAY");
+    await expect(page.getByTestId("arena-canvas")).toBeHidden();
+    await page.screenshot({
+      path: `${proofDirectory}/01-portrait-${viewport.label}-blocked.png`,
+      fullPage: true,
+    });
+
+    await page.setViewportSize(viewport.landscape);
+    await expect(landscapeGate).toHaveCount(0);
     await expect(page.getByTestId("arena-canvas")).toBeVisible();
     await expect(page.getByTestId("tutorial-coach")).toContainText("STEP 1 OF 4");
     await page.waitForTimeout(300);
@@ -50,10 +71,10 @@ for (const viewport of [
     expect(sprint.height).toBeGreaterThanOrEqual(44);
     expect(overlapArea(room, hud)).toBe(0);
     expect(overlapArea(radar, tutorial)).toBe(0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.landscape.width);
 
     await page.screenshot({
-      path: `${proofDirectory}/01-solo-${viewport.label}-tutorial.png`,
+      path: `${proofDirectory}/02-landscape-${viewport.label}-tutorial.png`,
       fullPage: true,
     });
 
@@ -92,7 +113,7 @@ for (const viewport of [
     expect(overlapArea(authority, relicBox)).toBe(0);
 
     await page.screenshot({
-      path: `${proofDirectory}/02-solo-${viewport.label}-loot-compass.png`,
+      path: `${proofDirectory}/03-landscape-${viewport.label}-loot-compass.png`,
       fullPage: true,
     });
   });

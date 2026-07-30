@@ -12,6 +12,7 @@ import {
 } from "../../src/protocol.ts";
 import { SERVER_BUILD_REVISION } from "../../src/build-info.ts";
 import { AuthoritativeArenaServer } from "../../src/server.ts";
+import { DEFAULT_GAME_CONFIG } from "../../../src/game/core.ts";
 
 class TestClient {
   readonly socket: WebSocket;
@@ -154,7 +155,7 @@ test("two independent clients share one server-owned arena with bot backfill and
   const before = aliceShared.players.find((player) => player.id === aliceWelcome.playerId);
   assert.ok(before);
   assert.equal(before.mass, 48, "the authoritative run starts at the compact launch mass");
-  assert.equal(before.body.length, 3, "the authoritative run starts with three followers");
+  assert.equal(before.body.length, 6, "the authoritative run starts with six readable followers");
   assert.ok(
     before.shieldTicksRemaining > 0 && before.shieldTicksRemaining <= 45,
     "the visible spawn grace is bounded to 1.5 seconds at 30 Hz",
@@ -192,10 +193,48 @@ test("two independent clients share one server-owned arena with bot backfill and
   assert.ok(after);
   const elapsedTicks = afterMovement.tick - aliceShared.tick;
   const displacement = Math.hypot(after.position.x - before.position.x, after.position.y - before.position.y);
-  const maximumServerMovement = 235 * aliceWelcome.fixedStepSeconds * elapsedTicks + 0.001;
+  const maximumServerMovement =
+    DEFAULT_GAME_CONFIG.baseSpeed * aliceWelcome.fixedStepSeconds * elapsedTicks + 0.001;
   assert.ok(displacement <= maximumServerMovement, "movement is bounded by the server simulation speed");
   assert.ok(Math.abs(after.position.x) < 10_000 && Math.abs(after.position.y) < 10_000,
     "the forged client position never enters authoritative state");
+
+  alice.send({
+    type: "input",
+    sequence: 3,
+    clientTick: afterMovement.tick,
+    direction: { x: 1, y: 0 },
+    boost: true,
+  });
+  const sprintingSnapshot = await alice.next(
+    (message): message is SnapshotMessage =>
+      message.type === "snapshot" &&
+      message.tick > afterMovement.tick &&
+      message.players.find((player) => player.id === aliceWelcome.playerId)?.boosting === true,
+  );
+  assert.equal(
+    sprintingSnapshot.players.find((player) => player.id === aliceWelcome.playerId)?.boosting,
+    true,
+    "the room publishes actual server-granted sprint state",
+  );
+
+  alice.send({
+    type: "input",
+    sequence: 4,
+    clientTick: sprintingSnapshot.tick,
+    direction: { x: 1, y: 0 },
+    boost: false,
+  });
+  const settledSnapshot = await alice.next(
+    (message): message is SnapshotMessage =>
+      message.type === "snapshot" &&
+      message.tick > sprintingSnapshot.tick &&
+      message.players.find((player) => player.id === aliceWelcome.playerId)?.boosting === false,
+  );
+  assert.equal(
+    settledSnapshot.players.find((player) => player.id === aliceWelcome.playerId)?.boosting,
+    false,
+  );
 
   await alice.close();
   const aliceReconnected = await TestClient.connect(websocketUrl);
@@ -208,7 +247,7 @@ test("two independent clients share one server-owned arena with bot backfill and
   const reconnectWelcome = await aliceReconnected.next(isWelcome);
   assert.equal(reconnectWelcome.reconnected, true);
   assert.equal(reconnectWelcome.playerId, aliceWelcome.playerId);
-  assert.equal(reconnectWelcome.lastAcceptedSequence, 3);
+  assert.equal(reconnectWelcome.lastAcceptedSequence, 5);
   const reconnectWorld = await aliceReconnected.next(isWorld);
   assert.equal(reconnectWorld.roomId, "proof-room");
   assert.ok(reconnectWorld.drops.length > 0);

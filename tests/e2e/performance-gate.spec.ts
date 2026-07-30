@@ -3,6 +3,7 @@ import { cpus, freemem, platform, release, totalmem } from "node:os";
 import path from "node:path";
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { AuthoritativeArenaServer } from "../../server/src/server";
+import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel";
 
 const sceneSeconds = boundedNumber(
   process.env.WORMIFI_PERF_SCENE_SECONDS,
@@ -44,7 +45,9 @@ const thresholds = {
   liveSnapshotsPerSecondMinimum: 14.7,
   liveSnapshotGapP95MsMaximum: 100,
   liveSnapshotGapP99MsMaximum: 135,
-  liveGroundDropsMinimum: 600,
+  liveGroundDropsMinimum:
+    LIVE_SPATIAL_PROFILE.targetDropCount -
+    LIVE_SPATIAL_PROFILE.maximumDropRefillDeficit,
   liveGroundDropsMaximum: 1_500,
 } as const;
 
@@ -210,9 +213,9 @@ test.beforeAll(async () => {
     host: "127.0.0.1",
     // The production proof bundle embeds this run's dedicated endpoint.
     port: performanceArenaPort,
-    targetPopulation: 24,
-    targetDropCount: 720,
-    arenaRadius: 1_850,
+    targetPopulation: LIVE_SPATIAL_PROFILE.targetPopulation,
+    targetDropCount: LIVE_SPATIAL_PROFILE.targetDropCount,
+    arenaRadius: LIVE_SPATIAL_PROFILE.arenaRadius,
     fixedStepHz: 30,
     snapshotHz: 15,
     reconnectGraceMs: 15_000,
@@ -312,8 +315,8 @@ test("crowded Practice and authoritative Live stay inside the local smoothness b
       practice: { labeledBots: 28, targetGroundDrops: 1_050 },
       live: {
         authority: "in-process-local-server",
-        actors: 24,
-        targetGroundDrops: 720,
+        actors: LIVE_SPATIAL_PROFILE.targetPopulation,
+        targetGroundDrops: LIVE_SPATIAL_PROFILE.targetDropCount,
         simulationHz: 30,
         snapshotHz: 15,
       },
@@ -343,7 +346,7 @@ test("crowded Practice and authoritative Live stay inside the local smoothness b
     assertions: [
       "The real Canvas2D renderer was measured at 1440x900 in full-motion Chromium.",
       "Crowded Practice used the product's 28 labeled bots and 1,050-drop target.",
-      "Live used a real authoritative WebSocket room with 24 actors and a 720-drop target.",
+      `Live used a real authoritative WebSocket room with ${LIVE_SPATIAL_PROFILE.targetPopulation} actors and a ${LIVE_SPATIAL_PROFILE.targetDropCount}-drop target.`,
       "Frame gaps, animation callback cost, input-event-to-next-canvas-paint, long tasks, and post-GC retained heap were measured.",
       rawHeapSeriesEnabled
         ? "Two-second raw JavaScript heap samples were collected for the 60-minute+ trend gate."
@@ -532,7 +535,10 @@ async function measureLive(
   const arena = page.getByTestId("live-arena-canvas");
   await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(arena).toHaveAttribute("data-authority", "server-confirmed");
-  await expect(arena).toHaveAttribute("data-player-count", "24");
+  await expect(arena).toHaveAttribute(
+    "data-player-count",
+    String(LIVE_SPATIAL_PROFILE.targetPopulation),
+  );
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(3_000);
   if (liveScreenshotPath) {

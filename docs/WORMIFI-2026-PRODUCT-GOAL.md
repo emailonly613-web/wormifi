@@ -34,6 +34,23 @@ claim only after external players and reproducible public evidence support it.
 5. Owner review of native phone and desktop captures is required. Passing a
    geometry, frame-rate or screenshot-existence assertion cannot override a
    human verdict that the worm still looks thin or chain-like.
+6. Live motion must preserve the broad open-zone, readable pickup-density,
+   multi-creature camera and smooth close-pass grammar in
+   `SPATIAL-MOTION-FEEL-CONTRACT.md`, while artwork and presentation remain
+   original to Wormifi.
+7. A defeated creature becomes a deterministic head-to-tail treasure trace
+   following its final body polyline. Rival Echoes never explode into a random
+   cloud around the head.
+8. Ordinary food advances the long-run growth curve in small increments under
+   `GROWTH-PACING-CONTRACT.md`; enormous size is earned over a sustained run,
+   while chests, rival hoards and disclosed multipliers provide acceleration.
+9. Touch-capable portrait viewports never enter supported gameplay. Mobile runs
+   start and continue in landscape under `MOBILE-LANDSCAPE-PLAY-CONTRACT.md`.
+10. Quality must remain perceptibly consistent through a real long session.
+    One polished opening minute cannot hide body seams, detached effects,
+    density collapse, input drift, thermal slowdown or reconnect degradation
+    that appears later. The exact release candidate needs an uninterrupted
+    four-hour human/device quality review in addition to automated room soaks.
 
 ## The category starting line we keep
 
@@ -42,15 +59,35 @@ clearly and reliably while using original code, art, names, maps, sounds and UI.
 
 - instant guest play with real multiplayer;
 - intuitive pointer and touch steering with a deliberate speed boost;
-- a small worm that grows rapidly and visibly by eating abundant, readable
+- a small worm that grows steadily and visibly by eating abundant, readable
   objects and defeated-rival remains;
 - one simple lethal law: a head that strikes another worm's body loses;
 - fair opportunities for a small player to defeat a large player;
 - a readable leaderboard, world position/radar and room identity;
 - expressive cosmetic skins available without changing competitive power;
 - clear, temporary power-ups whose effects can be learned at a glance;
-- stable desktop and mobile play, reconnect behavior and social play with
+- stable desktop and landscape-mobile play, reconnect behavior and social play with
   friends.
+
+## Newcomer pace and reaction rule
+
+- The launcher must offer Harbor, Classic and Tempest pace profiles before a
+  run. Harbor is the patient 100-unit/second default; Classic preserves the
+  prior 212-unit/second pace as an opt-in fast room and Tempest remains the
+  deliberate 235-unit/second high-pressure option. The exact values and room rules live in
+  `PIRATE-POWER-PARITY-CONTRACT.md`.
+- Live pace is a visible room-wide server rule, never a private per-player
+  advantage. Solo and Practice may use the captain's local choice. Challenges
+  and new replays bind pace; legacy replays mean Classic.
+- Sprint remains a clear, deliberate acceleration rather than becoming the
+  ordinary travel pace at any selected speed.
+- The opening seconds must give a first-time player enough reaction time to
+  recognize the head, turn once and understand nearby danger before ordinary
+  lethal exposure. A slower base pace complements, but does not replace, fair
+  spawn placement and newcomer shielding.
+- This is a feel target, not a license to make steering sluggish. Accept only a
+  value that preserves immediate pointer/touch response, fair human-versus-bot
+  movement and satisfying treasure collection in owner device testing.
 
 This is a capability reference, not permission to copy Wormate assets, layouts,
 text, maps, code or distinctive visual designs.
@@ -85,6 +122,10 @@ older baseline does not provide:
   landmarks and deliberately balanced public events.
 - Fair Relics add route and timing decisions without pay-to-win, hostile input
   control, hidden immunity or unreadable collision exceptions.
+- The required launch power set covers temporary attraction, speed, any-angle
+  quick turning, camera pullback and bounded x2/x3/x5 neutral-treasure growth,
+  all redesigned as disclosed pirate powers under
+  `PIRATE-POWER-PARITY-CONTRACT.md`.
 
 ### 4. Social multiplayer that is a product, not a socket demo
 
@@ -126,14 +167,18 @@ following are true:
    ordinary treasure, chests, rival hoards and Relics without coaching.
 3. Multi-photo skins work end to end with the declared privacy and visibility
    contract and do not alter collision or competitive power.
-4. Charging stations, the approved Relic set, room identity, radar and the full
-   friend-room journey work in local tests and deployed multiplayer.
+4. Charging stations, all approved pirate powers, the three room-visible pace
+   profiles, room identity, radar and the full friend-room journey work in
+   local tests and deployed multiplayer.
 5. The finished feature candidate passes unit, integration, browser,
    accessibility, reconnect, room-isolation, impairment and bounded-load gates.
 6. The exact commit/build under test is deployed and rechecked on the public
    domain with named humans on separate devices.
 7. External-player evidence supports the permitted product language. Automated
    proof alone cannot establish fun, preference, virality or a generational lead.
+8. One real tester completes a four-hour session on the exact candidate while
+   periodic captures and telemetry confirm stable controls, body/effect quality,
+   density, frame pacing, memory, temperature behavior and room continuity.
 
 ## Ownership and execution order
 

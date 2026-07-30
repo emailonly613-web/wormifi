@@ -7,11 +7,13 @@ import {
   getPlayerRank,
   getPlayerRadius,
   getRankings,
+  isPlayerBoosting,
   spawnDrop,
   spawnPlayer,
   stepGame,
   sweptCircleHitTime,
 } from "../src/game/core";
+import { STARTER_TREASURE_MASS } from "../src/game/treasureEconomy";
 import type { BotInputProvider, GameState, PlayerState } from "../src/game/types";
 
 function snapshotPlayer(player: PlayerState) {
@@ -160,7 +162,7 @@ describe("deterministic game core", () => {
     });
   });
 
-  it("starts as a compact three-follower chain and makes the first four Spark pickups visible", () => {
+  it("starts as a readable six-follower chain and makes the first four Spark pickups visible", () => {
     const state = createGameState("small-start-visible-growth", { baseSpeed: 0 });
     const player = spawnPlayer(state, {
       id: "grower",
@@ -175,11 +177,11 @@ describe("deterministic game core", () => {
     );
 
     expect(player.mass).toBe(48);
-    expect(player.body).toHaveLength(3);
+    expect(player.body).toHaveLength(6);
     const initialBodyRadius = getBodyRadius(player, state.config);
     expect(initialRadius).toBeGreaterThanOrEqual(12);
     expect(initialBodyRadius / initialRadius).toBeGreaterThanOrEqual(0.97);
-    expect(initialTailDistance).toBeLessThan(65);
+    expect(initialTailDistance).toBeLessThan(130);
 
     const segmentCounts: number[] = [];
     const radii: number[] = [];
@@ -187,7 +189,7 @@ describe("deterministic game core", () => {
       spawnDrop(state, {
         id: `early-spark-${pickup}`,
         position: { ...player.position },
-        mass: 4.5,
+        mass: STARTER_TREASURE_MASS,
         radius: 7.5,
       });
       const result = stepGame(state, {
@@ -198,12 +200,12 @@ describe("deterministic game core", () => {
       radii.push(getPlayerRadius(player, state.config));
     }
 
-    expect(segmentCounts).toEqual([3, 4, 5, 6]);
+    expect(segmentCounts).toEqual([6, 6, 6, 6]);
     expect(radii.every((radius, index) =>
       radius > (index === 0 ? initialRadius : radii[index - 1])
     )).toBe(true);
-    expect(radii.at(-1)! / initialRadius).toBeGreaterThan(1.05);
-    expect(player.mass).toBe(66);
+    expect(radii.at(-1)! / initialRadius).toBeLessThan(1.02);
+    expect(player.mass).toBeCloseTo(48 + 4 * STARTER_TREASURE_MASS, 10);
   });
 
   it("grows from a short plump spawn into a materially longer and thicker worm", () => {
@@ -218,7 +220,7 @@ describe("deterministic game core", () => {
     const startBodyRadius = getBodyRadius(player, state.config);
     const startLength = player.body.length;
 
-    player.mass = 300;
+    player.mass = 500;
     spawnDrop(state, {
       id: "growth-sync",
       position: { ...player.position },
@@ -229,7 +231,7 @@ describe("deterministic game core", () => {
       "growth-contract": { sequence: 1, direction: { x: 1, y: 0 }, boost: false },
     });
 
-    expect(player.body.length).toBeGreaterThan(startLength * 4);
+    expect(player.body.length).toBeGreaterThan(startLength * 3);
     expect(getPlayerRadius(player, state.config)).toBeGreaterThan(startHeadRadius * 1.5);
     expect(getBodyRadius(player, state.config)).toBeGreaterThan(startBodyRadius * 1.5);
   });
@@ -276,6 +278,8 @@ describe("deterministic game core", () => {
       shieldSeconds: 0,
     });
 
+    expect(isPlayerBoosting(player, state.config)).toBe(false);
+
     advanceGame(state, 2, {
       sprinter: { sequence: 1, direction: { x: 1, y: 0 }, boost: true },
     });
@@ -286,6 +290,20 @@ describe("deterministic game core", () => {
     expect(player.position.x).toBeCloseTo(30, 8);
     expect(shedDrops).toHaveLength(5);
     expect(shedDrops.every((drop) => drop.blockedPlayerId === player.id)).toBe(true);
+    expect(isPlayerBoosting(player, state.config)).toBe(false);
+  });
+
+  it("reports sprint only when living server movement can actually grant it", () => {
+    const state = createGameState("boost-signal", { minimumBoostMass: 60 });
+    const player = spawnPlayer(state, { id: "signaled", mass: 61 });
+    player.lastInput = { sequence: 1, direction: { x: 1, y: 0 }, boost: true };
+
+    expect(isPlayerBoosting(player, state.config)).toBe(true);
+    player.mass = 60;
+    expect(isPlayerBoosting(player, state.config)).toBe(false);
+    player.mass = 61;
+    player.alive = false;
+    expect(isPlayerBoosting(player, state.config)).toBe(false);
   });
 
   it("detects swept moving-circle contact even when endpoints do not overlap", () => {
@@ -432,6 +450,31 @@ describe("deterministic game core", () => {
       type: "playerDied",
       playerId: protectedPlayer.id,
       killerId: owner.id,
+    }));
+  });
+
+  it("never lets head-safe spawn grace cross the arena boundary", () => {
+    const state = createGameState("shielded-boundary", {
+      fixedStepSeconds: 1,
+      arenaRadius: 100,
+      baseSpeed: 20,
+      boostSpeed: 20,
+      spawnShieldSeconds: 10,
+    });
+    const player = spawnPlayer(state, {
+      id: "boundary-runner",
+      position: { x: 79, y: 0 },
+      direction: { x: 1, y: 0 },
+    });
+
+    const result = stepGame(state);
+
+    expect(player.shieldTicksRemaining).toBeGreaterThan(0);
+    expect(player.alive).toBe(false);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "playerDied",
+      playerId: player.id,
+      cause: "boundary",
     }));
   });
 

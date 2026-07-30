@@ -60,6 +60,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
       durationTicks: drop.relicDurationTicks,
       specialist: drop.specialist,
       mass: drop.mass,
+      relicTier: drop.relicTier,
     })), [
       {
         id: "emerald-spyglass-relic-1",
@@ -67,6 +68,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 100,
         specialist: undefined,
         mass: 0,
+        relicTier: undefined,
       },
       {
         id: "pepper-cutlass-relic-1",
@@ -74,6 +76,31 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
+        relicTier: undefined,
+      },
+      {
+        id: "gale-pennant-relic-1",
+        relicKind: "gale-pennant",
+        durationTicks: 80,
+        specialist: undefined,
+        mass: 0,
+        relicTier: undefined,
+      },
+      {
+        id: "maelstrom-wheel-relic-1",
+        relicKind: "maelstrom-wheel",
+        durationTicks: 80,
+        specialist: undefined,
+        mass: 0,
+        relicTier: undefined,
+      },
+      {
+        id: "gilded-ledger-relic-1",
+        relicKind: "gilded-ledger",
+        durationTicks: 80,
+        specialist: undefined,
+        mass: 0,
+        relicTier: 2,
       },
     ]);
 
@@ -94,6 +121,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         relicDurationTicks: drop.relicDurationTicks,
         specialist: drop.specialist,
         specialistDurationTicks: drop.specialistDurationTicks,
+        relicTier: drop.relicTier,
       })),
       [
         {
@@ -101,18 +129,106 @@ test("rooms seed the complete Relic set deterministically without changing the v
           relicDurationTicks: 100,
           specialist: undefined,
           specialistDurationTicks: undefined,
+          relicTier: undefined,
         },
         {
           relicKind: "pepper-cutlass",
           relicDurationTicks: 80,
           specialist: undefined,
           specialistDurationTicks: undefined,
+          relicTier: undefined,
+        },
+        {
+          relicKind: "gale-pennant",
+          relicDurationTicks: 80,
+          specialist: undefined,
+          specialistDurationTicks: undefined,
+          relicTier: undefined,
+        },
+        {
+          relicKind: "maelstrom-wheel",
+          relicDurationTicks: 80,
+          specialist: undefined,
+          specialistDurationTicks: undefined,
+          relicTier: undefined,
+        },
+        {
+          relicKind: "gilded-ledger",
+          relicDurationTicks: 80,
+          specialist: undefined,
+          specialistDurationTicks: undefined,
+          relicTier: 2,
         },
       ],
     );
   } finally {
     first.stop();
     second.stop();
+  }
+});
+
+test("server authority honors repeated zero-clearance Maelstrom loops while sprinting", () => {
+  const room = new ArenaRoom("maelstrom-zero-clearance", roomOptions);
+  const surface = room as unknown as RoomTestSurface;
+  const capture = new CaptureSocket();
+
+  try {
+    const join = room.join(capture as unknown as WebSocket, {
+      type: "join",
+      roomId: room.id,
+      name: "Loop captain",
+    });
+    const session = join.session;
+    assert.ok(session);
+    const player = room.state.players[session.playerId];
+    assert.ok(player);
+    room.state.config.arenaRadius = 10_000;
+    room.state.config.baseSpeed = 10;
+    room.state.config.boostSpeed = 20;
+    room.state.config.boostMassPerSecond = 1;
+    player.position = { x: 0, y: 0 };
+    player.previousPosition = { x: 0, y: 0 };
+    player.direction = { x: 1, y: 0 };
+    player.mass = 100;
+    player.specialist = {
+      kind: "collector",
+      relicKind: "maelstrom-wheel",
+      activatedAtTick: 0,
+      expiresAtTick: 80,
+      durationTicks: 80,
+    };
+
+    const diagonal = Math.SQRT1_2;
+    const loop = [
+      { x: diagonal, y: diagonal },
+      { x: 0, y: 1 },
+      { x: -diagonal, y: diagonal },
+      { x: -1, y: 0 },
+      { x: -diagonal, y: -diagonal },
+      { x: 0, y: -1 },
+      { x: diagonal, y: -diagonal },
+      { x: 1, y: 0 },
+    ] as const;
+    let sequence = 1;
+    for (let lap = 0; lap < 2; lap += 1) {
+      for (const direction of loop) {
+        assert.equal(room.acceptInput(session, {
+          type: "input",
+          sequence,
+          direction,
+          boost: true,
+        }), undefined);
+        surface.simulationStep();
+        assert.ok(Math.abs(player.direction.x - direction.x) < 1e-12);
+        assert.ok(Math.abs(player.direction.y - direction.y) < 1e-12);
+        assert.equal(player.alive, true);
+        sequence += 1;
+      }
+    }
+    assert.equal(room.state.tick, 16);
+    assert.equal(player.specialist?.relicKind, "maelstrom-wheel");
+  } finally {
+    room.stop();
   }
 });
 

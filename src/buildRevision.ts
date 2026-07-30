@@ -6,3 +6,17 @@ export function normalizeBuildRevision(value: unknown): string {
   const normalized = value.trim().toLowerCase();
   return GIT_REVISION.test(normalized) ? normalized : "development";
 }
+
+/** The exact deployed revision embedded by Vite into the owned-site HTML. */
+export function readBuildRevision(): string {
+  if (typeof document === "undefined") return "development";
+  return normalizeBuildRevision(
+    document.querySelector('meta[name="wormifi-build-revision"]')?.getAttribute("content"),
+  );
+}
+
+/** Compact human-readable release identity; the full revision remains public. */
+export function buildVersionLabel(revision: unknown): string {
+  const normalized = normalizeBuildRevision(revision);
+  return normalized === "development" ? "LOCAL DEV" : `v${normalized.slice(0, 7)}`;
+}

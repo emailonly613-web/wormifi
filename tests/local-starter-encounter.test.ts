@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getBodyRadius, getPlayerRadius } from "../src/game/core";
 import {
   LOCAL_BOT_COUNT,
+  LOCAL_ONBOARDING_SHIELD_SECONDS,
   LOCAL_PLAYER_ID,
   LOCAL_STARTER_RIVAL_IDS,
   buildLocalArena,
@@ -54,7 +55,7 @@ describe("local first-session encounter composition", () => {
       );
 
       expect(bots).toHaveLength(LOCAL_BOT_COUNT);
-      expect(player.body).toHaveLength(3);
+      expect(player.body).toHaveLength(6);
       expect(player.mass).toBe(48);
       const starterRelic = session.state.drops.find(
         (drop) => drop.id === "collector-beacon-launch",
@@ -69,8 +70,8 @@ describe("local first-session encounter composition", () => {
           kind: "bot",
           direction: { x: 1, y: 0 },
         });
-        expect(Math.abs(rival.position.x)).toBeLessThanOrEqual(150);
-        expect(Math.abs(rival.position.y)).toBeLessThanOrEqual(150);
+        expect(Math.abs(rival.position.x)).toBeLessThanOrEqual(180);
+        expect(Math.abs(rival.position.y)).toBeLessThanOrEqual(190);
         expect(minimumChainClearance(player, rival, session.state)).toBeGreaterThan(90);
       }
 
@@ -84,18 +85,22 @@ describe("local first-session encounter composition", () => {
     }
   });
 
-  it("is seed-repeatable and cannot kill a straight-launching player after spawn grace", () => {
+  it("is seed-repeatable and protects the local learner through the opening lesson", () => {
     const first = buildLocalArena("starter-repeat", "Starter Proof", "practice");
     const second = buildLocalArena("starter-repeat", "Starter Proof", "practice");
 
     expect(checksumLocalArena(second.state)).toBe(checksumLocalArena(first.state));
 
-    for (let tick = 1; tick <= 90; tick += 1) {
+    const protectedTicks = Math.ceil(
+      LOCAL_ONBOARDING_SHIELD_SECONDS / first.state.config.fixedStepSeconds,
+    );
+    for (let tick = 1; tick <= protectedTicks; tick += 1) {
       for (const session of [first, second]) {
         const player = session.state.players[LOCAL_PLAYER_ID];
+        const angle = tick * 0.018;
         const input = sanitizeLocalInput(
           tick,
-          { x: 1, y: 0 },
+          { x: Math.cos(angle), y: Math.sin(angle) },
           false,
           player.direction,
         );

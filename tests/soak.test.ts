@@ -124,16 +124,41 @@ function assertStateIsNumericallySafe(
   }
 
   const dropIds = new Set<string>();
+  let boostDrops = 0;
+  let deathDrops = 0;
   for (const [index, drop] of state.drops.entries()) {
     const label = `${prefix}.drops[${index}]`;
     if (dropIds.has(drop.id)) throw new Error(`${prefix} contains duplicate drop ${drop.id}`);
     dropIds.add(drop.id);
     assertFiniteVector(drop.position, `${label}.position`);
     assertFiniteNumber(drop.mass, `${label}.mass`);
+    if (drop.bankedMass !== undefined) {
+      assertFiniteNumber(drop.bankedMass, `${label}.bankedMass`);
+      if (drop.bankedMass < 0) throw new Error(`${label}.bankedMass cannot be negative`);
+    }
     assertFiniteNumber(drop.radius, `${label}.radius`);
     assertFiniteNumber(drop.blockedUntilTick, `${label}.blockedUntilTick`);
+    if (drop.pickupBlockedUntilTick !== undefined) {
+      assertFiniteNumber(drop.pickupBlockedUntilTick, `${label}.pickupBlockedUntilTick`);
+      if (drop.pickupBlockedUntilTick < 0) {
+        throw new Error(`${label}.pickupBlockedUntilTick cannot be negative`);
+      }
+    }
     if (drop.mass <= 0) throw new Error(`${label}.mass must remain positive`);
     if (drop.radius <= 0) throw new Error(`${label}.radius must remain positive`);
+    if (drop.source === "boost") boostDrops += 1;
+    if (drop.source === "death") deathDrops += 1;
+  }
+
+  if (boostDrops > state.config.maximumBoostDropsInWorld) {
+    throw new Error(
+      `${prefix} retained ${boostDrops} boost drops; cap is ${state.config.maximumBoostDropsInWorld}`,
+    );
+  }
+  if (deathDrops > state.config.maximumDeathDropsInWorld) {
+    throw new Error(
+      `${prefix} retained ${deathDrops} death drops; cap is ${state.config.maximumDeathDropsInWorld}`,
+    );
   }
 
   if (state.drops.length > MAX_DROPS_PER_ARENA) {

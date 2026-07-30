@@ -12,6 +12,7 @@ import WebSocket from "ws";
 
 import {
   decodeSnapshotFromWire,
+  MIXED_ECHO_ORIGIN_ID,
   type ErrorMessage,
   type PongMessage,
   type PublicDropState,
@@ -214,7 +215,7 @@ function loadConfiguration(): LoadConfiguration {
     snapshotHz: integerEnvironment("WORMIFI_LOAD_SNAPSHOT_HZ", 15, 1),
     targetPopulationPerRoom: integerEnvironment(
       "WORMIFI_LOAD_TARGET_POPULATION",
-      Math.max(12, Math.ceil(clients / rooms)),
+      Math.max(32, Math.ceil(clients / rooms)),
       1,
     ),
     reconnectClients: Math.min(
@@ -315,7 +316,15 @@ function isErrorCode(code: ErrorMessage["code"]): MessagePredicate<ErrorMessage>
 function inspectGroundDropMetadata(drops: readonly PublicDropState[], metrics: Metrics): void {
   for (const drop of drops) {
     if (drop.source === "boost" || drop.source === "death") {
-      if (typeof drop.originPlayerId === "string" && drop.originPlayerId.length > 0) {
+      const concreteOrigin =
+        drop.mixedOrigin === undefined &&
+        typeof drop.originPlayerId === "string" &&
+        drop.originPlayerId.length > 0 &&
+        drop.originPlayerId !== MIXED_ECHO_ORIGIN_ID;
+      const explicitMixedOrigin =
+        drop.mixedOrigin === true &&
+        drop.originPlayerId === MIXED_ECHO_ORIGIN_ID;
+      if (concreteOrigin || explicitMixedOrigin) {
         metrics.echoOriginDropsSeen += 1;
       } else {
         metrics.groundLoopMetadataViolations += 1;
@@ -325,6 +334,7 @@ function inspectGroundDropMetadata(drops: readonly PublicDropState[], metrics: M
       drop.mass !== 0 ||
       drop.source !== "arena" ||
       drop.originPlayerId !== undefined ||
+      drop.mixedOrigin !== undefined ||
       !Number.isSafeInteger(drop.specialistDurationTicks) ||
       (drop.specialistDurationTicks ?? 0) <= 0
     )) {
@@ -1190,7 +1200,7 @@ async function main(): Promise<void> {
         `The server stayed responsive after ${configuration.invalidBurstMessages} deliberately stale messages.`,
         "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",
         "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured.",
-        "Collector beacon/active-state metadata and Echo producer identity stayed coherent under room load.",
+        "Collector metadata plus concrete-producer or explicit mixed-cache Echo identity stayed coherent under room load.",
         "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget.",
         capacityGatePass
           ? "Observed simulation and snapshot delivery both reached at least 98% of their configured local targets."

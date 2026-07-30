@@ -1,0 +1,86 @@
+.pace-picker {
+  border: 1px solid rgba(91, 248, 211, 0.34);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(3, 22, 35, 0.78);
+}
+
+.pace-picker legend {
+  padding: 0 8px;
+  color: #fff0a8;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.pace-picker > p {
+  margin: 0 0 10px;
+  color: #b8d8df;
+  font-size: 0.78rem;
+}
+
+.pace-picker-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pace-picker-options label {
+  display: block;
+  cursor: pointer;
+}
+
+.pace-picker-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pace-picker-options label > span {
+  display: grid;
+  gap: 3px;
+  min-height: 88px;
+  padding: 10px;
+  border: 1px solid rgba(123, 200, 214, 0.25);
+  border-radius: 12px;
+  background: rgba(10, 43, 56, 0.7);
+}
+
+.pace-picker-options label.selected > span {
+  border-color: #60f2cb;
+  box-shadow: 0 0 0 2px rgba(96, 242, 203, 0.16);
+  background: rgba(13, 70, 72, 0.78);
+}
+
+.pace-picker-options strong {
+  color: #ffffff;
+  font-size: 0.96rem;
+}
+
+.pace-picker-options small {
+  color: #6ff5d0;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.pace-picker-options b {
+  color: #c6dce0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.pace-picker-lock {
+  margin-top: 10px !important;
+  color: #ffd86a !important;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .pace-picker-options {
+    grid-template-columns: 1fr;
+  }
+
+  .pace-picker-options label > span {
+    min-height: 0;
+  }
+}

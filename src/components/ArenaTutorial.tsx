@@ -179,7 +179,7 @@ export function ArenaTutorial({
             <span className="lesson-crew"><i /><i /><i /> YOUR CREW</span>
           </div>
           <span className="collision-law">
-            Dotted HEAD SAFE halo lasts 1.5s. Every visible CREW body remains lethal—even during that grace.
+            Your opening dotted HEAD SAFE halo fades on its timer. Your crew can still cut rivals while your head is protected.
           </span>
         </>
       )}

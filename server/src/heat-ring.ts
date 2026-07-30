@@ -155,6 +155,25 @@ function poseClearsDisk(
   );
 }
 
+function posesClearEachOther(
+  state: Readonly<GameState>,
+  first: StartingPose,
+  second: StartingPose,
+  margin: number,
+): boolean {
+  const headRadius = getPlayerRadius({ mass: state.config.startMass }, state.config);
+  const bodyRadius = getBodyRadius({ mass: state.config.startMass }, state.config);
+  const firstPoints = pointsForPose(state, first);
+  const secondPoints = pointsForPose(state, second);
+  return firstPoints.every((firstPoint, firstIndex) =>
+    secondPoints.every((secondPoint, secondIndex) =>
+      Math.sqrt(squaredDistance(firstPoint, secondPoint)) -
+        (firstIndex === 0 ? headRadius : bodyRadius) -
+        (secondIndex === 0 ? headRadius : bodyRadius) >= margin
+    )
+  );
+}
+
 function isPristineParticipant(player: Readonly<PlayerState>, state: Readonly<GameState>): boolean {
   return player.alive &&
     player.spawnedAtTick === 0 &&
@@ -192,18 +211,16 @@ function findNormalPoses(
   config: Readonly<HeatRingConfig>,
 ): Readonly<Record<string, StartingPose>> | undefined {
   if (normalIds.length === 0) return {};
-  const minimumHeadSeparation = chainReach(state) * 2 +
-    getPlayerRadius({ mass: state.config.startMass }, state.config) * 2 + 24;
   const seedPhase = (state.randomState >>> 0) / 0x1_0000_0000 * Math.PI * 2;
+  const slotCount = Math.max(config.placementAttempts, normalIds.length * 3);
 
   for (let attempt = 0; attempt < config.placementAttempts; attempt += 1) {
     const phase = seedPhase + attempt / config.placementAttempts * Math.PI * 2;
     const poses: Record<string, StartingPose> = {};
-    let valid = true;
-    for (let index = 0; index < normalIds.length; index += 1) {
+    for (let slot = 0; slot < slotCount && Object.keys(poses).length < normalIds.length; slot += 1) {
       const pose = startingPoseOnOuterRing(
         state,
-        phase + index / normalIds.length * Math.PI * 2,
+        phase + slot / slotCount * Math.PI * 2,
       );
       if (
         !pose ||
@@ -211,15 +228,15 @@ function findNormalPoses(
         !poseClearsDisk(state, pose, center, config.normalBotExclusionRadius) ||
         !poseClearsDisk(state, pose, humanPosition, config.humanAvoidRadius) ||
         Object.values(poses).some((other) =>
-          squaredDistance(other.position, pose.position) < minimumHeadSeparation ** 2
+          !posesClearEachOther(state, other, pose, 24)
         )
       ) {
-        valid = false;
-        break;
+        continue;
       }
-      poses[normalIds[index]] = pose;
+      const nextId = normalIds[Object.keys(poses).length];
+      poses[nextId] = pose;
     }
-    if (valid) return poses;
+    if (Object.keys(poses).length === normalIds.length) return poses;
   }
   return undefined;
 }

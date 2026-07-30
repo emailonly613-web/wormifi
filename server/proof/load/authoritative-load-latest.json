@@ -4,12 +4,12 @@
   "configuration": {
     "clients": 24,
     "rooms": 4,
-    "durationSeconds": 30,
+    "durationSeconds": 10,
     "inputHz": 20,
     "pingHz": 2,
     "fixedStepHz": 30,
     "snapshotHz": 15,
-    "targetPopulationPerRoom": 12,
+    "targetPopulationPerRoom": 32,
     "reconnectClients": 4,
     "invalidBurstMessages": 250,
     "reconnectPauseMs": 150,
@@ -19,115 +19,115 @@
     "allowCapacityMiss": false
   },
   "measured": {
-    "runtimeMs": 30003.604,
+    "runtimeMs": 10006.478,
     "initialJoinMs": {
       "samples": 24,
-      "min": 122.653,
-      "p50": 131.464,
-      "p95": 141.937,
-      "p99": 142.974,
-      "max": 143.125,
-      "mean": 131.642
+      "min": 103.325,
+      "p50": 112.631,
+      "p95": 119.22,
+      "p99": 119.608,
+      "max": 119.704,
+      "mean": 112.276
     },
     "reconnectMs": {
       "samples": 4,
-      "min": 171.329,
-      "p50": 173.695,
-      "p95": 175.577,
-      "p99": 175.749,
-      "max": 175.792,
-      "mean": 173.628
+      "min": 166.621,
+      "p50": 168.391,
+      "p95": 169.689,
+      "p99": 169.816,
+      "max": 169.847,
+      "mean": 168.312
     },
     "pingRoundTripMs": {
-      "samples": 1412,
-      "min": 0.438,
-      "p50": 1.357,
-      "p95": 3.908,
-      "p99": 6.57,
-      "max": 7.152,
-      "mean": 1.728
+      "samples": 456,
+      "min": 0.579,
+      "p50": 1.761,
+      "p95": 4.423,
+      "p99": 6.242,
+      "max": 6.528,
+      "mean": 2.026
     },
     "snapshotInterArrivalMs": {
-      "samples": 10701,
-      "min": 0.035,
-      "p50": 63.348,
-      "p95": 78.917,
-      "p99": 83.815,
-      "max": 240.449,
-      "mean": 67.154
+      "samples": 3581,
+      "min": 2.944,
+      "p50": 63.208,
+      "p95": 78.617,
+      "p99": 81.001,
+      "max": 124.63,
+      "mean": 66.237
     },
     "snapshotDeliveryLagMs": {
-      "samples": 10729,
+      "samples": 3609,
       "min": 0,
       "p50": 1,
       "p95": 3,
-      "p99": 7,
-      "max": 22,
-      "mean": 1.438
+      "p99": 4,
+      "max": 14,
+      "mean": 1.619
     },
     "snapshotPayloadBytes": {
-      "samples": 10729,
-      "min": 3800,
-      "p50": 4378,
-      "p95": 5252,
-      "p99": 6127.6,
-      "max": 8566,
-      "mean": 4458.298
+      "samples": 3609,
+      "min": 10579,
+      "p50": 11047,
+      "p95": 12320,
+      "p99": 13048,
+      "max": 18791,
+      "mean": 11166.903
     },
     "worldSyncPayloadBytes": {
       "samples": 28,
-      "min": 101606,
-      "p50": 105879,
-      "p95": 106161.15,
-      "p99": 108325.93,
-      "max": 109120,
-      "mean": 105806.893
+      "min": 85056,
+      "p50": 89399.5,
+      "p95": 89652.2,
+      "p99": 89759.09,
+      "max": 89795,
+      "mean": 89054.107
     },
     "observedRoomTickRateHz": {
       "samples": 28,
-      "min": 29.949,
-      "p50": 29.963,
-      "p95": 30,
-      "p99": 30.003,
-      "max": 30.003,
-      "mean": 29.971
+      "min": 29.956,
+      "p50": 30.011,
+      "p95": 30.076,
+      "p99": 30.134,
+      "max": 30.151,
+      "mean": 30.017
     },
-    "inputsSent": 11868,
-    "inputMessagesPerSecond": 395.552,
-    "pingsSent": 1412,
-    "pongsReceived": 1412,
-    "snapshotsReceived": 10729,
+    "inputsSent": 4020,
+    "inputMessagesPerSecond": 401.74,
+    "pingsSent": 456,
+    "pongsReceived": 456,
+    "snapshotsReceived": 3609,
     "worldSyncsReceived": 28,
-    "snapshotsPerClientSecond": 14.9,
-    "estimatedSnapshotWireMiBPerSecond": 1.52,
+    "snapshotsPerClientSecond": 15.028,
+    "estimatedSnapshotWireMiBPerSecond": 3.841,
     "capacityGate": {
       "pass": true,
       "minimumTargetRatio": 0.98,
       "fixedStepTargetHz": 30,
-      "observedMedianTickRateHz": 29.963,
-      "fixedStepTargetRatio": 0.999,
+      "observedMedianTickRateHz": 30.011,
+      "fixedStepTargetRatio": 1,
       "snapshotTargetHz": 15,
-      "observedSnapshotsPerClientSecond": 14.9,
-      "snapshotTargetRatio": 0.993
+      "observedSnapshotsPerClientSecond": 15.028,
+      "snapshotTargetRatio": 1.002
     },
     "eventLoopDelayMs": {
-      "min": 8.864,
-      "p50": 15.581,
-      "p95": 19.137,
-      "p99": 24.379,
-      "max": 193.069,
-      "mean": 15.916
+      "min": 10.478,
+      "p50": 15.475,
+      "p95": 18.203,
+      "p99": 20.021,
+      "max": 77.332,
+      "mean": 15.632
     },
     "process": {
-      "cpuPercentOfOneCore": 20.414,
-      "userCpuMs": 5484,
-      "systemCpuMs": 641,
-      "baselineHeapMiB": 32.33,
-      "endingHeapMiB": 77.608,
-      "peakHeapMiB": 113.725,
-      "baselineRssMiB": 129.609,
-      "endingRssMiB": 271.793,
-      "peakRssMiB": 272.242
+      "cpuPercentOfOneCore": 29.351,
+      "userCpuMs": 2531,
+      "systemCpuMs": 406,
+      "baselineHeapMiB": 31.787,
+      "endingHeapMiB": 35.468,
+      "peakHeapMiB": 129.271,
+      "baselineRssMiB": 140.813,
+      "endingRssMiB": 277.172,
+      "peakRssMiB": 282.238
     },
     "invalidAndBurstProbe": {
       "expectedErrorCodesObserved": [
@@ -148,17 +148,17 @@
     },
     "collectorGroundLoop": {
       "beaconWorldSyncs": 27,
-      "activeCollectorSnapshots": 2817,
-      "echoOriginDropsSeen": 8381,
+      "activeCollectorSnapshots": 2042,
+      "echoOriginDropsSeen": 3001,
       "metadataViolations": 0,
       "bandwidthBudget": {
         "pass": true,
         "maximumWorldPayloadBytes": 163840,
-        "observedWorldP99Bytes": 108325.93,
+        "observedWorldP99Bytes": 89759.09,
         "maximumSnapshotPayloadBytes": 24576,
-        "observedSnapshotP99Bytes": 6127.6,
+        "observedSnapshotP99Bytes": 13048,
         "maximumEstimatedSnapshotWireMiBPerSecond": 4,
-        "observedEstimatedSnapshotWireMiBPerSecond": 1.52
+        "observedEstimatedSnapshotWireMiBPerSecond": 3.841
       }
     },
     "roomIsolationViolations": 0
@@ -171,7 +171,7 @@
     "logicalCpuCount": 48,
     "cpuModel": "AMD Ryzen Threadripper 9960X 24-Cores          ",
     "totalMemoryGiB": 127.371,
-    "freeMemoryGiBAtReport": 63.056
+    "freeMemoryGiBAtReport": 93.101
   },
   "assertions": [
     "24 real WebSocket clients were distributed across 4 isolated rooms.",
@@ -179,7 +179,7 @@
     "The server stayed responsive after 250 deliberately stale messages.",
     "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",
     "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured.",
-    "Collector beacon/active-state metadata and Echo producer identity stayed coherent under room load.",
+    "Collector metadata plus concrete-producer or explicit mixed-cache Echo identity stayed coherent under room load.",
     "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget.",
     "Observed simulation and snapshot delivery both reached at least 98% of their configured local targets."
   ],
@@ -193,5 +193,5 @@
     "Synthetic sockets are not external humans and do not establish retention, fairness, fun, monetization, or Wormate-level market parity.",
     "A separate deployment soak with external load generators, 100/200/350 ms network profiles, packet loss, and long-duration monitoring remains required."
   ],
-  "measuredAtUtc": "2026-07-30T07:07:57.615Z"
+  "measuredAtUtc": "2026-07-30T20:59:58.324Z"
 }

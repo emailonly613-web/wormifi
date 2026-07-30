@@ -12,9 +12,21 @@ import {
 } from "./core";
 import { nextRandomState } from "./random";
 import {
+  STARTER_TREASURE_MASS,
+  selectNeutralTreasureMass,
+} from "./treasureEconomy";
+import {
   INITIAL_PIRATE_RELIC_KINDS,
   PirateRelicDirector,
 } from "./relicDirector";
+import {
+  DEFAULT_GAME_PACE_ID,
+  getGamePaceProfile,
+  identifyGamePace,
+  isGamePaceId,
+  LEGACY_GAME_PACE_ID,
+  type GamePaceId,
+} from "./gamePace";
 import type {
   BotInputProviderMap,
   GameState,
@@ -28,6 +40,12 @@ export type LocalArenaMode = "rush" | "endless" | "practice";
 export const LOCAL_PLAYER_ID = "player-you";
 export const LOCAL_BOT_COUNT = 28;
 export const LOCAL_TARGET_DROP_COUNT = 1_050;
+/**
+ * The local first-session lesson now opens in a deliberately busy arena. Keep
+ * the learner's head safe long enough to reach the highlighted starter gem;
+ * live rooms retain the ordinary short spawn shield from the shared config.
+ */
+export const LOCAL_ONBOARDING_SHIELD_SECONDS = 10;
 export const LOCAL_STARTER_RIVAL_IDS = Object.freeze([
   "bot-01",
   "bot-02",
@@ -43,12 +61,12 @@ const localRelicDirectors = new WeakMap<GameState, PirateRelicDirector>();
 const LOCAL_STARTER_RIVAL_POSES = Object.freeze([
   {
     id: LOCAL_STARTER_RIVAL_IDS[0],
-    position: { x: -115, y: -110 },
+    position: { x: -160, y: -175 },
     direction: { x: 1, y: 0 },
   },
   {
     id: LOCAL_STARTER_RIVAL_IDS[1],
-    position: { x: 115, y: -110 },
+    position: { x: 160, y: -175 },
     direction: { x: 1, y: 0 },
   },
 ] as const);
@@ -58,10 +76,13 @@ export interface LocalArenaSession {
   providers: BotInputProviderMap;
   /** Present on sessions created by buildLocalArena; optional for old wrappers. */
   boardId?: GameBoardId;
+  /** Present on sessions created by buildLocalArena; optional for old wrappers. */
+  paceId?: GamePaceId;
 }
 
 export interface BuiltLocalArenaSession extends LocalArenaSession {
   boardId: GameBoardId;
+  paceId: GamePaceId;
 }
 
 export interface RecordedLocalInput {
@@ -84,14 +105,22 @@ export interface LegacyLocalRunRecording extends LocalRunRecordingFields {
   version: 1;
 }
 
-/** Every newly finalized recording binds replay to one known board. */
-export interface LocalRunRecording extends LocalRunRecordingFields {
+/** Version 2 binds the board and predates player-selectable pace. */
+export interface BoardLocalRunRecording extends LocalRunRecordingFields {
   version: 2;
   boardId: GameBoardId;
 }
 
+/** Every newly finalized recording binds both board and pace. */
+export interface LocalRunRecording extends LocalRunRecordingFields {
+  version: 3;
+  boardId: GameBoardId;
+  paceId: GamePaceId;
+}
+
 export type SupportedLocalRunRecording =
   | LegacyLocalRunRecording
+  | BoardLocalRunRecording
   | LocalRunRecording;
 
 export interface LocalRunDraft {
@@ -100,6 +129,8 @@ export interface LocalRunDraft {
   playerName: string;
   /** Optional for existing callers; finalizeLocalRun derives it from state. */
   boardId?: GameBoardId;
+  /** Optional for existing callers; finalizeLocalRun derives it from state. */
+  paceId?: GamePaceId;
   inputs: RecordedLocalInput[];
 }
 
@@ -113,10 +144,11 @@ export interface PreparedLocalReplay extends BuiltLocalArenaSession {
 
 type LocalReplayPreparationProgress = Omit<
   PreparedLocalReplay,
-  "boardId" | "relicDirector"
+  "boardId" | "paceId" | "relicDirector"
 > & {
   /** Older browser wrappers do not surface these redundant runtime fields. */
   boardId?: GameBoardId;
+  paceId?: GamePaceId;
   relicDirector?: PirateRelicDirector;
 };
 
@@ -179,7 +211,7 @@ function seedArenaDrops(
     state.randomState = massRadiusState;
     sharedPosition.x = Math.cos(pointAngle) * pointDistance;
     sharedPosition.y = Math.sin(pointAngle) * pointDistance;
-    sharedOptions.mass = 1.5 + Math.abs(massX) * 4.5;
+    sharedOptions.mass = selectNeutralTreasureMass(massX, massY);
     sharedOptions.radius = 4 + Math.abs(massY) * 3;
     spawnDrop(state, sharedOptions);
   }
@@ -235,9 +267,11 @@ export function buildLocalArena(
   playerName: string,
   mode: LocalArenaMode,
   boardId: GameBoardId = "open-seas",
+  paceId: GamePaceId = DEFAULT_GAME_PACE_ID,
 ): BuiltLocalArenaSession {
   const selectedBoard = requireGameBoardProfile(boardId);
-  const state = createLocalGameState(seed, mode, selectedBoard.boardId);
+  if (!isGamePaceId(paceId)) throw new Error(`Unknown local arena pace: ${paceId}`);
+  const state = createLocalGameState(seed, mode, selectedBoard.boardId, paceId);
 
   spawnPlayer(state, {
     id: LOCAL_PLAYER_ID,
@@ -245,7 +279,7 @@ export function buildLocalArena(
     kind: "human",
     position: { x: 0, y: 0 },
     direction: { x: 1, y: 0 },
-    shieldSeconds: state.config.spawnShieldSeconds,
+    shieldSeconds: LOCAL_ONBOARDING_SHIELD_SECONDS,
   });
 
   const roster = spawnBotRoster(state, LOCAL_BOT_COUNT);
@@ -271,7 +305,7 @@ export function buildLocalArena(
     spawnDrop(state, {
       id,
       position,
-      mass: 4.5,
+      mass: STARTER_TREASURE_MASS,
       radius: 7.5,
       source: "arena",
     });
@@ -283,7 +317,7 @@ export function buildLocalArena(
         x: 72 + index * 54,
         y: Math.sin(index * 1.25) * 46,
       },
-      mass: 4.5,
+      mass: STARTER_TREASURE_MASS,
       radius: 7.5,
       source: "arena",
     });
@@ -298,6 +332,7 @@ export function buildLocalArena(
     state,
     providers: roster.providers,
     boardId: selectedBoard.boardId,
+    paceId,
   };
 }
 
@@ -305,15 +340,19 @@ function createLocalGameState(
   seed: string | number,
   mode: LocalArenaMode,
   boardId: GameBoardId,
+  paceId: GamePaceId,
 ) {
   // Kept here so live play and local replay cannot silently drift apart.
   const selectedBoard = requireGameBoardProfile(boardId);
+  const pace = getGamePaceProfile(paceId);
   return createGameState(seed, {
     arenaRadius: mode === "rush" ? 1_420 : mode === "practice" ? 1_620 : 2_050,
     spawnRadiusFactor: 0.78,
     spawnAttempts: 20,
     maximumDeathDrops: 64,
     dropRadius: 5.2,
+    baseSpeed: pace.baseSpeed,
+    boostSpeed: pace.boostSpeed,
   }, selectedBoard.profile);
 }
 
@@ -420,14 +459,21 @@ export function checksumLocalArena(state: GameState): string {
 
 export function finalizeLocalRun(draft: LocalRunDraft, state: GameState): LocalRunRecording {
   const selectedBoard = requireGameBoardProfile(state.board.id);
+  const paceId = identifyGamePace(state.config);
   if (draft.boardId !== undefined && draft.boardId !== selectedBoard.boardId) {
     throw new Error(
       `Local recording board ${draft.boardId} does not match state board ${selectedBoard.boardId}`,
     );
   }
+  if (draft.paceId !== undefined && draft.paceId !== paceId) {
+    throw new Error(
+      `Local recording pace ${draft.paceId} does not match state pace ${paceId}`,
+    );
+  }
   return {
-    version: 2,
+    version: 3,
     boardId: selectedBoard.boardId,
+    paceId,
     seed: draft.seed,
     mode: draft.mode,
     playerName: draft.playerName,
@@ -456,11 +502,36 @@ export function getLocalRunBoardId(
   if (recording.version === 2) {
     return requireGameBoardProfile(recording.boardId).boardId;
   }
+  if (recording.version === 3) {
+    return requireGameBoardProfile(recording.boardId).boardId;
+  }
   throw new Error("Local replay recording has an unsupported version");
 }
 
-function validateRecording(recording: SupportedLocalRunRecording): GameBoardId {
+export function getLocalRunPaceId(
+  recording: SupportedLocalRunRecording,
+): GamePaceId {
+  if (recording.version === 1 || recording.version === 2) {
+    const unexpectedPace = (recording as LegacyLocalRunRecording & {
+      paceId?: unknown;
+    }).paceId;
+    if (unexpectedPace !== undefined) {
+      throw new Error(`Version-${recording.version} local recordings cannot declare a pace`);
+    }
+    return LEGACY_GAME_PACE_ID;
+  }
+  if (recording.version === 3 && isGamePaceId(recording.paceId)) {
+    return recording.paceId;
+  }
+  throw new Error("Local replay recording has an unsupported pace");
+}
+
+function validateRecording(recording: SupportedLocalRunRecording): {
+  boardId: GameBoardId;
+  paceId: GamePaceId;
+} {
   const boardId = getLocalRunBoardId(recording);
+  const paceId = getLocalRunPaceId(recording);
   if (recording.inputs.length !== recording.terminalTick) {
     throw new Error("Local replay recording has an invalid length contract");
   }
@@ -469,17 +540,19 @@ function validateRecording(recording: SupportedLocalRunRecording): GameBoardId {
       throw new Error("Local replay input ticks must be contiguous");
     }
   }
-  return boardId;
+  return { boardId, paceId };
 }
 
 function normalizeSupportedRecording(
   recording: SupportedLocalRunRecording,
   boardId: GameBoardId,
+  paceId: GamePaceId,
 ): LocalRunRecording {
-  if (recording.version === 2) return recording;
+  if (recording.version === 3) return recording;
   return {
-    version: 2,
+    version: 3,
     boardId,
+    paceId,
     seed: recording.seed,
     mode: recording.mode,
     playerName: recording.playerName,
@@ -505,8 +578,8 @@ export function createLocalReplayPreparation(
   recording: SupportedLocalRunRecording,
   highlightSeconds = 6,
 ): PreparedLocalReplay {
-  const boardId = validateRecording(recording);
-  const normalizedRecording = normalizeSupportedRecording(recording, boardId);
+  const { boardId, paceId } = validateRecording(recording);
+  const normalizedRecording = normalizeSupportedRecording(recording, boardId, paceId);
   if (!Number.isFinite(highlightSeconds) || highlightSeconds <= 0) {
     throw new Error("Local replay highlight duration must be positive");
   }
@@ -515,6 +588,7 @@ export function createLocalReplayPreparation(
     recording.playerName,
     recording.mode,
     boardId,
+    paceId,
   );
   const highlightTicks = Math.ceil(
     highlightSeconds / session.state.config.fixedStepSeconds,
@@ -524,6 +598,7 @@ export function createLocalReplayPreparation(
   return {
     ...session,
     boardId,
+    paceId,
     recording: normalizedRecording,
     nextInputIndex: 0,
     startTick,
@@ -556,13 +631,15 @@ export function rebuildLocalRun(recording: SupportedLocalRunRecording): {
   state: GameState;
   checksum: string;
   boardId: GameBoardId;
+  paceId: GamePaceId;
 } {
-  const boardId = validateRecording(recording);
+  const { boardId, paceId } = validateRecording(recording);
   const session = buildLocalArena(
     recording.seed,
     recording.playerName,
     recording.mode,
     boardId,
+    paceId,
   );
   for (const input of recording.inputs) stepLocalArena(session, input);
   const checksum = checksumLocalArena(session.state);
@@ -571,5 +648,5 @@ export function rebuildLocalRun(recording: SupportedLocalRunRecording): {
       `Local replay checksum mismatch for board ${boardId}`,
     );
   }
-  return { state: session.state, checksum, boardId };
+  return { state: session.state, checksum, boardId, paceId };
 }

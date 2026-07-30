@@ -822,6 +822,8 @@ export interface ContinuousPirateWormOptions {
   materialMotion?: number;
   /** Allows the material's brightest pass to spend shadowBlur on bloom. */
   materialGlow?: boolean;
+  /** True only while authoritative movement has granted the sprint. */
+  boosting?: boolean;
 }
 
 function traceWormCenterline(
@@ -833,6 +835,78 @@ function traceWormCenterline(
   for (let index = 1; index < points.length; index += 1) {
     context.lineTo(points[index].x, points[index].y);
   }
+}
+
+function traceOffsetWormCenterline(
+  context: CanvasRenderingContext2D,
+  points: readonly Vec2[],
+  offset: number,
+  fallbackDirection: Vec2,
+) {
+  const fallbackLength = Math.hypot(fallbackDirection.x, fallbackDirection.y);
+  const fallbackX = fallbackLength > 0.0001 ? fallbackDirection.x / fallbackLength : 1;
+  const fallbackY = fallbackLength > 0.0001 ? fallbackDirection.y / fallbackLength : 0;
+  context.beginPath();
+  for (let index = 0; index < points.length; index += 1) {
+    const from = points[Math.max(0, index - 1)];
+    const to = points[Math.min(points.length - 1, index + 1)];
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const length = Math.hypot(deltaX, deltaY);
+    const tangentX = length > 0.0001 ? deltaX / length : fallbackX;
+    const tangentY = length > 0.0001 ? deltaY / length : fallbackY;
+    const x = points[index].x - tangentY * offset;
+    const y = points[index].y + tangentX * offset;
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  }
+}
+
+/**
+ * A moving signal painted wholly inside the existing body skin. The opposing
+ * rails make the hide appear to tremble under sprint power without moving a
+ * point, widening the silhouette, or lying about collision geometry. Reduced
+ * motion keeps the brighter signal but freezes its travel.
+ */
+function drawSprintHullSignal(
+  context: CanvasRenderingContext2D,
+  points: readonly Vec2[],
+  bodyRadius: number,
+  direction: Vec2,
+  palette: readonly string[],
+  identity: number,
+  now: number,
+  motion: number,
+) {
+  const animation = Math.max(0, Math.min(1, motion));
+  const phase = now * 0.021 * animation + identity * 0.73;
+  const tremor = animation > 0 ? Math.sin(phase) * bodyRadius * 0.12 : 0;
+  const colors = [palette[2] ?? "#a0fff0", "#ffd56c"];
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  for (let index = 0; index < colors.length; index += 1) {
+    const side = index === 0 ? -1 : 1;
+    traceOffsetWormCenterline(
+      context,
+      points,
+      side * bodyRadius * 0.19 + tremor * side,
+      direction,
+    );
+    context.globalAlpha = index === 0 ? 0.78 : 0.5;
+    context.strokeStyle = colors[index];
+    context.lineWidth = Math.max(1, bodyRadius * (index === 0 ? 0.17 : 0.11));
+    context.setLineDash([
+      Math.max(2, bodyRadius * 0.86),
+      Math.max(2, bodyRadius * 0.62),
+    ]);
+    context.lineDashOffset = animation > 0
+      ? -(now * 0.026 * (index === 0 ? 1 : -1) + identity * 2.7)
+      : -identity * 2.7;
+    context.stroke();
+  }
+  context.restore();
 }
 
 function unitVector(from: Vec2, to: Vec2, fallback: Vec2): Vec2 {
@@ -860,6 +934,27 @@ function drawClippedAtlasPart(
   context.rotate(angle);
   context.globalAlpha = alpha;
   paintRenderImage(context, image, radius * scale, radius * scale, tint);
+  context.restore();
+}
+
+function drawClippedAtlasHead(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  point: Vec2,
+  radius: number,
+  angle: number,
+  tint: string,
+) {
+  context.save();
+  context.translate(point.x, point.y);
+  context.rotate(angle);
+  // The forward oval breaks the portrait-medallion read while staying wholly
+  // inside the authoritative circular head collider.
+  context.beginPath();
+  context.ellipse(radius * 0.04, 0, radius * 0.92, radius * 0.78, 0, 0, TAU);
+  context.clip();
+  context.globalAlpha = 0.98;
+  paintRenderImage(context, image, radius * 2.14, radius * 2.14, tint);
   context.restore();
 }
 
@@ -942,9 +1037,56 @@ function drawProceduralWormTail(
 }
 
 /**
+ * Draws Wormifi's non-solid bow-wave signature just ahead of a living head.
+ * The three lantern-colored crests communicate heading and close-pass motion,
+ * but are deliberately outside the collision-faithful creature silhouette.
+ */
+export function drawPirateBowWave(
+  context: CanvasRenderingContext2D,
+  head: Vec2,
+  headRadius: number,
+  direction: Vec2,
+  palette: readonly string[],
+  identity: number,
+  now: number,
+) {
+  if (headRadius <= 0) return;
+  const directionLength = Math.hypot(direction.x, direction.y);
+  const normalizedDirection = directionLength > 0.0001
+    ? { x: direction.x / directionLength, y: direction.y / directionLength }
+    : { x: 1, y: 0 };
+  const colors = [palette[2] ?? "#a0fff0", "#ffd56c", "#a56eff"];
+
+  context.save();
+  context.translate(head.x, head.y);
+  context.rotate(Math.atan2(normalizedDirection.y, normalizedDirection.x));
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  for (let index = 0; index < colors.length; index += 1) {
+    const phase = now * 0.004 + identity * 0.17 + index * 0.82;
+    const pulse = Math.sin(phase) * headRadius * 0.06;
+    const endpointX = headRadius * (0.72 + index * 0.22);
+    const halfSpan = headRadius * (0.92 + index * 0.2);
+    const crestX = headRadius * (1.78 + index * 0.43) + pulse;
+    context.globalAlpha = 0.68 - index * 0.08 + Math.sin(phase) * 0.04;
+    context.strokeStyle = colors[index];
+    context.lineWidth = Math.max(1.1, headRadius * (0.13 - index * 0.018));
+    context.shadowColor = colors[index];
+    context.shadowBlur = Math.min(11, headRadius * 0.62);
+    context.beginPath();
+    context.moveTo(endpointX, -halfSpan);
+    context.quadraticCurveTo(crestX, 0, endpointX, halfSpan);
+    context.stroke();
+  }
+  context.restore();
+}
+
+/**
  * Paints one continuous, collision-faithful worm surface. The widest stroke is
  * exactly the authoritative body diameter; all authored atlas pieces are
- * clipped inside the corresponding head/body circle. No face-bead loop exists.
+ * clipped inside the corresponding head/body circle. The bow wave is the sole
+ * outside-head flourish and is explicitly non-solid. No face-bead loop exists.
  */
 export function drawContinuousPirateWorm(
   context: CanvasRenderingContext2D,
@@ -962,6 +1104,7 @@ export function drawContinuousPirateWorm(
     pattern,
     materialMotion,
     materialGlow,
+    boosting = false,
   } = options;
   if (points.length < 2 || headRadius <= 0 || bodyRadius <= 0) return;
 
@@ -990,9 +1133,23 @@ export function drawContinuousPirateWorm(
   context.strokeStyle = skin;
   context.lineWidth = bodyRadius * 1.42;
   context.stroke();
-  context.globalAlpha = 0.46 + Math.sin(now * 0.0015 + identity) * 0.05;
+  context.globalAlpha = 0.46 + Math.sin(now * 0.0015 + identity) * 0.05 +
+    (boosting ? 0.16 : 0);
   context.strokeStyle = highlight;
   context.lineWidth = Math.max(1.2, bodyRadius * 0.2);
+  context.stroke();
+
+  // Offset light and shadow rails give the hull a rounded living volume. Both
+  // stay well inside the skin stroke, so richness never invents collision.
+  traceOffsetWormCenterline(context, points, bodyRadius * 0.38, direction);
+  context.globalAlpha = 0.24;
+  context.strokeStyle = "rgba(2,19,29,0.9)";
+  context.lineWidth = Math.max(1, bodyRadius * 0.24);
+  context.stroke();
+  traceOffsetWormCenterline(context, points, -bodyRadius * 0.34, direction);
+  context.globalAlpha = 0.38;
+  context.strokeStyle = highlight;
+  context.lineWidth = Math.max(1, bodyRadius * 0.11);
   context.stroke();
 
   // Sparse scale chevrons read as one flowing hide, not one token per sample.
@@ -1037,6 +1194,19 @@ export function drawContinuousPirateWorm(
     });
   }
 
+  if (boosting) {
+    drawSprintHullSignal(
+      context,
+      points,
+      bodyRadius,
+      direction,
+      palette,
+      identity,
+      now,
+      materialMotion ?? 1,
+    );
+  }
+
   // A single inset body emblem enriches larger worms without reconstructing a
   // chain of repeated body blocks.
   if (points.length >= 6) {
@@ -1073,6 +1243,15 @@ export function drawContinuousPirateWorm(
   }
 
   const headPoint = points[0];
+  drawPirateBowWave(
+    context,
+    headPoint,
+    headRadius,
+    direction,
+    palette,
+    identity,
+    now,
+  );
   context.save();
   context.fillStyle = outer;
   context.beginPath();
@@ -1087,21 +1266,30 @@ export function drawContinuousPirateWorm(
   const headAngle = Math.atan2(direction.y, direction.x);
   const headImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormHead);
   if (headImage) {
-    drawClippedAtlasPart(context, headImage, headPoint, headRadius, headAngle, skin, 0.98, 2.32);
+    drawClippedAtlasHead(context, headImage, headPoint, headRadius, headAngle, skin);
   } else {
     drawProceduralWormHead(context, headPoint, headRadius, headAngle, palette, shielded);
   }
 
-  // The outline is inset so it communicates the exact lethal edge without
-  // extending the visible worm beyond the authoritative head circle.
-  context.save();
-  const outlineWidth = Math.max(1, headRadius * 0.08);
-  context.strokeStyle = "rgba(255,233,153,0.82)";
-  context.lineWidth = outlineWidth;
-  context.beginPath();
-  context.arc(headPoint.x, headPoint.y, Math.max(0, headRadius - outlineWidth / 2), 0, TAU);
-  context.stroke();
-  context.restore();
+
+  if (boosting) {
+    context.save();
+    context.translate(headPoint.x, headPoint.y);
+    context.rotate(headAngle);
+    context.globalAlpha = materialMotion === 0
+      ? 0.7
+      : 0.64 + Math.sin(now * 0.021 + identity * 0.73) * 0.12;
+    context.strokeStyle = highlight;
+    context.lineWidth = Math.max(1, headRadius * 0.1);
+    context.beginPath();
+    context.ellipse(headRadius * 0.04, 0, headRadius * 0.74, headRadius * 0.59, 0, 0, TAU);
+    context.stroke();
+    context.restore();
+  }
+
+  // The outer/skin head base already paints the exact circular collision edge.
+  // Do not ring it again: a bright medallion seam would visually detach the
+  // expressive head from the continuous neck.
 }
 
 /** Pirate identity marks stay inside the solid crew silhouette. */

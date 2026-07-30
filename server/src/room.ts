@@ -5,6 +5,7 @@ import type WebSocket from "ws";
 import {
   calculateScore,
   createGameState,
+  isPlayerBoosting,
   isSpecialistActive,
   spawnDrop,
   spawnPlayer,
@@ -31,6 +32,7 @@ import {
 import { PirateRelicDirector } from "./relic-director.ts";
 import { SERVER_BUILD_REVISION } from "./build-info.ts";
 import {
+  MIXED_ECHO_ORIGIN_ID,
   PROTOCOL_VERSION,
   packSnapshotForWire,
   type AuthoritativeEvent,
@@ -44,6 +46,13 @@ import {
   type WelcomeMessage,
   type WorldMessage,
 } from "./protocol.ts";
+import {
+  DEFAULT_GAME_PACE_ID,
+  getGamePaceProfile,
+  type GamePaceId,
+} from "../../src/game/gamePace.ts";
+import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel.ts";
+import { selectNeutralTreasureMass } from "../../src/game/treasureEconomy.ts";
 
 const MAX_SNAPSHOT_BUFFER_BYTES = 256 * 1024;
 const SCHEDULER_WAKE_MS = 4;
@@ -81,6 +90,8 @@ export interface ArenaRoomOptions {
   targetDropCount?: number;
   /** Opt-in board profile. Omit it to preserve the station-free open arena. */
   board?: Readonly<GameBoardConfig>;
+  /** Server-authoritative room-wide movement profile. */
+  paceId?: GamePaceId;
   heatRing?: false | Partial<HeatRingConfig>;
   now?: () => number;
 }
@@ -92,6 +103,7 @@ export interface JoinResult {
 
 export class ArenaRoom {
   readonly state: GameState;
+  readonly paceId: GamePaceId;
 
   private readonly targetPopulation: number;
   private readonly maxHumanPlayers: number;
@@ -124,24 +136,37 @@ export class ArenaRoom {
     options: ArenaRoomOptions = {},
     private readonly onIdle?: (room: ArenaRoom) => void,
   ) {
-    this.targetPopulation = Math.max(0, Math.floor(options.targetPopulation ?? 24));
+    this.targetPopulation = Math.max(
+      0,
+      Math.floor(options.targetPopulation ?? LIVE_SPATIAL_PROFILE.targetPopulation),
+    );
     this.maxHumanPlayers = Math.max(1, Math.floor(options.maxHumanPlayers ?? 24));
     this.fixedStepHz = Math.max(1, Math.floor(options.fixedStepHz ?? 30));
     const snapshotHz = Math.max(1, Math.floor(options.snapshotHz ?? 15));
     this.snapshotEveryTicks = Math.max(1, Math.round(this.fixedStepHz / snapshotHz));
     this.reconnectGraceMs = Math.max(100, options.reconnectGraceMs ?? 15_000);
-    this.targetDropCount = Math.max(0, Math.floor(options.targetDropCount ?? 720));
+    this.targetDropCount = Math.max(
+      0,
+      Math.floor(options.targetDropCount ?? LIVE_SPATIAL_PROFILE.targetDropCount),
+    );
     this.heatRingOptions = options.heatRing;
     this.collectorBeaconRespawnTicks = Math.max(
       1,
       Math.ceil(COLLECTOR_BEACON_RESPAWN_SECONDS * this.fixedStepHz),
     );
     this.now = options.now ?? Date.now;
+    this.paceId = options.paceId ?? DEFAULT_GAME_PACE_ID;
+    const pace = getGamePaceProfile(this.paceId);
     this.state = createGameState(
       `room:${id}`,
       {
         fixedStepSeconds: 1 / this.fixedStepHz,
-        arenaRadius: Math.max(600, options.arenaRadius ?? 1_850),
+        arenaRadius: Math.max(
+          600,
+          options.arenaRadius ?? LIVE_SPATIAL_PROFILE.arenaRadius,
+        ),
+        baseSpeed: pace.baseSpeed,
+        boostSpeed: pace.boostSpeed,
         spawnShieldSeconds: 1.5,
         maximumDeathDrops: 64,
         dropRadius: 5.2,
@@ -372,7 +397,13 @@ export class ArenaRoom {
     }
     this.reconcileCollectorBeacon(result.events);
     this.pirateRelics.reconcile(result.events);
-    if (this.state.drops.length < this.targetDropCount - 48) this.seedArenaDrops();
+    // Refill in bounded batches. The shared deficit is part of the spatial and
+    // payload contract: 600 is the target and 552 is the lowest ordinary
+    // refill point, leaving room for transient body-shaped death hoards.
+    if (
+      this.state.drops.length <
+      this.targetDropCount - LIVE_SPATIAL_PROFILE.maximumDropRefillDeficit
+    ) this.seedArenaDrops();
     return false;
   }
 
@@ -392,6 +423,7 @@ export class ArenaRoom {
         kills: player.stats.kills,
         score: calculateScore(player, this.state.config),
         shieldTicksRemaining: player.shieldTicksRemaining,
+        boosting: isPlayerBoosting(player, this.state.config),
         // Only human sessions own authored public cosmetics. Bots intentionally
         // omit themeId so clients retain their deterministic varied palettes.
         themeId: this.sessionsByPlayer.get(player.id)?.themeId,
@@ -475,24 +507,37 @@ export class ArenaRoom {
           position: { ...station.position },
         })),
       },
+      pace: {
+        id: this.paceId,
+        name: getGamePaceProfile(this.paceId).name,
+        baseSpeed: this.state.config.baseSpeed,
+        boostSpeed: this.state.config.boostSpeed,
+      },
       heatRing: this.heatRing?.active ? this.heatRing.descriptor : undefined,
     };
     this.sendEncoded(session, JSON.stringify(message));
   }
 
   private publicDrops(): PublicDropState[] {
-    return this.state.drops.map((drop) => ({
-      id: drop.id,
-      position: { ...drop.position },
-      mass: drop.mass,
-      radius: drop.radius,
-      source: drop.source,
-      originPlayerId: drop.originPlayerId,
-      specialist: drop.specialist,
-      specialistDurationTicks: drop.specialistDurationTicks,
-      relicKind: drop.relicKind,
-      relicDurationTicks: drop.relicDurationTicks,
-    }));
+    return this.state.drops.map((drop) => {
+      const mixedOrigin =
+        (drop.source === "boost" || drop.source === "death") &&
+        drop.originPlayerId === undefined;
+      return {
+        id: drop.id,
+        position: { ...drop.position },
+        mass: drop.mass,
+        radius: drop.radius,
+        source: drop.source,
+        originPlayerId: mixedOrigin ? MIXED_ECHO_ORIGIN_ID : drop.originPlayerId,
+        ...(mixedOrigin ? { mixedOrigin: true as const } : {}),
+        specialist: drop.specialist,
+        specialistDurationTicks: drop.specialistDurationTicks,
+        relicKind: drop.relicKind,
+        relicDurationTicks: drop.relicDurationTicks,
+        relicTier: drop.relicTier,
+      };
+    });
   }
 
   private reconcileCollectorBeacon(events: readonly GameEvent[]): void {
@@ -582,7 +627,7 @@ export class ArenaRoom {
       this.state.randomState = massRoll.state;
       spawnDrop(this.state, {
         position: point.value,
-        mass: 1.5 + Math.abs(massRoll.value.x) * 4.5,
+        mass: selectNeutralTreasureMass(massRoll.value.x, massRoll.value.y),
         radius: 4 + Math.abs(massRoll.value.y) * 3,
         source: "arena",
       });

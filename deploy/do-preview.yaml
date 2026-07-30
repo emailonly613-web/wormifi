@@ -63,11 +63,11 @@ services:
       - key: TARGET_POPULATION
         scope: RUN_TIME
         type: GENERAL
-        value: "12"
+        value: "32"
       - key: TARGET_DROP_COUNT
         scope: RUN_TIME
         type: GENERAL
-        value: "720"
+        value: "600"
       - key: SNAPSHOT_HZ
         scope: RUN_TIME
         type: GENERAL
@@ -75,7 +75,7 @@ services:
       - key: ARENA_RADIUS
         scope: RUN_TIME
         type: GENERAL
-        value: "1850"
+        value: "1450"
 
 static_sites:
   - name: web

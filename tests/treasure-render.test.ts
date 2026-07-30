@@ -6,6 +6,7 @@ import {
   drawContinuousPirateWorm,
   drawFacetedGem,
   drawNauticalChart,
+  drawPirateBowWave,
   drawRivalHoardGem,
   drawTreasureChest,
   drawTreasureShard,
@@ -177,5 +178,86 @@ describe("pirate treasure visual contract", () => {
       moveToCount: 4,
       quadraticCurveToCount: 4,
     });
+  });
+
+  it("adds two inset volume rails without changing the collider-width silhouette", () => {
+    const { context, strokeRecords, strokeWidths } = recordingContext();
+    drawContinuousPirateWorm(context, {
+      points: [
+        { x: 80, y: 30 },
+        { x: 62, y: 34 },
+        { x: 44, y: 41 },
+        { x: 28, y: 52 },
+      ],
+      headRadius: 13,
+      bodyRadius: 12,
+      palette: ["#20ccb8", "#075d69", "#a0fff0"],
+      direction: { x: 1, y: 0 },
+      shielded: false,
+      identity: 4,
+      now: 1_000,
+    });
+
+    const shadowRail = strokeRecords.filter(
+      (record) => record.strokeStyle === "rgba(2,19,29,0.9)",
+    );
+    const highlightRails = strokeRecords.filter(
+      (record) => record.strokeStyle === "#a0fff0" && record.lineWidth === 12 * 0.11,
+    );
+    expect(shadowRail).toHaveLength(1);
+    expect(shadowRail[0]).toMatchObject({ lineWidth: 12 * 0.24, lineToCount: 3 });
+    expect(highlightRails).toHaveLength(1);
+    expect(Math.max(...strokeWidths)).toBe(24);
+  });
+
+  it("signals active sprint with moving inset skin rails and a head highlight only", () => {
+    const { context, strokeRecords, strokeWidths } = recordingContext();
+    drawContinuousPirateWorm(context, {
+      points: [
+        { x: 80, y: 30 },
+        { x: 62, y: 34 },
+        { x: 44, y: 41 },
+        { x: 28, y: 52 },
+      ],
+      headRadius: 13,
+      bodyRadius: 12,
+      palette: ["#20ccb8", "#075d69", "#a0fff0"],
+      direction: { x: 1, y: 0 },
+      shielded: false,
+      identity: 4,
+      now: 1_000,
+      boosting: true,
+    });
+
+    const sprintRails = strokeRecords.filter((record) =>
+      record.lineDash.length === 2 &&
+      record.lineToCount === 3 &&
+      (record.lineWidth === 12 * 0.17 || record.lineWidth === 12 * 0.11)
+    );
+    expect(sprintRails).toHaveLength(2);
+    expect(sprintRails.every((record) => record.lineToCount === 3)).toBe(true);
+    expect(Math.max(...strokeWidths)).toBe(24);
+  });
+
+  it("paints three curved pirate bow-wave beams without widening the worm collider", () => {
+    const { context, strokeRecords, strokeWidths } = recordingContext();
+    drawPirateBowWave(
+      context,
+      { x: 80, y: 60 },
+      13,
+      { x: 3, y: 4 },
+      ["#20ccb8", "#075d69", "#a0fff0"],
+      5,
+      1_000,
+    );
+
+    expect(strokeRecords.map((record) => record.strokeStyle)).toEqual([
+      "#a0fff0",
+      "#ffd56c",
+      "#a56eff",
+    ]);
+    expect(strokeRecords.every((record) => record.quadraticCurveToCount === 1)).toBe(true);
+    expect(strokeRecords.every((record) => record.moveToCount === 1)).toBe(true);
+    expect(Math.max(...strokeWidths)).toBeLessThan(13 * 2);
   });
 });

@@ -3,6 +3,7 @@ import type {
   DropState,
   PirateRelicKind,
   PlayerState,
+  TreasureMultiplierTier,
 } from "./types";
 
 export interface PirateRelicSpec {
@@ -35,9 +36,37 @@ export const PIRATE_RELIC_SPECS: Readonly<Record<PirateRelicKind, PirateRelicSpe
       name: "Pepper Cutlass",
       durationSeconds: 8,
     }),
+    "gale-pennant": Object.freeze({
+      kind: "gale-pennant",
+      name: "Gale Pennant",
+      durationSeconds: 8,
+    }),
+    "maelstrom-wheel": Object.freeze({
+      kind: "maelstrom-wheel",
+      name: "Maelstrom Wheel",
+      durationSeconds: 8,
+    }),
+    "gilded-ledger": Object.freeze({
+      kind: "gilded-ledger",
+      name: "Gilded Ledger",
+      durationSeconds: 8,
+    }),
   });
 
 export const PEPPER_CUTLASS_BOOST_COST_MULTIPLIER = 0.75;
+export const GALE_PENNANT_SPEED_MULTIPLIER = 1.18;
+export const SPYGLASS_CAMERA_ZOOM_MULTIPLIER = 0.8;
+export const GILDED_LEDGER_TIERS = Object.freeze([
+  2,
+  3,
+  5,
+] as const satisfies readonly TreasureMultiplierTier[]);
+
+export function isTreasureMultiplierTier(
+  value: unknown,
+): value is TreasureMultiplierTier {
+  return value === 2 || value === 3 || value === 5;
+}
 
 export function getPirateRelicSpec(kind: PirateRelicKind): PirateRelicSpec {
   return PIRATE_RELIC_SPECS[kind];
@@ -76,6 +105,32 @@ export function getBoostMassCostMultiplier(
   return isRelicActiveAtTick(active, tick, "pepper-cutlass")
     ? PEPPER_CUTLASS_BOOST_COST_MULTIPLIER
     : 1;
+}
+
+export function getMovementSpeedMultiplier(
+  active: Readonly<ActiveSpecialist> | undefined,
+  tick: number,
+): number {
+  return isRelicActiveAtTick(active, tick, "gale-pennant")
+    ? GALE_PENNANT_SPEED_MULTIPLIER
+    : 1;
+}
+
+export function getCameraZoomMultiplier(
+  active: Readonly<ActiveSpecialist> | undefined,
+  tick: number,
+): number {
+  return isRelicActiveAtTick(active, tick, "emerald-spyglass")
+    ? SPYGLASS_CAMERA_ZOOM_MULTIPLIER
+    : 1;
+}
+
+export function getTreasureMassMultiplier(
+  active: Readonly<ActiveSpecialist> | undefined,
+  tick: number,
+): 1 | TreasureMultiplierTier {
+  if (!isRelicActiveAtTick(active, tick, "gilded-ledger")) return 1;
+  return isTreasureMultiplierTier(active?.relicTier) ? active.relicTier : 1;
 }
 
 export type SpyglassDangerSector =

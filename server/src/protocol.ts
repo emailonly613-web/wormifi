@@ -12,9 +12,15 @@ import {
   isCosmeticThemeId,
   type CosmeticThemeId,
 } from "../../src/game/cosmeticThemes.ts";
+import type { GamePaceId } from "../../src/game/gamePace.ts";
 
 export const PROTOCOL_VERSION = 5 as const;
 export const MAX_PACKED_BODY_SEGMENTS = 72;
+/**
+ * Backward-compatible public identity for a compacted Echo bank containing
+ * more than one producer. It can never equal a real human-* or bot-* id.
+ */
+export const MIXED_ECHO_ORIGIN_ID = "echo-cache:mixed" as const;
 const BODY_QUANTIZATION = 4;
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -25,6 +31,8 @@ export interface JoinMessage {
   reconnectToken?: string;
   /** Applied only when creating a new room; existing rooms keep their board. */
   boardId?: string;
+  /** Applied only when creating a new room; existing rooms keep their pace. */
+  paceId?: GamePaceId;
   /** Public-safe authored appearance only. Local photos are never a wire field. */
   themeId?: CosmeticThemeId;
 }
@@ -53,6 +61,8 @@ export interface PublicPlayerState {
   kills: number;
   score: number;
   shieldTicksRemaining: number;
+  /** Server-confirmed active sprint, distinct from unfulfilled button intent. */
+  boosting?: boolean;
   /** Catalog ID only; never a photo, data URL, filename, or local render plan. */
   themeId?: CosmeticThemeId;
   /** Server-owned timed role. Snapshot tick is the remaining-time clock. */
@@ -65,8 +75,14 @@ export interface PublicDropState {
   mass: number;
   radius: number;
   source: DropState["source"];
-  /** Identity of the player whose boost/death produced this Echo. */
+  /**
+   * Identity of the producer. Mixed caches use MIXED_ECHO_ORIGIN_ID so older
+   * protocol-v5 clients keep the conserved pickup visible without granting it
+   * to any real player.
+   */
   originPlayerId?: DropState["originPlayerId"];
+  /** True only when this visible Echo represents mass from multiple players. */
+  mixedOrigin?: true;
   /** Present only for a visible, zero-mass Specialist beacon. */
   specialist?: DropState["specialist"];
   specialistDurationTicks?: number;
@@ -76,12 +92,21 @@ export interface PublicDropState {
    */
   relicKind?: DropState["relicKind"];
   relicDurationTicks?: number;
+  /** Present only for a Gilded Ledger ground item. */
+  relicTier?: DropState["relicTier"];
 }
 
 export interface PublicBoardState {
   id: string;
   name: string;
   chargingStations: ChargingStationConfig[];
+}
+
+export interface PublicPaceState {
+  id: GamePaceId;
+  name: string;
+  baseSpeed: number;
+  boostSpeed: number;
 }
 
 export type PublicChargingStationState = ChargingStationState;
@@ -165,6 +190,8 @@ export interface WorldMessage {
   drops: PublicDropState[];
   /** Static board landmarks. Present on every real server world sync. */
   board?: PublicBoardState;
+  /** Room-wide movement rule selected by the first successful join. */
+  pace?: PublicPaceState;
   /** Present only while the fresh-room first-human encounter is active. */
   heatRing?: PublicHeatRingState;
 }
@@ -206,6 +233,8 @@ export interface ErrorMessage {
     | "ROOM_FULL"
     | "UNKNOWN_BOARD"
     | "ROOM_BOARD_MISMATCH"
+    | "UNKNOWN_PACE"
+    | "ROOM_PACE_MISMATCH"
     | "MALFORMED_INPUT"
     | "UNSUPPORTED_FIELD"
     | "STALE_INPUT"
@@ -229,7 +258,7 @@ export type ServerMessage =
 
 const ROOM_ID_PATTERN = /^[a-z0-9-]{1,32}$/;
 const MAX_NAME_LENGTH = 24;
-const JOIN_KEYS = new Set(["type", "roomId", "name", "reconnectToken", "boardId", "themeId"]);
+const JOIN_KEYS = new Set(["type", "roomId", "name", "reconnectToken", "boardId", "paceId", "themeId"]);
 const INPUT_KEYS = new Set(["type", "sequence", "clientTick", "direction", "boost"]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -408,11 +437,13 @@ export function parseJoinMessage(value: Record<string, unknown>):
     (value.reconnectToken !== undefined && typeof value.reconnectToken !== "string") ||
     (value.boardId !== undefined &&
       (typeof value.boardId !== "string" || !ROOM_ID_PATTERN.test(value.boardId))) ||
+    (value.paceId !== undefined &&
+      (typeof value.paceId !== "string" || !ROOM_ID_PATTERN.test(value.paceId))) ||
     (themeId !== undefined && !isCosmeticThemeId(themeId))
   ) {
     return {
       ok: false,
-      error: { type: "error", code: "INVALID_JOIN", message: "Room, name, reconnect token, board, or authored theme is invalid." },
+      error: { type: "error", code: "INVALID_JOIN", message: "Room, name, reconnect token, board, pace, or authored theme is invalid." },
     };
   }
 
@@ -424,6 +455,7 @@ export function parseJoinMessage(value: Record<string, unknown>):
       name: name.trim(),
       reconnectToken: value.reconnectToken,
       boardId: value.boardId as string | undefined,
+      paceId: value.paceId as GamePaceId | undefined,
       themeId: themeId as CosmeticThemeId | undefined,
     },
   };

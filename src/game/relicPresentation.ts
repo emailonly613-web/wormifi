@@ -6,20 +6,38 @@ import type {
   ActiveSpecialist,
   PirateRelicKind,
   SpecialistKind,
+  TreasureMultiplierTier,
 } from "./types";
 
-export type RelicCarrierTone = "brass-current" | "emerald-watch" | "pepper-fire";
+export type RelicCarrierTone =
+  | "brass-current"
+  | "emerald-watch"
+  | "pepper-fire"
+  | "gale-wind"
+  | "maelstrom-current"
+  | "gilded-fortune";
 
 export interface RelicGroundSilhouette {
   spriteName: Extract<
     PirateSpriteName,
-    "loot-compass" | "emerald-spyglass" | "pepper-cutlass"
+    | "loot-compass"
+    | "emerald-spyglass"
+    | "pepper-cutlass"
+    | "shipwheel-shield"
+    | "vortex-astrolabe"
+    | "doubloon-stack"
   >;
   assetPath: string;
   accessibleLabel: string;
   scale: number;
   fallbackGlyph: string;
-  motion: "slow-turn" | "lens-gleam" | "ember-flicker";
+  motion:
+    | "slow-turn"
+    | "lens-gleam"
+    | "ember-flicker"
+    | "wind-stream"
+    | "maelstrom-turn"
+    | "coin-shimmer";
   reducedMotionEquivalent: "static-high-contrast-outline";
 }
 
@@ -44,11 +62,14 @@ export interface RelicStatusModel {
   timerRatio: number;
   timerLabel: string;
   statusLabel: string;
+  effectText: string;
+  rivalDisclosure: string;
 }
 
 type RelicGroundIdentity = {
   specialist?: SpecialistKind;
   relicKind?: PirateRelicKind;
+  relicTier?: TreasureMultiplierTier;
 };
 
 function presentation(
@@ -92,8 +113,8 @@ export const RELIC_PRESENTATIONS: Readonly<
     label: "Emerald Spyglass",
     shortLabel: "SPYGLASS",
     publishedDurationSeconds: 10,
-    effectText: "COARSE OFF-SCREEN DANGER BEARINGS",
-    rivalDisclosure: "DANGER BEARINGS ACTIVE",
+    effectText: "25% FARTHER VIEW + DANGER BEARINGS",
+    rivalDisclosure: "WIDER VIEW + BEARINGS ACTIVE",
     carrierTone: "emerald-watch",
     carrierAccent: "#56f2b3",
     carrierHalo: "rgba(42, 229, 163, 0.42)",
@@ -124,12 +145,87 @@ export const RELIC_PRESENTATIONS: Readonly<
       reducedMotionEquivalent: "static-high-contrast-outline",
     },
   }),
+  "gale-pennant": presentation("gale-pennant", {
+    label: "Gale Pennant",
+    shortLabel: "GALE",
+    publishedDurationSeconds: 8,
+    effectText: "MOVE +18% · COLLISIONS UNCHANGED",
+    rivalDisclosure: "GALE SPEED ACTIVE",
+    carrierTone: "gale-wind",
+    carrierAccent: "#72dfff",
+    carrierHalo: "rgba(72, 198, 255, 0.46)",
+    ground: {
+      spriteName: "shipwheel-shield",
+      accessibleLabel: "Gale Pennant Relic on the arena floor",
+      scale: 1.36,
+      fallbackGlyph: "⚑",
+      motion: "wind-stream",
+      reducedMotionEquivalent: "static-high-contrast-outline",
+    },
+  }),
+  "maelstrom-wheel": presentation("maelstrom-wheel", {
+    label: "Maelstrom Wheel",
+    shortLabel: "ZERO TURN",
+    publishedDurationSeconds: 8,
+    effectText: "ZERO-CLEARANCE TURNS · REPEAT FOR 8S",
+    rivalDisclosure: "ZERO-TURN ACTIVE",
+    carrierTone: "maelstrom-current",
+    carrierAccent: "#b98cff",
+    carrierHalo: "rgba(151, 94, 255, 0.48)",
+    ground: {
+      spriteName: "vortex-astrolabe",
+      accessibleLabel: "Maelstrom Wheel Relic on the arena floor",
+      scale: 1.38,
+      fallbackGlyph: "↶",
+      motion: "maelstrom-turn",
+      reducedMotionEquivalent: "static-high-contrast-outline",
+    },
+  }),
+  "gilded-ledger": presentation("gilded-ledger", {
+    label: "Gilded Ledger",
+    shortLabel: "MULTIPLIER",
+    publishedDurationSeconds: 8,
+    effectText: "x2/x3/x5 NEUTRAL TREASURE",
+    rivalDisclosure: "TREASURE MULTIPLIER ACTIVE",
+    carrierTone: "gilded-fortune",
+    carrierAccent: "#ffe16b",
+    carrierHalo: "rgba(255, 198, 45, 0.52)",
+    ground: {
+      spriteName: "doubloon-stack",
+      accessibleLabel: "Gilded Ledger Relic on the arena floor",
+      scale: 1.34,
+      fallbackGlyph: "×",
+      motion: "coin-shimmer",
+      reducedMotionEquivalent: "static-high-contrast-outline",
+    },
+  }),
 });
 
 export function isPirateRelicKind(value: unknown): value is PirateRelicKind {
   return value === "loot-compass" ||
     value === "emerald-spyglass" ||
-    value === "pepper-cutlass";
+    value === "pepper-cutlass" ||
+    value === "gale-pennant" ||
+    value === "maelstrom-wheel" ||
+    value === "gilded-ledger";
+}
+
+export function getRelicEffectText(
+  relic: Readonly<RelicPresentation>,
+  tier?: TreasureMultiplierTier,
+): string {
+  return relic.relicKind === "gilded-ledger" && tier
+    ? `x${tier} NEUTRAL TREASURE`
+    : relic.effectText;
+}
+
+export function getRelicRivalDisclosure(
+  relic: Readonly<RelicPresentation>,
+  tier?: TreasureMultiplierTier,
+): string {
+  return relic.relicKind === "gilded-ledger" && tier
+    ? `x${tier} TREASURE ACTIVE`
+    : relic.rivalDisclosure;
 }
 
 /** An absent protocol-v5 Relic identity is the original Loot Compass. */
@@ -183,6 +279,8 @@ export function createRelicStatusModel(
   );
   const durationSeconds = active.durationTicks * fixedStepSeconds;
   const roundedSeconds = Math.max(1, Math.ceil(remainingSeconds - 1e-9));
+  const effectText = getRelicEffectText(relic, active.relicTier);
+  const rivalDisclosure = getRelicRivalDisclosure(relic, active.relicTier);
   return {
     presentation: relic,
     remainingSeconds,
@@ -190,6 +288,8 @@ export function createRelicStatusModel(
     durationSeconds,
     timerRatio: clamp(remainingSeconds / durationSeconds, 0, 1),
     timerLabel: `${roundedSeconds} ${roundedSeconds === 1 ? "second" : "seconds"} remaining`,
-    statusLabel: `${relic.label} active. ${relic.effectText}.`,
+    statusLabel: `${relic.label} active. ${effectText}.`,
+    effectText,
+    rivalDisclosure,
   };
 }

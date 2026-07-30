@@ -41,6 +41,9 @@ independent human playtests.
   blockers.
 - Instant restart works without a navigation or asset reload.
 - Seeded simulation and replay checksums are deterministic.
+- The exact candidate completes a four-hour human/device consistency review:
+  control response, body/effect alignment, camera, density, frame pacing and
+  reconnect quality remain stable from the opening minute to the final one.
 
 ## Gate 3 — A living, original game
 
@@ -73,7 +76,8 @@ preview**, never multiplayer parity.
 - A brief connection interruption does not create an invisible, immortal, or
   duplicated player.
 - Disconnect rate stays below 2% during the external test window.
-- A room survives repeated full-session soak tests without progressive memory growth.
+- A room survives repeated 60-minute, six-hour and 24-hour soak tests without
+  progressive memory, entity, cadence or snapshot-budget deterioration.
 - Load proof reaches twice the forecast launch concurrency without violating the
   published frame, tick, or response budgets.
 

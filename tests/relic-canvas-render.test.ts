@@ -24,7 +24,7 @@ describe("Relic canvas presentation", () => {
       label: "EMERALD SPYGLASS · 10S",
       presentation: {
         relicKind: "emerald-spyglass",
-        effectText: "COARSE OFF-SCREEN DANGER BEARINGS",
+        effectText: "25% FARTHER VIEW + DANGER BEARINGS",
         ground: { spriteName: "emerald-spyglass" },
       },
     });

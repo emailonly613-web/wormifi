@@ -28,7 +28,7 @@ function active(
 }
 
 describe("Relic presentation contract", () => {
-  it("maps absent protocol identity only to Loot Compass and keeps all three distinct", () => {
+  it("maps absent protocol identity only to Loot Compass and keeps all six distinct", () => {
     expect(resolveRelicPresentation()).toBe(RELIC_PRESENTATIONS["loot-compass"]);
     expect(getActiveRelicPresentation(active(undefined))?.label).toBe("Loot Compass");
 
@@ -36,14 +36,17 @@ describe("Relic presentation contract", () => {
       RELIC_PRESENTATIONS["loot-compass"],
       RELIC_PRESENTATIONS["emerald-spyglass"],
       RELIC_PRESENTATIONS["pepper-cutlass"],
+      RELIC_PRESENTATIONS["gale-pennant"],
+      RELIC_PRESENTATIONS["maelstrom-wheel"],
+      RELIC_PRESENTATIONS["gilded-ledger"],
     ];
-    expect(new Set(presentations.map((entry) => entry.label)).size).toBe(3);
-    expect(new Set(presentations.map((entry) => entry.ground.spriteName)).size).toBe(3);
-    expect(new Set(presentations.map((entry) => entry.ground.assetPath)).size).toBe(3);
-    expect(presentations.map((entry) => entry.publishedDurationSeconds)).toEqual([12, 10, 8]);
+    expect(new Set(presentations.map((entry) => entry.label)).size).toBe(6);
+    expect(new Set(presentations.map((entry) => entry.ground.spriteName)).size).toBe(6);
+    expect(new Set(presentations.map((entry) => entry.ground.assetPath)).size).toBe(6);
+    expect(presentations.map((entry) => entry.publishedDurationSeconds)).toEqual([12, 10, 8, 8, 8, 8]);
     expect(RELIC_PRESENTATIONS["emerald-spyglass"]).toMatchObject({
       label: "Emerald Spyglass",
-      effectText: "COARSE OFF-SCREEN DANGER BEARINGS",
+      effectText: "25% FARTHER VIEW + DANGER BEARINGS",
       carrierTone: "emerald-watch",
       ground: {
         spriteName: "emerald-spyglass",
@@ -51,6 +54,11 @@ describe("Relic presentation contract", () => {
       },
     });
     expect(RELIC_PRESENTATIONS["pepper-cutlass"].effectText).toContain("SAME TOP SPEED");
+    expect(RELIC_PRESENTATIONS["maelstrom-wheel"]).toMatchObject({
+      shortLabel: "ZERO TURN",
+      effectText: "ZERO-CLEARANCE TURNS · REPEAT FOR 8S",
+      rivalDisclosure: "ZERO-TURN ACTIVE",
+    });
   });
 
   it("recognizes legacy and named ground silhouettes without treating treasure as a Relic", () => {
@@ -81,7 +89,7 @@ describe("Relic presentation contract", () => {
       durationSeconds: 10,
       timerRatio: 0.99,
       timerLabel: "10 seconds remaining",
-      statusLabel: "Emerald Spyglass active. COARSE OFF-SCREEN DANGER BEARINGS.",
+      statusLabel: "Emerald Spyglass active. 25% FARTHER VIEW + DANGER BEARINGS.",
     });
     expect(createRelicStatusModel(spyglass, 119, 0.1)?.timerLabel)
       .toBe("1 second remaining");

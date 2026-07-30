@@ -55,7 +55,10 @@ function setup(fixedStepSeconds = 0.1) {
   const station = state.board.chargingStations[0];
   const player = spawnPlayer(state, {
     id: "captain",
-    mass: 180,
+    // The slower 30-size follower economy reaches the same wrap-capable
+    // 18-segment geometry at 420 mass that the prior 20-size curve reached at
+    // 300. Charging itself remains unchanged.
+    mass: 420,
     position: getChargingDockPosition(station),
     direction: { x: 0, y: 1 },
     shieldSeconds: 60,
@@ -218,7 +221,7 @@ describe("authoritative body-wrap charging", () => {
     const { state, station } = setup();
     const firstById = spawnPlayer(state, {
       id: "admiral",
-      mass: 180,
+      mass: 420,
       position: getChargingDockPosition(station),
       direction: { x: 0, y: 1 },
       shieldSeconds: 60,

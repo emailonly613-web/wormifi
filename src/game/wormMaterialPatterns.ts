@@ -26,3 +26,9 @@ const PATTERN_SET: ReadonlySet<string> = new Set(WORM_MATERIAL_PATTERNS);
 export function isWormMaterialPattern(value: unknown): value is WormMaterialPattern {
   return typeof value === "string" && PATTERN_SET.has(value);
 }
+
+/** Gives unthemed AI crews a stable authored material instead of a flat hull. */
+export function wormMaterialForIdentity(identity: number): WormMaterialPattern {
+  const stableIdentity = Number.isFinite(identity) ? Math.abs(Math.trunc(identity)) : 0;
+  return WORM_MATERIAL_PATTERNS[stableIdentity % WORM_MATERIAL_PATTERNS.length];
+}

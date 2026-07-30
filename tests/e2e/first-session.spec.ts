@@ -265,16 +265,21 @@ test.describe("first Wormifi session", () => {
     await expectActiveArena(page);
 
     const session = await page.context().newCDPSession(page);
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    const touchX = Math.min(105, viewport!.width * 0.22);
+    const touchStartY = viewport!.height * 0.56;
+    const touchEndY = Math.min(viewport!.height - 34, touchStartY + 72);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchStart",
-      touchPoints: [{ x: 105, y: 520, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
+      touchPoints: [{ x: touchX, y: touchStartY, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
     });
     await expect(page.getByTestId("touch-guide")).toBeVisible();
     const startY = Number(await page.getByTestId(gameContract.arena).getAttribute("data-player-y"));
 
     await session.send("Input.dispatchTouchEvent", {
       type: "touchMove",
-      touchPoints: [{ x: 105, y: 600, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
+      touchPoints: [{ x: touchX, y: touchEndY, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
     });
     await page.waitForTimeout(420);
     const movedY = Number(await page.getByTestId(gameContract.arena).getAttribute("data-player-y"));

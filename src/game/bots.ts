@@ -17,6 +17,7 @@ export const BOT_NAMES = Object.freeze([
   "Cannon Cade", "Mapmaker Mae", "Doubloon Dee", "Reef Ryder", "Harbor Hex", "Jolly Jules",
   "Kraken Kai", "Maroon Milo", "Compass Cora", "Riptide Rue", "Lantern Lux", "Deckhand Dotty",
   "Privateer Poppy", "Shipwreck Shane", "Tidecaller Tori", "Buccaneer Beck",
+  "Seadog Sage", "Mizzen Max", "Corsair Clover", "Whirlpool Wren",
 ]) as readonly string[];
 
 export const BOT_PERSONALITY_IDS = Object.freeze([
@@ -98,7 +99,13 @@ function bestDrop(
   let winnerScore = -Infinity;
   for (const drop of context.drops) {
     if (source !== "any" && drop.source !== source) continue;
-    if (drop.blockedPlayerId === context.self.id && context.tick < drop.blockedUntilTick) continue;
+    if (
+      context.tick < (drop.pickupBlockedUntilTick ?? 0) ||
+      (
+        drop.blockedPlayerId === context.self.id &&
+        context.tick < drop.blockedUntilTick
+      )
+    ) continue;
     const squared = distanceSquared(context.self.position, drop.position);
     if (squared > visionSquared) continue;
     const score = drop.mass / (Math.sqrt(squared) + 45);

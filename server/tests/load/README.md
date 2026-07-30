@@ -12,8 +12,9 @@ corepack pnpm test:load
 
 The default scenario uses 24 real WebSocket connections across four isolated
 rooms for ten seconds. Each client sends steering/boost input at 20 Hz and ping
-probes at 2 Hz. Twelve total actors are simulated per room through AI backfill.
-Four connections are closed and reconnected with their original token.
+probes at 2 Hz. Thirty-two total actors are simulated per room through AI
+backfill, matching the current open-arena spatial profile. Four connections are
+closed and reconnected with their original token.
 
 The safety probe covers bad JSON, pre-join input, malformed input, forbidden
 state fields, stale input, an excessive sequence jump, binary input, and a
@@ -67,7 +68,7 @@ WORMIFI_LOAD_ROOMS=8
 WORMIFI_LOAD_SECONDS=30
 WORMIFI_LOAD_INPUT_HZ=20
 WORMIFI_LOAD_PING_HZ=2
-WORMIFI_LOAD_TARGET_POPULATION=16
+WORMIFI_LOAD_TARGET_POPULATION=32
 WORMIFI_LOAD_RECONNECT_CLIENTS=8
 WORMIFI_LOAD_INVALID_BURST=500
 WORMIFI_LOAD_BOOTSTRAP_TIMEOUT_MS=10000

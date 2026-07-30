@@ -19,6 +19,7 @@ import {
   getPlayerRadius,
   getBodyRadius,
   getRankings,
+  isPlayerBoosting,
 } from "../game/core";
 import {
   LOCAL_BOT_COUNT,
@@ -76,12 +77,18 @@ import {
 import {
   createRelicStatusModel,
   getGroundRelicPresentation,
+  getRelicEffectText,
   resolveRelicPresentation,
 } from "../game/relicPresentation";
 import {
   getSpyglassDangerBearings,
   type SpyglassDangerBearing,
 } from "../game/relics";
+import {
+  getArenaCameraVisibleRadius,
+  getArenaCameraZoom,
+} from "../game/spatialFeel";
+import { RARE_TREASURE_CHEST_MASS } from "../game/treasureEconomy";
 import {
   fixedHelmAnchor,
   touchStartsHelm,
@@ -97,13 +104,17 @@ import {
   GILDED_CORSAIR_PALETTE,
   isRewardedCorsairSkinEquipped,
 } from "../game/rewardedSkin";
-import { isWormMaterialPattern } from "../game/wormMaterials";
+import {
+  isWormMaterialPattern,
+  wormMaterialForIdentity,
+} from "../game/wormMaterials";
 import { materialGlowEnabled, materialMotionScale } from "../game/renderPreferences";
 import {
   drawPhotoSkinCanvas,
   type PhotoSkinCanvasAppearance,
 } from "../game/photoSkinCanvas";
 import type { GameBoardId } from "../game/boardPreference";
+import type { GamePaceId } from "../game/gamePace";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -133,6 +144,7 @@ interface ArenaCanvasProps {
   paused: boolean;
   session: number;
   boardId: GameBoardId;
+  paceId: GamePaceId;
   photoSkin?: PhotoSkinCanvasAppearance;
   controlScheme: ControlScheme;
   onExit: () => void;
@@ -287,13 +299,18 @@ export function createLocalRadarIntel(
 function localRadarVisibleRadius(
   canvas: HTMLCanvasElement | null,
   mass: number,
+  activeRelic: ActiveSpecialist | undefined,
+  tick: number,
 ): number {
   const width = canvas?.clientWidth ?? 0;
   const height = canvas?.clientHeight ?? 0;
-  if (width <= 0 || height <= 0) return 0;
-  const baseZoom = clamp(Math.min(width, height) / 760, 0.68, 1.12) * 1.9;
-  const massZoom = clamp(1 - Math.max(0, mass - 100) / 2_800, 0.67, 1);
-  return Math.hypot(width, height) / (2 * baseZoom * massZoom);
+  return getArenaCameraVisibleRadius(
+    width,
+    height,
+    mass,
+    activeRelic,
+    tick,
+  );
 }
 
 function stableNumber(text: string) {
@@ -401,6 +418,7 @@ export function ArenaCanvas({
   paused,
   session,
   boardId,
+  paceId,
   photoSkin,
   controlScheme,
   onExit,
@@ -525,7 +543,7 @@ export function ArenaCanvas({
     const seed = running
       ? challenge?.seed ?? `wormifi-${session}-${mode}`
       : "wormifi-living-title";
-    const built = buildLocalArena(seed, playerName, mode, boardId);
+    const built = buildLocalArena(seed, playerName, mode, boardId, paceId);
     runtimeRef.current = {
       ...built,
       startTick: built.state.tick,
@@ -547,7 +565,7 @@ export function ArenaCanvas({
       tutorialRetargetReason: undefined,
       tutorialTargetTrackingId: undefined,
       tutorialTargetClosestDistance: undefined,
-      recording: { seed, mode, playerName: playerName || "Guest", boardId, inputs: [] },
+      recording: { seed, mode, playerName: playerName || "Guest", boardId, paceId, inputs: [] },
     };
     replayRuntimeRef.current = null;
     directionRef.current = { x: 1, y: 0 };
@@ -559,7 +577,7 @@ export function ArenaCanvas({
     setResult(null);
     setLocalReplay(null);
     setHud(getInitialHud());
-  }, [boardId, challenge, mode, playerName, running, session]);
+  }, [boardId, challenge, mode, paceId, playerName, running, session]);
 
   useEffect(() => {
     if (runtimeRef.current) runtimeRef.current.reducedMotion = reducedMotion;
@@ -653,7 +671,7 @@ export function ArenaCanvas({
           runtime.lastPickupTick = runtime.state.tick;
           const color = foodColors[runtime.pickupCombo % foodColors.length];
           if (!runtime.reducedMotion) {
-            const particleCount = event.mass >= 5.35 ? 9 : 5;
+            const particleCount = event.mass >= RARE_TREASURE_CHEST_MASS ? 9 : 5;
             for (let index = 0; index < particleCount; index += 1) {
               const angle = (index / particleCount) * Math.PI * 2 + runtime.state.tick * 0.17;
               runtime.particles.push({
@@ -675,14 +693,14 @@ export function ArenaCanvas({
               life: 0.72,
               maxLife: 0.72,
               radius: 0,
-              color: event.mass >= 5.35 ? "#fff1a1" : "#eafffb",
+              color: event.mass >= RARE_TREASURE_CHEST_MASS ? "#fff1a1" : "#eafffb",
               label: `+${Number(event.mass.toFixed(1))} SIZE`,
             });
           }
           if (runtime.pickupCombo <= 5 || runtime.pickupCombo === 8) {
             playTone(280 + runtime.pickupCombo * 55, 0.055, 0.022);
           }
-          const collectedPopCluster = event.mass >= 5.35;
+          const collectedPopCluster = event.mass >= RARE_TREASURE_CHEST_MASS;
           if (collectedPopCluster && runtime.pickupCombo !== 6 && runtime.pickupCombo !== 8) {
             if (!runtime.reducedMotion) navigator.vibrate?.(12);
             setActionCallout("TREASURE CHEST · JACKPOT");
@@ -702,7 +720,8 @@ export function ArenaCanvas({
         if (event.type === "specialistActivated" && event.playerId === PLAYER_ID) {
           tutorial.sawCollector();
           const relic = resolveRelicPresentation(event.relicKind);
-          setActionCallout(`${relic.label.toUpperCase()} ON · ${relic.effectText}`);
+          const effectText = getRelicEffectText(relic, event.relicTier);
+          setActionCallout(`${relic.label.toUpperCase()} ON · ${effectText}`);
           window.setTimeout(() => setActionCallout(null), 900);
           playTone(520, 0.11, 0.035);
           window.setTimeout(() => playTone(760, 0.14, 0.03), 80);
@@ -1169,6 +1188,7 @@ export function ArenaCanvas({
     const token = serializeChallengePayload({
       seed: runtimeRef.current?.state.initialSeed ?? `wormifi-${session}-${mode}`,
       mode: mode === "endless" ? "live" : mode,
+      paceId,
       target: {
         metric: "score",
         value: result?.score ?? hud.score,
@@ -1217,7 +1237,12 @@ export function ArenaCanvas({
     ? createLocalRadarIntel(
         radarRuntime.state,
         PLAYER_ID,
-        localRadarVisibleRadius(canvasRef.current, radarPlayer.mass),
+        localRadarVisibleRadius(
+          canvasRef.current,
+          radarPlayer.mass,
+          radarPlayer.specialist,
+          radarRuntime.state.tick,
+        ),
       )
     : { visiblePlayers: [], dangerBearings: [] };
   const radarStations: RadarStation[] = radarRuntime
@@ -1248,6 +1273,7 @@ export function ArenaCanvas({
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-control-scheme={controlScheme}
       data-board-id={boardId}
+      data-pace-id={paceId}
       data-theme-id={photoSkin?.renderPlan.theme.id ?? ""}
       data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
       data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
@@ -1589,12 +1615,15 @@ function renderArena(
   const cameraSmoothing = 0.105;
   runtime.camera.x += (focus.x - runtime.camera.x) * cameraSmoothing;
   runtime.camera.y += (focus.y - runtime.camera.y) * cameraSmoothing;
-  const minDimension = Math.min(width, height);
-  // Encounter-close framing makes the starter creature readable and gives
-  // growth real screen presence. Radar preserves global orientation.
-  const baseZoom = clamp(minDimension / 760, 0.68, 1.12) * 1.9;
-  const massZoom = player ? clamp(1 - Math.max(0, player.mass - 100) / 2_800, 0.67, 1) : 1;
-  const zoom = baseZoom * massZoom;
+  // One shared framing rule keeps desktop, phone, Practice, replay, Live, and
+  // radar knowledge aligned with the same inhabited open-zone composition.
+  const zoom = getArenaCameraZoom(
+    width,
+    height,
+    player?.mass ?? 100,
+    player?.specialist,
+    runtime.state.tick,
+  );
   const worldToScreen = (point: Vec2, output: Vec2 = { x: 0, y: 0 }): Vec2 => {
     output.x = width / 2 + (point.x - runtime.camera.x) * zoom;
     output.y = height / 2 + (point.y - runtime.camera.y) * zoom;
@@ -1632,6 +1661,8 @@ function renderArena(
   const players = Object.values(runtime.state.players)
     .filter((entry) => entry.alive)
     .sort((first, second) => first.mass - second.mass);
+  const wormMaterialMotion = runtime.reducedMotion ? 0 : materialMotionScale();
+  const wormMaterialGlow = materialGlowEnabled();
   for (const entry of players) {
     drawLivingChain(
       context,
@@ -1644,6 +1675,8 @@ function renderArena(
       effectTime,
       runtime.debugHitboxes,
       entry.id === PLAYER_ID ? photoSkin : undefined,
+      wormMaterialMotion,
+      wormMaterialGlow,
     );
   }
 
@@ -1756,7 +1789,7 @@ function drawDrops(
       getGroundRelicPresentation(drop) ||
       drop.source === "boost" ||
       drop.source === "death" ||
-      drop.mass >= 5.35
+      drop.mass >= RARE_TREASURE_CHEST_MASS
     ) continue;
     // Use the exact camera transform directly for the dense ordinary field.
     // Returning a {x,y} object here for every one of 1,050 drops on every
@@ -1809,7 +1842,7 @@ function drawDrops(
       !groundRelic &&
       drop.source !== "boost" &&
       drop.source !== "death" &&
-      drop.mass < 5.35
+      drop.mass < RARE_TREASURE_CHEST_MASS
     ) {
       continue;
     }
@@ -1889,7 +1922,7 @@ function drawDrops(
       continue;
     }
 
-    if (drop.mass >= 5.35) {
+    if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
       // One authoritative collider is rendered as a high-value treasure chest.
       if (!drawPirateAtlasSprite(context, "treasure-chest", {
         x: 0,
@@ -1926,6 +1959,8 @@ function drawLivingChain(
   now: number,
   debugHitboxes: boolean,
   photoSkin: PhotoSkinCanvasAppearance | undefined,
+  materialMotion: number,
+  materialGlow: boolean,
 ) {
   const margin = 240;
   const pointCount = player.body.length + 1;
@@ -1981,9 +2016,12 @@ function drawLivingChain(
     // an at-a-glance "that one is me" read in crowded scenes.
     pattern: photoSkin && isWormMaterialPattern(photoSkin.renderPlan.theme.pattern)
       ? photoSkin.renderPlan.theme.pattern
-      : undefined,
-    materialMotion: materialMotionScale(),
-    materialGlow: materialGlowEnabled(),
+      : wormMaterialForIdentity(identity),
+    materialMotion,
+    // Preserve authored patterns on every visible crew, but spend expensive
+    // bloom only on this device's captain. Rival skin remains fully readable.
+    materialGlow: materialGlow && player.id === PLAYER_ID,
+    boosting: isPlayerBoosting(player, state.config),
   });
 
   if (photoSkin && points.length > 2) {

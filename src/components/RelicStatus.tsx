@@ -62,7 +62,7 @@ export function RelicStatus({
         />
         <span className="relic-status__copy">
           <strong>{relic.label.toUpperCase()} ACTIVE</strong>
-          <span>{relic.effectText}</span>
+          <span>{model.effectText}</span>
         </span>
       </div>
       <time
@@ -82,7 +82,7 @@ export function RelicStatus({
         {Math.round(model.timerRatio * 100)}%
       </progress>
       <span className="relic-status__rival-disclosure">
-        {relic.rivalDisclosure}
+        {model.rivalDisclosure}
       </span>
       {reducedMotion && (
         <span className="relic-status__motion-equivalent">

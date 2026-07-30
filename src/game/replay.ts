@@ -5,6 +5,10 @@ import type {
   PlayerKind,
   Vec2,
 } from "./types";
+import {
+  isGamePaceId,
+  type GamePaceId,
+} from "./gamePace";
 
 const DEFAULT_WINDOW_SECONDS = 12;
 const DEFAULT_HIGHLIGHT_SECONDS = 6;
@@ -35,11 +39,21 @@ export interface ChallengePayloadInput {
   mode: ChallengeMode;
   target: ChallengeTarget;
   playerLook: PlayerLookMetadata;
+  /** New challenges bind the same local pace; absent means legacy Classic. */
+  paceId?: GamePaceId;
 }
 
-export interface ChallengePayload extends ChallengePayloadInput {
+export interface LegacyChallengePayload extends ChallengePayloadInput {
   version: 1;
+  paceId?: undefined;
 }
+
+export interface PacedChallengePayload extends ChallengePayloadInput {
+  version: 2;
+  paceId: GamePaceId;
+}
+
+export type ChallengePayload = LegacyChallengePayload | PacedChallengePayload;
 
 export type ChallengeParseError =
   | "empty"
@@ -93,6 +107,15 @@ interface CompactChallengePayload {
   v: 1;
   s: string | number;
   m: ChallengeMode;
+  t: [ChallengeMetric, number, PlayerId?];
+  l: [string, string, string, string?];
+}
+
+interface CompactPacedChallengePayload {
+  v: 2;
+  s: string | number;
+  m: ChallengeMode;
+  p: GamePaceId;
   t: [ChallengeMetric, number, PlayerId?];
   l: [string, string, string, string?];
 }
@@ -391,8 +414,9 @@ function isChallengeMetric(value: unknown): value is ChallengeMetric {
 }
 
 function validateCompactPayload(value: unknown): ChallengePayload | null {
-  if (!isRecord(value) || value.v !== 1) return null;
+  if (!isRecord(value) || (value.v !== 1 && value.v !== 2)) return null;
   if (!isValidSeed(value.s) || !isChallengeMode(value.m)) return null;
+  if (value.v === 2 && !isGamePaceId(value.p)) return null;
   if (!Array.isArray(value.t) || (value.t.length !== 2 && value.t.length !== 3)) {
     return null;
   }
@@ -419,8 +443,7 @@ function validateCompactPayload(value: unknown): ChallengePayload | null {
     return null;
   }
 
-  return {
-    version: 1,
+  const common = {
     seed: value.s,
     mode: value.m,
     target: {
@@ -435,6 +458,9 @@ function validateCompactPayload(value: unknown): ChallengePayload | null {
       paletteId: value.l[3],
     },
   };
+  return value.v === 2
+    ? { version: 2, ...common, paceId: value.p as GamePaceId }
+    : { version: 1, ...common };
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -463,7 +489,9 @@ function base64UrlToBytes(token: string): Uint8Array | null {
   }
 }
 
-function toCompactPayload(payload: ChallengePayloadInput): CompactChallengePayload {
+function toCompactPayload(
+  payload: ChallengePayloadInput,
+): CompactChallengePayload | CompactPacedChallengePayload {
   const target: CompactChallengePayload["t"] = payload.target.playerId
     ? [payload.target.metric, payload.target.value, payload.target.playerId]
     : [payload.target.metric, payload.target.value];
@@ -479,7 +507,9 @@ function toCompactPayload(payload: ChallengePayloadInput): CompactChallengePaylo
         payload.playerLook.followerId,
         payload.playerLook.trailId,
       ];
-  return { v: 1, s: payload.seed, m: payload.mode, t: target, l: look };
+  return payload.paceId
+    ? { v: 2, s: payload.seed, m: payload.mode, p: payload.paceId, t: target, l: look }
+    : { v: 1, s: payload.seed, m: payload.mode, t: target, l: look };
 }
 
 export function serializeChallengePayload(payload: ChallengePayloadInput): string {

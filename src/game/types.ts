@@ -11,7 +11,11 @@ export type SpecialistKind = "collector";
 export type PirateRelicKind =
   | "loot-compass"
   | "emerald-spyglass"
-  | "pepper-cutlass";
+  | "pepper-cutlass"
+  | "gale-pennant"
+  | "maelstrom-wheel"
+  | "gilded-ledger";
+export type TreasureMultiplierTier = 2 | 3 | 5;
 
 /**
  * Static, server-owned geometry and tuning for a wrap charging station. A
@@ -80,6 +84,8 @@ export interface ActiveSpecialist {
    * clients can safely retain the single timed-slot envelope.
    */
   relicKind?: PirateRelicKind;
+  /** Present only for an active Gilded Ledger. */
+  relicTier?: TreasureMultiplierTier;
   activatedAtTick: number;
   expiresAtTick: number;
   durationTicks: number;
@@ -132,6 +138,11 @@ export interface DropState {
   id: DropId;
   position: Vec2;
   mass: number;
+  /**
+   * Conserved transient Echo mass waiting behind the visible pickup chunk.
+   * This is authoritative simulation state and is never serialized to clients.
+   */
+  bankedMass?: number;
   radius: number;
   /** arena = neutral Pulse Mote, boost = Boost Echo, death = Rival Echo. */
   source: "arena" | "boost" | "death";
@@ -143,10 +154,14 @@ export interface DropState {
   /** New named Relics use additive fields old protocol-v5 clients ignore. */
   relicKind?: PirateRelicKind;
   relicDurationTicks?: number;
+  /** Present only for a Gilded Ledger ground item. */
+  relicTier?: TreasureMultiplierTier;
   /** Collector range may affect neutral motes, the producer only, or nobody. */
   collectorReachPolicy: "neutral" | "owner" | "none";
   blockedPlayerId?: PlayerId;
   blockedUntilTick: number;
+  /** Optional all-player lock used when compacting multiple owners together. */
+  pickupBlockedUntilTick?: number;
 }
 
 export interface GameConfig {
@@ -177,6 +192,10 @@ export interface GameConfig {
   dropRadius: number;
   deathDropTargetMass: number;
   maximumDeathDrops: number;
+  /** Global live-world cap for short-lived sprint trail Echoes. */
+  maximumBoostDropsInWorld: number;
+  /** Global live-world cap for crash-loot Echoes across repeated defeats. */
+  maximumDeathDropsInWorld: number;
   collectorDurationSeconds: number;
   collectorPickupRadiusMultiplier: number;
 }
@@ -214,6 +233,7 @@ export interface SpawnDropOptions {
   id?: DropId;
   position: Vec2;
   mass: number;
+  bankedMass?: number;
   radius?: number;
   source?: DropState["source"];
   originPlayerId?: PlayerId;
@@ -221,9 +241,11 @@ export interface SpawnDropOptions {
   specialistDurationSeconds?: number;
   relicKind?: PirateRelicKind;
   relicDurationSeconds?: number;
+  relicTier?: TreasureMultiplierTier;
   collectorReachPolicy?: DropState["collectorReachPolicy"];
   blockedPlayerId?: PlayerId;
   blockedUntilTick?: number;
+  pickupBlockedUntilTick?: number;
 }
 
 export interface BotInputContext {
@@ -275,6 +297,7 @@ export type GameEvent =
       dropId: DropId;
       specialist: SpecialistKind;
       relicKind?: PirateRelicKind;
+      relicTier?: TreasureMultiplierTier;
       durationTicks: number;
     }
   | {
@@ -283,6 +306,7 @@ export type GameEvent =
       playerId: PlayerId;
       specialist: SpecialistKind;
       relicKind?: PirateRelicKind;
+      relicTier?: TreasureMultiplierTier;
     }
   | {
       type: "chargingStarted";

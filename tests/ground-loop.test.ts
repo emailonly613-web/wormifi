@@ -3,6 +3,7 @@ import {
   calculateScore,
   createGameState,
   getBodyRadius,
+  getDropStoredMass,
   getPlayerRadius,
   getSpecialistSecondsRemaining,
   isSpecialistActive,
@@ -243,7 +244,7 @@ describe("approved deterministic ground loop", () => {
     expect(
       booster.mass +
       booster.shedMassRemainder +
-      boostEchoes.reduce((sum, drop) => sum + drop.mass, 0),
+      boostEchoes.reduce((sum, drop) => sum + getDropStoredMass(drop), 0),
     ).toBeCloseTo(70, 8);
 
     const deathState = createGameState("rival-echo-conservation", {
@@ -265,11 +266,225 @@ describe("approved deterministic ground loop", () => {
     const rivalEchoes = deathState.drops.filter((drop) => drop.source === "death");
     expect(defeated.alive).toBe(false);
     expect(rivalEchoes.every((drop) => drop.originPlayerId === defeated.id)).toBe(true);
-    expect(rivalEchoes.reduce((sum, drop) => sum + drop.mass, 0)).toBeCloseTo(
+    expect(rivalEchoes.reduce((sum, drop) => sum + getDropStoredMass(drop), 0)).toBeCloseTo(
       deathState.config.startMass + 0.75,
       8,
     );
+
+    const giantState = createGameState("giant-rival-echo-bank", {
+      arenaRadius: 5_000,
+      baseSpeed: 0,
+      boostSpeed: 0,
+    });
+    const giant = spawnPlayer(giantState, {
+      id: "giant",
+      position: { x: 6_000, y: 0 },
+      direction: { x: 1, y: 0 },
+      mass: 400_000,
+      shieldSeconds: 0,
+    });
+    stepGame(giantState);
+    const giantEchoes = giantState.drops.filter((drop) => drop.source === "death");
+    expect(giant.alive).toBe(false);
+    expect(giantEchoes).toHaveLength(giantState.config.maximumDeathDrops);
+    expect(giantEchoes.every((drop) =>
+      drop.mass <= giantState.config.deathDropTargetMass
+    )).toBe(true);
+    expect(giantEchoes.reduce((sum, drop) => sum + getDropStoredMass(drop), 0))
+      .toBeCloseTo(400_000, 6);
   });
+
+  it("deterministically compacts repeated live-room Echoes without losing mass or ground content", () => {
+    const makeState = () => createGameState("bounded-live-room-echoes", {
+      baseSpeed: 0,
+      boostSpeed: 0,
+      maximumBoostDropsInWorld: 3,
+      maximumDeathDropsInWorld: 4,
+    });
+    const first = makeState();
+    const replay = makeState();
+
+    for (const state of [first, replay]) {
+      spawnDrop(state, {
+        id: "neutral-treasure",
+        position: { x: 0, y: 1_000 },
+        mass: 3,
+        source: "arena",
+      });
+      spawnDrop(state, {
+        id: "relic-treasure",
+        position: { x: 0, y: -1_000 },
+        mass: 0,
+        source: "arena",
+        relicKind: "emerald-spyglass",
+      });
+    }
+
+    for (let cycle = 0; cycle < 12; cycle += 1) {
+      for (const state of [first, replay]) {
+        for (let index = 0; index < 4; index += 1) {
+          spawnDrop(state, {
+            position: { x: 1_000 + cycle * 10 + index, y: cycle },
+            mass: 2,
+            source: "boost",
+            originPlayerId: "booster",
+          });
+        }
+        for (let index = 0; index < 6; index += 1) {
+          spawnDrop(state, {
+            position: { x: -1_000 - cycle * 10 - index, y: -cycle },
+            mass: 5,
+            source: "death",
+            originPlayerId: "rival",
+          });
+        }
+        stepGame(state);
+      }
+
+      expect(first.drops.filter((drop) => drop.source === "boost")).toHaveLength(3);
+      expect(first.drops.filter((drop) => drop.source === "death")).toHaveLength(4);
+      expect(first.drops.map((drop) => drop.id)).toEqual(replay.drops.map((drop) => drop.id));
+      expect(first.drops).toEqual(replay.drops);
+    }
+
+    expect(first.drops.filter((drop) => drop.source === "boost")
+      .reduce((sum, drop) => sum + getDropStoredMass(drop), 0)).toBe(12 * 4 * 2);
+    expect(first.drops.filter((drop) => drop.source === "death")
+      .reduce((sum, drop) => sum + getDropStoredMass(drop), 0)).toBe(12 * 6 * 5);
+    expect(first.drops.filter((drop) => drop.source === "boost")
+      .every((drop) => drop.mass <= first.config.shedDropMass)).toBe(true);
+    expect(first.drops.filter((drop) => drop.source === "death")
+      .every((drop) => drop.mass <= first.config.deathDropTargetMass)).toBe(true);
+    expect(first.drops.map((drop) => drop.id)).toContain("neutral-treasure");
+    expect(first.drops.map((drop) => drop.id)).toContain("relic-treasure");
+    expect(JSON.stringify(first.drops).length).toBeLessThan(4_000);
+  });
+
+  it("releases a compacted cache in ordinary pickup chunks instead of one mega-growth event", () => {
+    const state = createGameState("bounded-cache-payout", {
+      baseSpeed: 0,
+      boostSpeed: 0,
+      maximumDeathDropsInWorld: 1,
+    });
+    const collector = spawnPlayer(state, {
+      id: "cache-collector",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    spawnDrop(state, {
+      position: { x: 0, y: 0 },
+      mass: state.config.deathDropTargetMass,
+      bankedMass: 95,
+      source: "death",
+      originPlayerId: "old-rival",
+    });
+
+    const startingMass = collector.mass;
+    const first = stepGame(state);
+    expect(collector.mass - startingMass).toBe(state.config.deathDropTargetMass);
+    expect(first.events.filter((event) => event.type === "dropCollected")).toHaveLength(1);
+    expect(state.drops).toHaveLength(1);
+    expect(state.drops[0].mass).toBe(state.config.deathDropTargetMass);
+    expect(getDropStoredMass(state.drops[0])).toBe(95);
+
+    stepGame(state);
+    expect(collector.mass - startingMass).toBe(state.config.deathDropTargetMass * 2);
+    expect(getDropStoredMass(state.drops[0])).toBe(90);
+  });
+
+  it("keeps mixed-owner boost caches locked until every original shed lock expires", () => {
+    const state = createGameState("mixed-boost-cache-lock", {
+      baseSpeed: 0,
+      boostSpeed: 0,
+      maximumBoostDropsInWorld: 1,
+    });
+    spawnDrop(state, {
+      position: { x: 0, y: 0 },
+      mass: 2,
+      source: "boost",
+      originPlayerId: "alpha",
+      blockedPlayerId: "alpha",
+      blockedUntilTick: 10,
+    });
+    spawnDrop(state, {
+      position: { x: 1, y: 0 },
+      mass: 2,
+      source: "boost",
+      originPlayerId: "bravo",
+      blockedPlayerId: "bravo",
+      blockedUntilTick: 8,
+    });
+    stepGame(state);
+
+    const cache = state.drops.find((drop) => drop.source === "boost");
+    expect(cache?.pickupBlockedUntilTick).toBe(10);
+    expect(cache && getDropStoredMass(cache)).toBe(4);
+    const alpha = spawnPlayer(state, {
+      id: "alpha",
+      position: { ...cache!.position },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const startingMass = alpha.mass;
+
+    while (state.tick < 9) stepGame(state);
+    expect(alpha.mass).toBe(startingMass);
+    stepGame(state);
+    expect(alpha.mass).toBe(startingMass + state.config.shedDropMass);
+    expect(getDropStoredMass(state.drops[0])).toBe(2);
+  });
+
+  it("keeps an accelerated six-hour Echo lifecycle deterministic, bounded, and mass exact", () => {
+    const makeState = () => createGameState("six-hour-accelerated-echoes", {
+      baseSpeed: 0,
+      boostSpeed: 0,
+    });
+    const first = makeState();
+    const replay = makeState();
+    const secondsPerCycle = 6;
+    const cycles = 6 * 60 * 60 / secondsPerCycle;
+    const ticksPerCycle = secondsPerCycle / first.config.fixedStepSeconds;
+
+    for (let cycle = 0; cycle < cycles; cycle += 1) {
+      for (const state of [first, replay]) {
+        for (let index = 0; index < 8; index += 1) {
+          spawnDrop(state, {
+            position: { x: 900 + (cycle % 100) * 8 + index, y: cycle % 100 },
+            mass: 2,
+            source: "boost",
+            originPlayerId: `booster-${cycle % 12}`,
+            blockedPlayerId: `booster-${cycle % 12}`,
+            blockedUntilTick: state.tick + 38,
+          });
+        }
+        for (let index = 0; index < 12; index += 1) {
+          spawnDrop(state, {
+            position: { x: -900 - (cycle % 100) * 12 - index, y: -(cycle % 100) },
+            mass: 5,
+            source: "death",
+            originPlayerId: `rival-${cycle % 12}`,
+          });
+        }
+        state.tick += ticksPerCycle - 1;
+        stepGame(state);
+      }
+    }
+
+    const boostDrops = first.drops.filter((drop) => drop.source === "boost");
+    const deathDrops = first.drops.filter((drop) => drop.source === "death");
+    expect(first.tick).toBe(6 * 60 * 60 / first.config.fixedStepSeconds);
+    expect(boostDrops).toHaveLength(first.config.maximumBoostDropsInWorld);
+    expect(deathDrops).toHaveLength(first.config.maximumDeathDropsInWorld);
+    expect(boostDrops.every((drop) => drop.mass <= first.config.shedDropMass)).toBe(true);
+    expect(deathDrops.every((drop) => drop.mass <= first.config.deathDropTargetMass)).toBe(true);
+    expect(boostDrops.reduce((sum, drop) => sum + getDropStoredMass(drop), 0))
+      .toBe(cycles * 8 * 2);
+    expect(deathDrops.reduce((sum, drop) => sum + getDropStoredMass(drop), 0))
+      .toBe(cycles * 12 * 5);
+    expect(first.drops).toEqual(replay.drops);
+    expect(first.nextEntityNumber).toBe(replay.nextEntityNumber);
+  }, 20_000);
 
   it("does not alter top speed, solid radii, or lethal collision behavior", () => {
     const makeMovementState = (withCollector: boolean) => {

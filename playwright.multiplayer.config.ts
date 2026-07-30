@@ -1,6 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:4173";
+const generatedPreviewPort = 20_000 + process.pid % 20_000;
+const requestedPreviewPort = Number(
+  process.env.WORMIFI_MULTIPLAYER_PREVIEW_PORT ?? generatedPreviewPort,
+);
+const previewPort = Number.isInteger(requestedPreviewPort) &&
+    requestedPreviewPort >= 1_024 && requestedPreviewPort <= 49_151
+  ? requestedPreviewPort
+  : generatedPreviewPort;
+// Playwright reloads this config inside worker processes. Persist the port
+// selected by the parent so its web server and every worker share one origin.
+process.env.WORMIFI_MULTIPLAYER_PREVIEW_PORT = String(previewPort);
+const baseURL = `http://127.0.0.1:${previewPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -18,9 +29,9 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "corepack pnpm dev",
+    command: `corepack pnpm exec vite --host 127.0.0.1 --port ${previewPort} --strictPort`,
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [{
