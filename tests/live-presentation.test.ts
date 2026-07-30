@@ -48,7 +48,7 @@ describe("live presentation interpolation", () => {
     expect(getPresentedSnapshot(buffer, 1_020)).toBe(first);
   });
 
-  it("moves head, body, direction, and visible mass smoothly without overshoot", () => {
+  it("moves head, body, direction, and visible mass smoothly with delivery headroom", () => {
     const buffer = createLivePresentationBuffer();
     pushAuthoritativeSnapshot(buffer, snapshot(10, player()), 1_000, 1 / 30);
     const next = snapshot(12, player({
@@ -59,7 +59,7 @@ describe("live presentation interpolation", () => {
     }));
     pushAuthoritativeSnapshot(buffer, next, 1_067, 1 / 30);
 
-    const middle = getPresentedSnapshot(buffer, 1_100.333)!;
+    const middle = getPresentedSnapshot(buffer, 1_105.333)!;
     expect(middle.players[0].position.x).toBeCloseTo(10, 1);
     expect(middle.players[0].position.y).toBeCloseTo(5, 1);
     expect(middle.players[0].body[0].x).toBeCloseTo(-1, 1);
@@ -69,6 +69,24 @@ describe("live presentation interpolation", () => {
       middle.players[0].direction.y,
     )).toBeCloseTo(1, 6);
     expect(getPresentedSnapshot(buffer, 2_000)).toBe(next);
+  });
+
+  it("keeps the on-screen pose continuous when the next packet arrives early", () => {
+    const buffer = createLivePresentationBuffer();
+    pushAuthoritativeSnapshot(buffer, snapshot(10, player()), 1_000, 1 / 30);
+    pushAuthoritativeSnapshot(buffer, snapshot(12, player({
+      position: { x: 20, y: 0 },
+    })), 1_067, 1 / 30);
+
+    const before = getPresentedSnapshot(buffer, 1_127)!.players[0].position.x;
+    pushAuthoritativeSnapshot(buffer, snapshot(14, player({
+      position: { x: 40, y: 0 },
+    })), 1_127, 1 / 30);
+    const after = getPresentedSnapshot(buffer, 1_127)!.players[0].position.x;
+
+    expect(before).toBeGreaterThan(15);
+    expect(before).toBeLessThan(20);
+    expect(after).toBeCloseTo(before, 8);
   });
 
   it("grows a new crew piece outward from the prior tail", () => {
@@ -85,7 +103,7 @@ describe("live presentation interpolation", () => {
     }));
     pushAuthoritativeSnapshot(buffer, grown, 2_067, 1 / 30);
     const start = getPresentedSnapshot(buffer, 2_067)!;
-    const middle = getPresentedSnapshot(buffer, 2_100.333)!;
+    const middle = getPresentedSnapshot(buffer, 2_105.333)!;
     expect(start.players[0].body[3]).toEqual({ x: -30, y: 0 });
     expect(middle.players[0].body[3].x).toBeCloseTo(-35, 1);
   });

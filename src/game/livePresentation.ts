@@ -2,9 +2,10 @@ import type { PublicPlayerState, SnapshotMessage } from "../../server/src/protoc
 import type { Vec2 } from "./types";
 
 const MIN_INTERVAL_MS = 40;
-const MAX_INTERVAL_MS = 125;
+const MAX_INTERVAL_MS = 110;
 const SNAP_GAP_MS = 220;
 const TELEPORT_DISTANCE = 420;
+const PRESENTATION_HEADROOM = 1.15;
 
 export interface LivePresentationBuffer {
   previous: SnapshotMessage | null;
@@ -39,21 +40,36 @@ export function pushAuthoritativeSnapshot(
   fixedStepSeconds: number,
 ): void {
   const prior = buffer.latest;
+  const priorReceivedAtMs = buffer.latestReceivedAtMs;
   const sameTimeline = prior !== null &&
     prior.roomId === snapshot.roomId &&
     snapshot.tick > prior.tick;
   const tickGap = sameTimeline ? snapshot.tick - prior.tick : 0;
   const authoritativeGapMs = tickGap * fixedStepSeconds * 1_000;
   const canBlend = sameTimeline && authoritativeGapMs <= SNAP_GAP_MS;
+  // Preserve the exact pose already on screen when a new packet arrives.
+  // Restarting from the last raw authority snapshot creates a visible jump
+  // whenever delivery is a little early or late, even though every server tick
+  // arrived correctly.
+  const presentedAtArrival = canBlend
+    ? getPresentedSnapshot(buffer, receivedAtMs)
+    : null;
+  const observedGapMs = canBlend
+    ? Math.max(0, receivedAtMs - priorReceivedAtMs)
+    : 0;
 
-  buffer.previous = canBlend ? prior : null;
-  buffer.previousPlayersById = canBlend && prior
-    ? new Map(prior.players.map((player) => [player.id, player]))
+  buffer.previous = canBlend ? (presentedAtArrival ?? prior) : null;
+  buffer.previousPlayersById = canBlend && buffer.previous
+    ? new Map(buffer.previous.players.map((player) => [player.id, player]))
     : new Map();
   buffer.latest = snapshot;
   buffer.latestReceivedAtMs = receivedAtMs;
   buffer.intervalMs = canBlend
-    ? clamp(authoritativeGapMs, MIN_INTERVAL_MS, MAX_INTERVAL_MS)
+    ? clamp(
+      Math.max(authoritativeGapMs * PRESENTATION_HEADROOM, observedGapMs),
+      MIN_INTERVAL_MS,
+      MAX_INTERVAL_MS,
+    )
     : 1_000 / 15;
 }
 

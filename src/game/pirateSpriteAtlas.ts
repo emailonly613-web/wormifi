@@ -542,4 +542,10 @@ export function preloadPirateSpriteAtlas(): void {
   for (const name of PIRATE_SPRITE_NAMES) imageFor(name);
   groundTreasureFloatShadow();
   groundTreasureGlint();
+  // Decode both crowded-field atlases while the launcher is visible. Waiting
+  // until the first gameplay frame makes the entire treasure field swap from
+  // fallback sprites to atlas sprites at once, which reads as a visual glitch.
+  for (const sourceScale of GROUND_TREASURE_SOURCE_SCALES) {
+    queueGroundTreasureRotationAtlas(sourceScale);
+  }
 }

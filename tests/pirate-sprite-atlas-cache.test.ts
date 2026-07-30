@@ -93,7 +93,7 @@ afterEach(() => {
 });
 
 describe("bounded static pirate treasure rotation atlases", () => {
-  it("preloads authored sprites without guessing a ground-atlas scale before the first canvas draw", async () => {
+  it("preloads authored sprites and both bounded ground atlases before gameplay", async () => {
     const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
       callback(0);
       return 1;
@@ -128,9 +128,12 @@ describe("bounded static pirate treasure rotation atlases", () => {
         `/assets/sprites/pirate-atlas/${name}.png`
       )),
     );
-    expect(createdImages.some((image) =>
-      image.src.includes("ground-treasure-v3-rotations")
-    )).toBe(false);
+    expect(createdImages.filter((image) =>
+      image.src.includes("ground-treasure-v3-rotations-1x.png")
+    )).toHaveLength(1);
+    expect(createdImages.filter((image) =>
+      image.src.includes("ground-treasure-v3-rotations-2x.png")
+    )).toHaveLength(1);
 
     // The crowded desktop canvas can intentionally render below the device's
     // DPR. Its actual backing transform, not window.devicePixelRatio, owns the
@@ -150,9 +153,9 @@ describe("bounded static pirate treasure rotation atlases", () => {
     expect(createdImages.filter((image) =>
       image.src.includes("ground-treasure-v3-rotations-1x.png")
     )).toHaveLength(1);
-    expect(createdImages.some((image) =>
+    expect(createdImages.filter((image) =>
       image.src.includes("ground-treasure-v3-rotations-2x.png")
-    )).toBe(false);
+    )).toHaveLength(1);
   });
 
   it("falls back immediately, then reuses one asynchronously decoded atlas", async () => {
