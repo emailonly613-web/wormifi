@@ -1,5 +1,7 @@
 # Wormifi
 
+**Play it now: [wormifi.com](https://wormifi.com/)** — free in your browser, no download, no account. [Install it on your phone](https://wormifi.com/install.html) without an app store.
+
 Wormifi is an original living-chain arena web game. It keeps the category's
 instantly legible collect-grow-outmaneuver loop while making every follower a
 character, every arena reward readable before collection, and every local run
