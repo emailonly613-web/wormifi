@@ -1980,12 +1980,12 @@ export function LiveArenaCanvas({
 
       {deathNotice && (
         <div
-          className="live-death-notice"
+          className={`live-death-notice ${deathNotice.startsWith("BACK IN") ? "safe" : "impact"}`}
           data-testid="live-death-notice"
           role="status"
           aria-label={deathNotice}
         >
-          <span aria-hidden="true">☠</span>
+          <span className="collision-impact-mark" aria-hidden="true"><i /><i /><i /></span>
         </div>
       )}
       {!touchGuide && controlScheme !== "drag-anywhere" && (

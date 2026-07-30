@@ -34,6 +34,15 @@ test("rebuilds and visibly advances the finished local run", async ({ page }, te
   // The default sanitized input points right; the deterministic Rush boundary
   // ends this proof run without a private test-only simulation shortcut.
   await expect(page.getByTestId("results-panel")).toBeVisible({ timeout: 22_000 });
+  const shareHighlight = page.getByTestId("result-share-highlight");
+  await expect(shareHighlight).toBeVisible();
+  await expect(shareHighlight).toContainText("SHARE THIS RUN");
+  await expect(page.getByRole("link", { name: "Share result on X" })).toHaveAttribute(
+    "href",
+    /twitter\.com\/intent\/tweet/u,
+  );
+  await expect(page.getByRole("link", { name: "Share result on Facebook" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Share result on WhatsApp" })).toBeVisible();
   await page.waitForTimeout(200);
   const finishedFrameClearCount = await page.evaluate(() => (
     window as typeof window & { __wormifiCanvasClearCount: number }
@@ -107,6 +116,7 @@ test("offers the same verified replay and honest actions after Endless", async (
   await page.getByTestId("solo-run-button").click();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByTestId("results-panel")).toBeVisible({ timeout: 35_000 });
+  await expect(page.getByTestId("result-share-highlight")).toBeVisible();
   await expect(page.getByTestId("watch-local-replay")).toContainText("WATCH FINAL 6S");
   await expect(page.getByTestId("restart-button")).toHaveText("PLAY AGAIN");
   await expect(page.getByRole("button", { name: /share challenge/i })).toBeVisible();

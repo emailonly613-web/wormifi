@@ -1243,7 +1243,7 @@ export function ArenaCanvas({
     setLocalReplay(null);
   };
 
-  const shareChallenge = async () => {
+  const buildChallengeShare = () => {
     const safeRival = (playerName || "Guest")
       .trim()
       .replace(/[^A-Za-z0-9._-]+/gu, "-")
@@ -1266,15 +1266,84 @@ export function ArenaCanvas({
       },
     });
     const url = `${window.location.origin}/?c=${encodeURIComponent(token)}`;
-    const shareData = {
+    return {
       title: "Beat my Wormifi run",
       text: `I scored ${result?.score ?? hud.score} in Wormifi. Can your living chain beat mine?`,
       url,
     };
+  };
+
+  const createHighlightImage = async (): Promise<File | undefined> => {
+    const source = canvasRef.current;
+    if (!source || source.width <= 0 || source.height <= 0) return undefined;
+
+    const output = document.createElement("canvas");
+    output.width = 1_080;
+    output.height = 1_080;
+    const context = output.getContext("2d");
+    if (!context) return undefined;
+
+    const scale = Math.max(output.width / source.width, output.height / source.height);
+    const drawWidth = source.width * scale;
+    const drawHeight = source.height * scale;
+    context.drawImage(
+      source,
+      (output.width - drawWidth) / 2,
+      (output.height - drawHeight) / 2,
+      drawWidth,
+      drawHeight,
+    );
+    const shade = context.createLinearGradient(0, 560, 0, output.height);
+    shade.addColorStop(0, "rgba(2, 10, 26, 0)");
+    shade.addColorStop(0.56, "rgba(2, 10, 26, .86)");
+    shade.addColorStop(1, "rgba(2, 10, 26, .98)");
+    context.fillStyle = shade;
+    context.fillRect(0, 0, output.width, output.height);
+
+    context.textAlign = "center";
+    context.fillStyle = "#74f5df";
+    context.font = "900 74px Inter, system-ui, sans-serif";
+    context.fillText("WORMIFI", output.width / 2, 790);
+    context.fillStyle = "#ffffff";
+    context.font = "900 112px Inter, system-ui, sans-serif";
+    context.fillText((result?.score ?? hud.score).toLocaleString(), output.width / 2, 910);
+    context.fillStyle = "#ffd66f";
+    context.font = "800 34px Inter, system-ui, sans-serif";
+    context.fillText("SCORE · CAN YOU BEAT THIS RUN?", output.width / 2, 972);
+    context.fillStyle = "rgba(225, 247, 255, .8)";
+    context.font = "700 25px Inter, system-ui, sans-serif";
+    context.fillText("WORMIFI.COM", output.width / 2, 1023);
+
+    const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, "image/png"));
+    return blob
+      ? new File([blob], "wormifi-highlight.png", { type: "image/png" })
+      : undefined;
+  };
+
+  const shareChallenge = async () => {
+    const shareData: ShareData = buildChallengeShare();
     try {
-      if (navigator.share) await navigator.share(shareData);
+      let highlight: File | undefined;
+      try {
+        highlight = await createHighlightImage();
+      } catch {
+        // A private imported skin can make a browser decline canvas export.
+        // The playable rivalry link must still remain shareable.
+      }
+      if (
+        highlight &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [highlight] })
+      ) {
+        shareData.files = [highlight];
+      }
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setToast(shareData.files ? "Highlight ready to share" : "Challenge ready to share");
+        window.setTimeout(() => setToast(null), 1_800);
+      }
       else {
-        await navigator.clipboard.writeText(`${shareData.text} ${url}`);
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
         setToast("Challenge copied");
         window.setTimeout(() => setToast(null), 1_800);
       }
@@ -1282,6 +1351,8 @@ export function ArenaCanvas({
       // The native share sheet can be dismissed intentionally; no error UI is needed.
     }
   };
+
+  const resultShare = result ? buildChallengeShare() : undefined;
 
   const tutorialSpark = runtimeRef.current?.state.drops.find(
     (drop) => drop.id === runtimeRef.current?.tutorialSparkId,
@@ -1550,24 +1621,64 @@ export function ArenaCanvas({
               <div><dt>SCORE RANK</dt><dd>#{result.rank}</dd></div>
               <div><dt>CHAIN CUTS</dt><dd>{result.kills}</dd></div>
             </dl>
-            <button
-              className="replay-button"
-              data-testid="watch-local-replay"
-              onClick={startLocalReplay}
-            >
-              <span>WATCH FINAL 6S</span>
-              <small>LOCAL REPLAY · RECORDED INPUTS</small>
-            </button>
-            <button
-              ref={restartButtonRef}
-              className="restart-button"
-              data-testid="restart-button"
-              onClick={onRestart}
-            >
-              PLAY AGAIN
-            </button>
-            <button className="share-button" onClick={() => void shareChallenge()}>SHARE CHALLENGE</button>
-            <button className="menu-button" onClick={onExit}>CHANGE MODE</button>
+            {resultShare && (
+              <aside className="result-share-card" data-testid="result-share-highlight">
+                <div className="result-share-heading">
+                  <span className="result-highlight-mark" aria-hidden="true"><i /><i /><i /></span>
+                  <span>
+                    <b>SHARE THIS RUN</b>
+                    <small>FINAL FRAME + PLAYABLE CHALLENGE LINK</small>
+                  </span>
+                </div>
+                <nav className="result-social-links" aria-label="Share result on social media">
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(resultShare.text)}&url=${encodeURIComponent(resultShare.url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Share result on X"
+                  >𝕏</a>
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(resultShare.url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Share result on Facebook"
+                  >f</a>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`${resultShare.text} ${resultShare.url}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Share result on WhatsApp"
+                  >◉</a>
+                  <button
+                    className="share-button"
+                    aria-label="Share challenge highlight"
+                    onClick={() => void shareChallenge()}
+                  >
+                    <b>↗ SHARE HIGHLIGHT</b>
+                    <small>IMAGE + SCORE + RIVALRY LINK</small>
+                  </button>
+                </nav>
+              </aside>
+            )}
+            <div className="result-actions">
+              <button
+                className="replay-button"
+                data-testid="watch-local-replay"
+                onClick={startLocalReplay}
+              >
+                <span>WATCH FINAL 6S</span>
+                <small>LOCAL REPLAY · RECORDED INPUTS</small>
+              </button>
+              <button
+                ref={restartButtonRef}
+                className="restart-button"
+                data-testid="restart-button"
+                onClick={onRestart}
+              >
+                PLAY AGAIN
+              </button>
+              <button className="menu-button" onClick={onExit}>CHANGE MODE</button>
+            </div>
           </section>
         </div>
       )}

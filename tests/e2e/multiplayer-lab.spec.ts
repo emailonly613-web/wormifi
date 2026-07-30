@@ -1024,6 +1024,8 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
     "aria-label",
     "YOU CRASHED · YOUR HEAD HIT RANK RIVAL'S CREW · RESPAWNING…",
   );
+  await expect(page.getByTestId("live-death-notice").locator(".collision-impact-mark")).toBeVisible();
+  await expect(page.getByTestId("live-death-notice")).not.toContainText("☠");
   await expect(page.getByTestId("room-identity")).toContainText(`LIVE ROOM #${roomId.toUpperCase()}`);
   await expect(page.getByTestId("pirate-radar")).toContainText("RESPAWNING");
   await page.screenshot({ path: "proof/browser/multiplayer/06-live-mobile-death.png", fullPage: true });
