@@ -1,5 +1,6 @@
 import type { Vec2 } from "./types";
 import { drawWormMaterial, type WormMaterialPattern } from "./wormMaterials";
+import { drawWormHeadFace } from "./wormHeads";
 
 const TAU = Math.PI * 2;
 const gemSpriteCache = new Map<string, HTMLCanvasElement>();
@@ -1349,11 +1350,31 @@ export function drawContinuousPirateWorm(
   context.restore();
 
   const headAngle = Math.atan2(direction.y, direction.x);
-  const headImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormHead);
-  if (headImage) {
-    drawClippedAtlasHead(context, headImage, headPoint, headRadius, headAngle, skin);
-  } else {
-    drawProceduralWormHead(context, headPoint, headRadius, headAngle, palette, shielded);
+  // A themed captain wears its material's own living face; only unthemed
+  // crews (and image-less first frames) fall back to the shared authored head.
+  let themedFaceDrawn = false;
+  if (pattern) {
+    context.save();
+    context.translate(headPoint.x, headPoint.y);
+    context.rotate(headAngle);
+    themedFaceDrawn = drawWormHeadFace(context, pattern, {
+      radius: headRadius,
+      palette,
+      direction,
+      identity,
+      now,
+      motion: materialMotion ?? 1,
+      shielded,
+    });
+    context.restore();
+  }
+  if (!themedFaceDrawn) {
+    const headImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormHead);
+    if (headImage) {
+      drawClippedAtlasHead(context, headImage, headPoint, headRadius, headAngle, skin);
+    } else {
+      drawProceduralWormHead(context, headPoint, headRadius, headAngle, palette, shielded);
+    }
   }
 
 
