@@ -71,7 +71,10 @@ static_sites:
       branch: main
     source_dir: /
     environment_slug: node-js
-    build_command: corepack pnpm install --frozen-lockfile && corepack pnpm build
+    # Root typechecking includes the multiplayer browser fixture, which imports
+    # the shared server protocol. Install the locked server workspace first so
+    # its ws types resolve in an otherwise clean static-site builder.
+    build_command: corepack pnpm install --frozen-lockfile && corepack pnpm --dir server install --frozen-lockfile && corepack pnpm build
     output_dir: dist
     index_document: index.html
     catchall_document: index.html

@@ -51,6 +51,14 @@ if ($nodeVersionReferences -ne 2) {
     throw "Expected Node 24.14.1 on both build components; found $nodeVersionReferences references."
 }
 
+$serverInstallReferences = [regex]::Matches(
+    $spec,
+    'corepack pnpm --dir server install --frozen-lockfile'
+).Count
+if ($serverInstallReferences -ne 2) {
+    throw "Both Wormifi components must install the locked server workspace; found $serverInstallReferences references."
+}
+
 & doctl apps spec validate $resolvedSpec --schema-only
 if ($LASTEXITCODE -ne 0) {
     throw "DigitalOcean schema validation failed with exit code $LASTEXITCODE."
@@ -64,3 +72,4 @@ Write-Output "CUSTOM_DOMAIN_ATTACHED=NO"
 Write-Output "ARENA_INGRESS_PRESENT=YES"
 Write-Output "HEALTH_INGRESS_PRESENT=YES"
 Write-Output "DO_SUPPORTED_NODE_PINNED=YES"
+Write-Output "SERVER_WORKSPACE_INSTALLED_FOR_BOTH_COMPONENTS=YES"
