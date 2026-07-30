@@ -1,11 +1,15 @@
 const CACHE_PREFIX = "wormifi-app-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v9`;
+const CACHE_NAME = `${CACHE_PREFIX}v10`;
 const CANONICAL_PAGE_URLS = [
   "/",
   "/how-to-play.html",
   "/multiplayer.html",
   "/pirate-treasure.html",
   "/guides.html",
+  "/worm-games-with-friends.html",
+  "/black-pearl-relay.html",
+  "/game-speeds-harbor-classic-tempest.html",
+  "/what-is-an-io-game.html",
   "/devlog.html",
   "/devlog-one-server-authority.html",
   "/devlog-conserved-mass.html",

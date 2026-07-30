@@ -1,0 +1,35 @@
+# Wormifi
+
+> Wormifi is a free pirate treasure worm arena game that runs in any web
+> browser - no download, no account, no ads before play. Solo modes (90-second
+> rush, endless, practice) work offline once installed; live multiplayer runs
+> in server-authoritative rooms with honestly labeled AI backfill. It installs
+> to phones without an app store. Cosmetic skins are the only thing ever sold;
+> nothing purchasable affects gameplay.
+
+Key facts: one-word brand name "Wormifi" (worm-if-ee), unrelated to Wi-Fi or
+network worms. Two boards (Open Seas; Black Pearl Relay with twin capstan
+objectives), three room paces (Harbor, Classic, Tempest), friend rooms via
+shared codes, sprint costs 4 size/second at 2.0x speed and drops the spent
+size as collectable wake loot. Design law: nothing appears from nowhere -
+killed crews drop their conserved mass where they fell.
+
+## Play
+- [Play Wormifi](https://wormifi.com/): the game itself, playable instantly
+- [Install on any phone](https://wormifi.com/install.html): Android package or iPhone home screen, no app store
+
+## Learn
+- [How to play](https://wormifi.com/how-to-play.html): controls, growth, collision rules, FAQ
+- [Strategy guide](https://wormifi.com/how-to-win-worm-arena-games.html): transferable worm arena strategy
+- [Glossary](https://wormifi.com/worm-game-glossary.html): every genre term defined
+- [FAQ](https://wormifi.com/faq.html): plain answers about price, offline play, bots, privacy
+
+## Compare
+- [Games like Slither.io](https://wormifi.com/games-like-slither-io.html): honest genre roundup
+- [Wormifi vs Slither.io](https://wormifi.com/wormifi-vs-slither-io.html): direct comparison including where the original wins
+
+## Behind the game
+- [Devlog](https://wormifi.com/devlog.html): building in public
+- [Roadmap](https://wormifi.com/roadmap.html): live today vs in the workshop
+- [Changelog](https://wormifi.com/changelog.html): the shipping record
+- [Press kit](https://wormifi.com/press.html): boilerplate and brand assets, free to reproduce

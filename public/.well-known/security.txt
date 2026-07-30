@@ -1,0 +1,4 @@
+Contact: https://wormifi.com/press.html
+Expires: 2027-07-30T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://wormifi.com/.well-known/security.txt

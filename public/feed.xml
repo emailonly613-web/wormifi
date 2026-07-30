@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Wormifi Devlog</title>
+    <link>https://wormifi.com/devlog.html</link>
+    <atom:link href="https://wormifi.com/feed.xml" rel="self" type="application/rss+xml" />
+    <description>Building a browser worm arena in public: design laws, trade-offs, and the shipping record.</description>
+    <language>en-us</language>
+    <item>
+      <title>Why one server decides every collision</title>
+      <link>https://wormifi.com/devlog-one-server-authority.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-one-server-authority.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>The first architecture decision in a multiplayer worm arena: when two players disagree about a collision, who is right - and what server authority costs.</description>
+    </item>
+    <item>
+      <title>Nothing appears from nowhere: designing conserved mass</title>
+      <link>https://wormifi.com/devlog-conserved-mass.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-conserved-mass.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>One design law decides how treasure drops, what cutting a rival pays, and why sprinting scatters your own size behind you.</description>
+    </item>
+    <item>
+      <title>Twelve skins that actually move</title>
+      <link>https://wormifi.com/devlog-animated-materials.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-animated-materials.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>Replacing palette-swap skins with animated materials - flowing ribbons, traveling gleams, lightning - inside a strict frame budget.</description>
+    </item>
+    <item>
+      <title>The 60fps budget: performance as a contract</title>
+      <link>https://wormifi.com/devlog-60fps-budget.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-60fps-budget.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>Every visual feature passes a 60-second crowded-arena gate before it ships: frame pacing, long tasks, memory growth.</description>
+    </item>
+    <item>
+      <title>Shipping a game with no app store</title>
+      <link>https://wormifi.com/devlog-no-app-store.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-no-app-store.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>A signed Android package, iPhone home-screen install, offline solo play - the whole store pipeline without the store.</description>
+    </item>
+    <item>
+      <title>Skins stay cosmetic: our monetization line</title>
+      <link>https://wormifi.com/devlog-skins-stay-cosmetic.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-skins-stay-cosmetic.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>What we will and will not sell, written down in public before the store opened: appearance yes, power never.</description>
+    </item>
+    <item>
+      <title>The Wormifi roadmap</title>
+      <link>https://wormifi.com/roadmap.html</link>
+      <guid isPermaLink="true">https://wormifi.com/roadmap.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>What is live today and what is in the workshop - real character heads, a cosmetics store, sturdier live rooms - labeled honestly.</description>
+    </item>
+    <item>
+      <title>What shipped, and when</title>
+      <link>https://wormifi.com/changelog.html</link>
+      <guid isPermaLink="true">https://wormifi.com/changelog.html</guid>
+      <pubDate>Thu, 30 Jul 2026 21:00:00 GMT</pubDate>
+      <description>The public shipping record: boards, paces, friend rooms, animated materials, turbo, installs without an app store.</description>
+    </item>
+  </channel>
+</rss>
