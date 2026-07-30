@@ -84,3 +84,45 @@ export function advanceCameraMotion(
   camera.position.y += offsetY * response;
   return camera.position;
 }
+
+/**
+ * Converts a pointer location into a world steering direction from the
+ * captain's rendered head. Camera damping intentionally lets the head trail
+ * screen center by a few pixels, so steering from the viewport center would
+ * quietly bend close pointer targets away from where the player aimed.
+ */
+export function pointerSteeringDirection(
+  pointer: Readonly<Vec2>,
+  viewport: Readonly<{ width: number; height: number }>,
+  camera: Readonly<Vec2>,
+  player: Readonly<Vec2> | undefined,
+  zoom: number,
+  deadZone: number,
+): Vec2 | undefined {
+  if (
+    !Number.isFinite(pointer.x) ||
+    !Number.isFinite(pointer.y) ||
+    !Number.isFinite(viewport.width) ||
+    !Number.isFinite(viewport.height) ||
+    viewport.width <= 0 ||
+    viewport.height <= 0 ||
+    !Number.isFinite(camera.x) ||
+    !Number.isFinite(camera.y) ||
+    !Number.isFinite(zoom) ||
+    zoom <= 0 ||
+    !Number.isFinite(deadZone) ||
+    deadZone < 0
+  ) {
+    return undefined;
+  }
+
+  const originX = viewport.width / 2 + ((player?.x ?? camera.x) - camera.x) * zoom;
+  const originY = viewport.height / 2 + ((player?.y ?? camera.y) - camera.y) * zoom;
+  const offsetX = pointer.x - originX;
+  const offsetY = pointer.y - originY;
+  const length = Math.hypot(offsetX, offsetY);
+  if (!Number.isFinite(length) || length < deadZone || length <= Number.EPSILON) {
+    return undefined;
+  }
+  return { x: offsetX / length, y: offsetY / length };
+}

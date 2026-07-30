@@ -124,6 +124,7 @@ import { remainingSprintBurstMs } from "../game/sprintControl";
 import {
   advanceCameraMotion,
   createCameraMotionState,
+  pointerSteeringDirection,
   snapCameraMotion,
   type CameraMotionState,
 } from "../game/cameraMotion";
@@ -1113,11 +1114,25 @@ export function ArenaCanvas({
     if (paused) return;
     const rect = stageRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = clientX - (rect.left + rect.width / 2);
-    const y = clientY - (rect.top + rect.height / 2);
-    const length = Math.hypot(x, y);
-    if (length < 10) return;
-    const direction = { x: x / length, y: y / length };
+    const runtime = runtimeRef.current;
+    const player = runtime?.state.players[PLAYER_ID];
+    const direction = pointerSteeringDirection(
+      { x: clientX - rect.left, y: clientY - rect.top },
+      rect,
+      runtime?.camera.position ?? { x: 0, y: 0 },
+      player?.alive ? player.position : undefined,
+      runtime && player
+        ? getArenaCameraZoom(
+          rect.width,
+          rect.height,
+          player.mass,
+          player.specialist,
+          runtime.state.tick,
+        )
+        : 1,
+      10,
+    );
+    if (!direction) return;
     directionRef.current = direction;
     if (running) recordMeaningfulSteer(direction);
   };

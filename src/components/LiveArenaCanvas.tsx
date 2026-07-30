@@ -128,6 +128,7 @@ import {
 import {
   advanceCameraMotion,
   createCameraMotionState,
+  pointerSteeringDirection,
   type CameraMotionState,
 } from "../game/cameraMotion";
 
@@ -1666,11 +1667,23 @@ export function LiveArenaCanvas({
   const setPointerDirection = (clientX: number, clientY: number) => {
     const rect = stageRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = clientX - rect.left - rect.width / 2;
-    const y = clientY - rect.top - rect.height / 2;
-    const length = Math.hypot(x, y);
-    if (length < 8) return;
-    const direction = { x: x / length, y: y / length };
+    const snapshot = getPresentedSnapshot(presentationRef.current, performance.now());
+    const player = snapshot?.players.find((candidate) => candidate.id === ui.playerId);
+    const direction = pointerSteeringDirection(
+      { x: clientX - rect.left, y: clientY - rect.top },
+      rect,
+      cameraRef.current.position,
+      player?.alive ? player.position : undefined,
+      getArenaCameraZoom(
+        rect.width,
+        rect.height,
+        player?.mass ?? ui.exactMass,
+        player?.specialist ?? ui.activeRelic,
+        snapshot?.tick ?? ui.tick,
+      ),
+      8,
+    );
+    if (!direction) return;
     directionRef.current = direction;
     recordMeaningfulSteer(direction);
   };

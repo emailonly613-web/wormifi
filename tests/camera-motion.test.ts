@@ -4,6 +4,7 @@ import {
   CAMERA_TELEPORT_SNAP_DISTANCE,
   advanceCameraMotion,
   createCameraMotionState,
+  pointerSteeringDirection,
 } from "../src/game/cameraMotion";
 
 function followForOneSecond(frameRate: number) {
@@ -49,5 +50,34 @@ describe("frame-rate-independent camera motion", () => {
       x: 10 + CAMERA_TELEPORT_SNAP_DISTANCE,
       y: 20,
     });
+  });
+});
+
+describe("camera-faithful pointer steering", () => {
+  it("aims from the rendered head while the camera is catching up", () => {
+    const direction = pointerSteeringDirection(
+      { x: 540, y: 400 },
+      { width: 1_000, height: 600 },
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      2,
+      8,
+    );
+
+    // The head is actually painted at (540, 300), so this pointer is straight
+    // down from the creature even though it is diagonal from screen center.
+    expect(direction?.x).toBeCloseTo(0, 10);
+    expect(direction?.y).toBeCloseTo(1, 10);
+  });
+
+  it("keeps the dead zone centered on the visible head", () => {
+    expect(pointerSteeringDirection(
+      { x: 539, y: 303 },
+      { width: 1_000, height: 600 },
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      2,
+      8,
+    )).toBeUndefined();
   });
 });
