@@ -64,6 +64,8 @@ import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
+  GROUND_TREASURE_MIN_LOGICAL_SIZE,
+  GROUND_TREASURE_RADIUS_SCALE,
   type GroundTreasureSpriteItem,
 } from "../game/pirateSpriteAtlas";
 import {
@@ -2493,7 +2495,10 @@ function drawNetworkDrop(
   if (!drawPirateAtlasSprite(context, commonTreasureSprite(stableNumber(drop.id)), {
     x: 0,
     y: 0,
-    size: Math.max(26, radius * 3),
+    size: Math.max(
+      GROUND_TREASURE_MIN_LOGICAL_SIZE,
+      radius * GROUND_TREASURE_RADIUS_SCALE,
+    ),
     rotation: ((stableNumber(drop.id) % 17) - 8) * 0.035,
   })) {
     drawFacetedGem(context, radius, color, now, stableNumber(drop.id));

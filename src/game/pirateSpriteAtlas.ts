@@ -45,8 +45,18 @@ type DrawableSprite = HTMLImageElement | HTMLCanvasElement;
 const sourceImages = new Map<PirateSpriteName, HTMLImageElement>();
 const hueVariants = new Map<string, HTMLCanvasElement>();
 const GROUND_TREASURE_SPRITE_LOGICAL_EXTENT = 48;
-export const GROUND_TREASURE_MIN_LOGICAL_SIZE = 26;
-export const GROUND_TREASURE_RADIUS_SCALE = 3;
+export const GROUND_TREASURE_MIN_LOGICAL_SIZE = 42;
+export const GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE = 34;
+export const GROUND_TREASURE_RADIUS_SCALE = 4.25;
+const GROUND_TREASURE_PLATE_COLORS = [
+  "rgba(255, 211, 82, 0.96)",
+  "rgba(255, 92, 112, 0.96)",
+  "rgba(89, 180, 255, 0.96)",
+  "rgba(75, 241, 171, 0.96)",
+  "rgba(255, 244, 222, 0.96)",
+  "rgba(255, 178, 60, 0.96)",
+  "rgba(255, 221, 145, 0.96)",
+] as const;
 const GROUND_TREASURE_SOURCE_SCALES = [1, 2] as const;
 const GROUND_TREASURE_ROTATION_MIN = -8;
 const GROUND_TREASURE_ROTATION_COUNT = 17;
@@ -372,6 +382,30 @@ export interface GroundTreasureSpriteItem {
   screenY?: number;
 }
 
+function drawGroundTreasurePlate(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  safeSeed: number,
+): void {
+  const plateRadius = size * 0.58;
+  context.globalAlpha = 0.92;
+  context.fillStyle = "rgba(3, 9, 31, 0.82)";
+  context.strokeStyle = GROUND_TREASURE_PLATE_COLORS[
+    safeSeed % GROUND_TREASURE_PLATE_COLORS.length
+  ];
+  context.lineWidth = Math.max(1.5, size * 0.045);
+  context.beginPath();
+  context.moveTo(x, y - plateRadius);
+  context.lineTo(x + plateRadius, y);
+  context.lineTo(x, y + plateRadius);
+  context.lineTo(x - plateRadius, y);
+  context.closePath();
+  context.fill();
+  context.stroke();
+}
+
 /**
  * Bounded field renderer for ordinary ground loot. Unlike the old radial gem
  * field, every object has a semantic, asymmetric pirate-treasure silhouette.
@@ -398,6 +432,9 @@ export function drawGroundTreasureSpriteField(
     ? undefined
     : groundTreasureRotationAtlasFor(sourceScale);
   const treasureSizeScale = zoom * GROUND_TREASURE_RADIUS_SCALE;
+  const minimumTreasureSize = height <= 500 || width <= 700
+    ? GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE
+    : GROUND_TREASURE_MIN_LOGICAL_SIZE;
   const pulseTime = now * 0.0024;
   const bobTime = now * 0.002;
   const atlasDestinationScale = rotationAtlas
@@ -405,6 +442,10 @@ export function drawGroundTreasureSpriteField(
     : 0;
   const previousSmoothingEnabled = context.imageSmoothingEnabled;
   const previousSmoothingQuality = context.imageSmoothingQuality;
+  const previousGlobalAlpha = context.globalAlpha;
+  const previousFillStyle = context.fillStyle;
+  const previousStrokeStyle = context.strokeStyle;
+  const previousLineWidth = context.lineWidth;
   context.imageSmoothingEnabled = true;
   // Atlas cells were already rotated and resampled at high quality offline.
   // Medium runtime filtering keeps small treasure crisp without repeating an
@@ -418,7 +459,7 @@ export function drawGroundTreasureSpriteField(
       const screenX = item.screenX ?? projected!.x;
       const screenY = item.screenY ?? projected!.y;
       const baseSize = Math.max(
-        GROUND_TREASURE_MIN_LOGICAL_SIZE,
+        minimumTreasureSize,
         item.radius * treasureSizeScale,
       );
       // Atlas content can extend at most sqrt(2)/2 of its requested size from
@@ -459,6 +500,16 @@ export function drawGroundTreasureSpriteField(
           destinationExtent,
         );
       } else {
+        if (typeof context.beginPath === "function") {
+          drawGroundTreasurePlate(
+            context,
+            spriteOptions.x,
+            spriteOptions.y,
+            spriteOptions.size,
+            safeSeed,
+          );
+          context.globalAlpha = previousGlobalAlpha;
+        }
         const rotationClass = GROUND_TREASURE_ROTATION_MIN + rotationIndex;
         spriteOptions.rotation = rotationClass * 0.035;
         const spriteName = commonTreasureSprite(item.seed);
@@ -468,6 +519,10 @@ export function drawGroundTreasureSpriteField(
   } finally {
     context.imageSmoothingEnabled = previousSmoothingEnabled;
     context.imageSmoothingQuality = previousSmoothingQuality;
+    context.globalAlpha = previousGlobalAlpha;
+    context.fillStyle = previousFillStyle;
+    context.strokeStyle = previousStrokeStyle;
+    context.lineWidth = previousLineWidth;
   }
 }
 

@@ -48,10 +48,19 @@ function canvasContext(sourceScale = 1) {
     translate: vi.fn(),
     rotate: vi.fn(),
     scale: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
     drawImage: vi.fn(),
     imageSmoothingEnabled: false,
     imageSmoothingQuality: "low",
     globalAlpha: 1,
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
   };
 }
 
@@ -282,8 +291,8 @@ describe("bounded static pirate treasure rotation atlases", () => {
 
     for (const sourceScale of [1, 2]) {
       const context = canvasContext(sourceScale);
-      const baseSize = 30.1;
-      const item = { ...ITEM, radius: baseSize / 3, seed: 0 };
+      const baseSize = 45.1;
+      const item = { ...ITEM, radius: baseSize / 4.25, seed: 0 };
       drawGroundTreasureSpriteField(
         context as unknown as CanvasRenderingContext2D,
         [item],

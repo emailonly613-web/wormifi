@@ -4,12 +4,19 @@ import { resolve } from "node:path";
 import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
+  GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE,
+  GROUND_TREASURE_MIN_LOGICAL_SIZE,
   pirateSpritePath,
   PIRATE_SPRITE_NAMES,
   serpentBodySprite,
 } from "../src/game/pirateSpriteAtlas";
 
 describe("original pirate sprite atlas", () => {
+  it("keeps ordinary prizes legible at desktop and compact gameplay sizes", () => {
+    expect(GROUND_TREASURE_MIN_LOGICAL_SIZE).toBeGreaterThanOrEqual(40);
+    expect(GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE).toBeGreaterThanOrEqual(34);
+  });
+
   it("maps ordinary pickups to semantic treasure silhouettes, never dots", () => {
     const expected = new Set([
       "treasure-doubloons",

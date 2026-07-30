@@ -24,6 +24,15 @@ const treasureNames = [
 const rotationCount = 17;
 const rotationMinimum = -8;
 const atlasColumns = 10;
+const plateColors = [
+  "rgba(255, 211, 82, 0.96)",
+  "rgba(255, 92, 112, 0.96)",
+  "rgba(89, 180, 255, 0.96)",
+  "rgba(75, 241, 171, 0.96)",
+  "rgba(255, 244, 222, 0.96)",
+  "rgba(255, 178, 60, 0.96)",
+  "rgba(255, 221, 145, 0.96)",
+];
 
 const sprites = await Promise.all(treasureNames.map(async (name) => ({
   name,
@@ -37,6 +46,7 @@ try {
   const page = await browser.newPage();
   const atlases = await page.evaluate(async ({
     atlasColumns,
+    plateColors,
     rotationCount,
     rotationMinimum,
     sprites,
@@ -74,6 +84,20 @@ try {
             column * cellExtent + cellExtent / 2,
             row * cellExtent + cellExtent / 2,
           );
+          const plateRadius = spriteExtent * 0.58;
+          context.globalAlpha = 0.92;
+          context.fillStyle = "rgba(3, 9, 31, 0.82)";
+          context.strokeStyle = plateColors[treasureIndex % plateColors.length];
+          context.lineWidth = Math.max(1.5 * sourceScale, spriteExtent * 0.045);
+          context.beginPath();
+          context.moveTo(0, -plateRadius);
+          context.lineTo(plateRadius, 0);
+          context.lineTo(0, plateRadius);
+          context.lineTo(-plateRadius, 0);
+          context.closePath();
+          context.fill();
+          context.stroke();
+          context.globalAlpha = 1;
           context.rotate((rotationMinimum + rotationIndex) * 0.035);
           context.drawImage(
             image,
@@ -94,7 +118,7 @@ try {
       });
     }
     return outputs;
-  }, { atlasColumns, rotationCount, rotationMinimum, sprites });
+  }, { atlasColumns, plateColors, rotationCount, rotationMinimum, sprites });
 
   await mkdir(spriteDirectory, { recursive: true });
   for (const atlas of atlases) {

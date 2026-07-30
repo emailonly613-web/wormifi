@@ -679,7 +679,7 @@ export function drawTreasureChest(
   now: number,
   seed: number,
 ) {
-  const size = spriteRadius(Math.max(16, radius * 1.35));
+  const size = spriteRadius(Math.max(22, radius * 1.65));
   const bob = Math.sin(now * 0.0035 + seed * 0.021) * size * 0.08;
   const image = readyRenderImage(PIRATE_RENDER_ASSETS.treasureChest);
   const spriteHalfSize = size * (image ? 2.2 : 2.35);
@@ -692,8 +692,8 @@ export function drawTreasureChest(
         paintRenderImage(
           spriteContext,
           image,
-          size * 3.45,
-          size * 3.45,
+          size * 3.65,
+          size * 3.65,
           undefined,
           "#ffcb57",
         );
