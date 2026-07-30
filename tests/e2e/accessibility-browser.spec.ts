@@ -154,7 +154,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
     await expect(page.getByRole("timer")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /exit to wormifi menu/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /sprint.*costs 12 size/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /sprint.*costs 4 size/i })).toBeVisible();
 
     await page.keyboard.press("ArrowDown");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
@@ -280,7 +280,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
       await expect(landscapeGate).toHaveCount(0);
     }
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
-    const sprint = page.getByRole("button", { name: /sprint.*costs 12 size/i });
+    const sprint = page.getByRole("button", { name: /sprint.*costs 4 size/i });
     await expectWithinViewport(exit, page);
     await expectWithinViewport(sprint, page);
     await expect(page.getByRole("status")).toContainText("STEP 1 OF 4");

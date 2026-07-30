@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ControlScheme } from "../game/controlScheme";
+import { DEFAULT_GAME_CONFIG } from "../game/core";
 import type { Vec2 } from "../game/types";
 
 export type ArenaTutorialStage =
@@ -11,7 +12,7 @@ export type ArenaTutorialStage =
   | "collector"
   | "complete";
 
-const SPRINT_SIZE_COST_PER_SECOND = 12;
+const SPRINT_SIZE_COST_PER_SECOND = DEFAULT_GAME_CONFIG.boostMassPerSecond;
 
 function normalizedDot(first: Vec2, second: Vec2) {
   const firstLength = Math.hypot(first.x, first.y);

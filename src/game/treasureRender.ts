@@ -1036,6 +1036,91 @@ function drawProceduralWormTail(
   context.restore();
 }
 
+export interface TurboReserveGaugeOptions {
+  points: readonly Vec2[];
+  bodyRadius: number;
+  reserveRatio: number;
+  now: number;
+  motion?: number;
+}
+
+/**
+ * Paints a compact fuel tube inside the worm's first body section. The dark
+ * trough always shows capacity; the colored core retreats toward the tail as
+ * server-authoritative Turbo reserve is spent. Every stroke remains far
+ * inside the body collider.
+ */
+export function drawTurboReserveGauge(
+  context: CanvasRenderingContext2D,
+  options: TurboReserveGaugeOptions,
+) {
+  const { points, bodyRadius, now, motion = 1 } = options;
+  if (points.length < 4 || bodyRadius < 3) return;
+  const reserveRatio = Math.max(0, Math.min(1, options.reserveRatio));
+  const firstIndex = 1;
+  const finalIndex = Math.min(points.length - 2, 8);
+  if (finalIndex <= firstIndex) return;
+
+  let totalLength = 0;
+  for (let index = firstIndex + 1; index <= finalIndex; index += 1) {
+    totalLength += Math.hypot(
+      points[index].x - points[index - 1].x,
+      points[index].y - points[index - 1].y,
+    );
+  }
+  if (totalLength < 0.001) return;
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.setLineDash([]);
+  context.globalAlpha = 0.78;
+  context.strokeStyle = "rgba(1,10,18,0.9)";
+  context.lineWidth = Math.max(1.4, bodyRadius * 0.32);
+  context.beginPath();
+  context.moveTo(points[firstIndex].x, points[firstIndex].y);
+  for (let index = firstIndex + 1; index <= finalIndex; index += 1) {
+    context.lineTo(points[index].x, points[index].y);
+  }
+  context.stroke();
+
+  if (reserveRatio > 0.001) {
+    const fillColor = reserveRatio > 0.98
+      ? "#7cffe3"
+      : reserveRatio > 0.55
+        ? "#4fd9ff"
+        : reserveRatio > 0.25
+          ? "#ffd56c"
+          : "#ff6b72";
+    let remainingLength = totalLength * reserveRatio;
+    context.globalAlpha = reserveRatio > 0.98 && motion > 0
+      ? 0.88 + Math.sin(now * 0.009) * 0.1
+      : 0.9;
+    context.strokeStyle = fillColor;
+    context.lineWidth = Math.max(1, bodyRadius * 0.15);
+    context.beginPath();
+    context.moveTo(points[finalIndex].x, points[finalIndex].y);
+    for (let index = finalIndex; index > firstIndex && remainingLength > 0; index -= 1) {
+      const from = points[index];
+      const to = points[index - 1];
+      const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+      if (segmentLength <= remainingLength + 0.001) {
+        context.lineTo(to.x, to.y);
+        remainingLength -= segmentLength;
+      } else if (segmentLength > 0.001) {
+        const ratio = remainingLength / segmentLength;
+        context.lineTo(
+          from.x + (to.x - from.x) * ratio,
+          from.y + (to.y - from.y) * ratio,
+        );
+        remainingLength = 0;
+      }
+    }
+    context.stroke();
+  }
+  context.restore();
+}
+
 /**
  * Draws Wormifi's non-solid bow-wave signature just ahead of a living head.
  * The three lantern-colored crests communicate heading and close-pass motion,

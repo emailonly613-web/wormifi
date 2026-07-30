@@ -20,6 +20,8 @@ import {
   getBodyRadius,
   getRankings,
   isPlayerBoosting,
+  getPlayerTurboReserveRatio,
+  getPlayerTurboSecondsRemaining,
 } from "../game/core";
 import {
   LOCAL_BOT_COUNT,
@@ -61,6 +63,7 @@ import {
   drawRivalHoardGem,
   drawTreasureChest,
   drawTreasureShard,
+  drawTurboReserveGauge,
 } from "../game/treasureRender";
 import {
   commonTreasureSprite,
@@ -1309,6 +1312,10 @@ export function ArenaCanvas({
   );
   const activePace = getGamePaceProfile(paceId);
   const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
+  const turboPlayer = runtimeRef.current?.state.players[PLAYER_ID] ?? { mass: hud.mass };
+  const turboConfig = runtimeRef.current?.state.config ?? DEFAULT_GAME_CONFIG;
+  const turboReserveRatio = getPlayerTurboReserveRatio(turboPlayer, turboConfig);
+  const turboSecondsRemaining = getPlayerTurboSecondsRemaining(turboPlayer, turboConfig);
 
   return (
     <div
@@ -1331,6 +1338,8 @@ export function ArenaCanvas({
       data-player-x={Math.round(hud.position.x)}
       data-player-y={Math.round(hud.position.y)}
       data-player-mass={hud.mass}
+      data-turbo-reserve={turboReserveRatio.toFixed(3)}
+      data-turbo-seconds={turboSecondsRemaining.toFixed(2)}
       data-player-length={hud.length}
       data-boosting={boosting ? "true" : "false"}
       data-relic-kind={relicStatus?.presentation.relicKind ?? ""}
@@ -1500,7 +1509,7 @@ export function ArenaCanvas({
               releaseSprint();
             }}
             onPointerCancel={releaseSprint}
-            aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, costs ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
+            aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, costs ${SPRINT_SIZE_COST_PER_SECOND} size per second, ${turboSecondsRemaining.toFixed(1)} seconds available`}
           >
             <span>SPRINT</span>
             <small>{sprintMultiplierLabel} · −{SPRINT_SIZE_COST_PER_SECOND} SIZE/S</small>
@@ -2082,6 +2091,14 @@ function drawLivingChain(
       renderPlan: photoSkin.renderPlan,
     });
   }
+
+  drawTurboReserveGauge(context, {
+    points,
+    bodyRadius: followerRadius,
+    reserveRatio: getPlayerTurboReserveRatio(player, state.config),
+    now,
+    motion: materialMotion,
+  });
 
   if (activeRelic && points[1]) {
     // Relic paint stays entirely inside an existing solid segment. It changes

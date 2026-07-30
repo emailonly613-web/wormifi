@@ -10,6 +10,7 @@ import {
   drawRivalHoardGem,
   drawTreasureChest,
   drawTreasureShard,
+  drawTurboReserveGauge,
 } from "../src/game/treasureRender";
 
 function recordingContext() {
@@ -237,6 +238,35 @@ describe("pirate treasure visual contract", () => {
     expect(sprintRails).toHaveLength(2);
     expect(sprintRails.every((record) => record.lineToCount === 3)).toBe(true);
     expect(Math.max(...strokeWidths)).toBe(24);
+  });
+
+  it("draws a truthful partial Turbo reserve entirely inside the body", () => {
+    const { context, strokeRecords, strokeWidths } = recordingContext();
+    drawTurboReserveGauge(context, {
+      points: [
+        { x: 100, y: 30 },
+        { x: 84, y: 30 },
+        { x: 68, y: 30 },
+        { x: 52, y: 30 },
+        { x: 36, y: 30 },
+        { x: 20, y: 30 },
+      ],
+      bodyRadius: 12,
+      reserveRatio: 0.5,
+      now: 1_000,
+    });
+
+    const trough = strokeRecords.filter(
+      (record) => record.strokeStyle === "rgba(1,10,18,0.9)",
+    );
+    const reserve = strokeRecords.filter(
+      (record) => record.strokeStyle === "#ffd56c",
+    );
+    expect(trough).toHaveLength(1);
+    expect(trough[0].lineToCount).toBe(3);
+    expect(reserve).toHaveLength(1);
+    expect(reserve[0].lineToCount).toBe(2);
+    expect(Math.max(...strokeWidths)).toBeLessThan(12 * 2);
   });
 
   it("paints three curved pirate bow-wave beams without widening the worm collider", () => {

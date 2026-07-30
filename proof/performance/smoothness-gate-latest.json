@@ -1,7 +1,7 @@
 {
   "verdict": "LOCAL_SMOOTHNESS_GATE_PASS",
   "claim": "bounded-local-chromium-smoothness-proof-only",
-  "measuredAtUtc": "2026-07-30T20:58:51.723Z",
+  "measuredAtUtc": "2026-07-30T21:34:30.308Z",
   "candidate": {
     "baseUrl": "http://127.0.0.1:4185",
     "browser": "chromium",
@@ -59,236 +59,43 @@
     {
       "scene": "crowded-practice",
       "configuredSeconds": 60,
-      "actualMeasuredSeconds": 60.175,
-      "canvasFramesPerSecond": 58.13,
+      "actualMeasuredSeconds": 60.209,
+      "canvasFramesPerSecond": 58.645,
       "displayFrameGapMs": {
-        "count": 3498,
+        "count": 3530,
         "min": 16.5,
-        "mean": 17.2,
+        "mean": 17.053,
         "p50": 16.7,
         "p95": 16.8,
-        "p99": 33.4,
-        "max": 33.5
-      },
-      "canvasFrameGapMs": {
-        "count": 3497,
-        "min": 5.6,
-        "mean": 17.204,
-        "p50": 16.9,
-        "p95": 20.5,
-        "p99": 26.5,
-        "max": 42.5
-      },
-      "animationCallbackDurationMs": {
-        "count": 3518,
-        "min": 0,
-        "mean": 1.047,
-        "p50": 1,
-        "p95": 1.7,
-        "p99": 2.9,
-        "max": 11.6
-      },
-      "inputToNextCanvasPaintMs": {
-        "count": 24,
-        "min": 1.5,
-        "mean": 8.092,
-        "p50": 8.6,
-        "p95": 13.4,
-        "p99": 13.5,
-        "max": 13.5
-      },
-      "slowCanvasFrames": {
-        "thresholdMs": 34,
-        "count": 3,
-        "ratio": 0.001
-      },
-      "longTasks": {
-        "supported": true,
-        "count": 0,
-        "countPerMinute": 0,
-        "totalDurationMs": 0,
-        "durationMs": {
-          "count": 0,
-          "min": 0,
-          "mean": 0,
-          "p50": 0,
-          "p95": 0,
-          "p99": 0,
-          "max": 0
-        },
-        "blockingMs": 0,
-        "blockingMsPerMinute": 0,
-        "entries": [],
-        "longAnimationFrames": {
-          "supported": true,
-          "count": 0,
-          "durationMs": {
-            "count": 0,
-            "min": 0,
-            "mean": 0,
-            "p50": 0,
-            "p95": 0,
-            "p99": 0,
-            "max": 0
-          },
-          "blockingDurationMs": {
-            "count": 0,
-            "min": 0,
-            "mean": 0,
-            "p50": 0,
-            "p95": 0,
-            "p99": 0,
-            "max": 0
-          },
-          "topAttributedScripts": []
-        }
-      },
-      "heap": {
-        "samplingMode": "post-gc-endpoints",
-        "startAfterGcMiB": 4.668,
-        "endAfterGcMiB": 6.438,
-        "retainedGrowthMiB": 1.77,
-        "peakSampleMiB": null,
-        "sampleSlopeMiBPerMinute": null,
-        "sampleSlopeGateEligible": false,
-        "samples": [
-          {
-            "elapsedMs": 0,
-            "usedMiB": 4.668
-          },
-          {
-            "elapsedMs": 60242,
-            "usedMiB": 6.438
-          }
-        ]
-      },
-      "session": {
-        "restarts": 5,
-        "canvasPaints": 3498,
-        "lifecycleMarks": [
-          {
-            "name": "result-mounted",
-            "startTime": 15322.2
-          },
-          {
-            "name": "restart-click",
-            "startTime": 15322.3
-          },
-          {
-            "name": "first-canvas-after-restart",
-            "startTime": 15330.4
-          },
-          {
-            "name": "result-mounted",
-            "startTime": 25720.4
-          },
-          {
-            "name": "restart-click",
-            "startTime": 25720.4
-          },
-          {
-            "name": "first-canvas-after-restart",
-            "startTime": 25729.2
-          },
-          {
-            "name": "result-mounted",
-            "startTime": 36126.4
-          },
-          {
-            "name": "restart-click",
-            "startTime": 36126.4
-          },
-          {
-            "name": "first-canvas-after-restart",
-            "startTime": 36134.5
-          },
-          {
-            "name": "result-mounted",
-            "startTime": 50610.8
-          },
-          {
-            "name": "restart-click",
-            "startTime": 50610.8
-          },
-          {
-            "name": "first-canvas-after-restart",
-            "startTime": 50626.4
-          },
-          {
-            "name": "result-mounted",
-            "startTime": 66535.1
-          },
-          {
-            "name": "restart-click",
-            "startTime": 66535.1
-          },
-          {
-            "name": "first-canvas-after-restart",
-            "startTime": 66543.7
-          }
-        ]
-      },
-      "environmentDiagnostic": {
-        "pass": true,
-        "note": "Diagnostic only; it never changes the release verdict or its 55 FPS / 22 ms p95 budget."
-      },
-      "gates": {
-        "canvasFramesPerSecond": true,
-        "canvasFrameGapP95": true,
-        "canvasFrameGapP99": true,
-        "slowCanvasFrameRatio": true,
-        "animationCallbackP95": true,
-        "animationCallbackP99": true,
-        "inputToNextPaintP95": true,
-        "inputToNextPaintP99": true,
-        "longTaskCount": true,
-        "longTaskBlockingTime": true,
-        "retainedHeapGrowth": true,
-        "sampledHeapSlope": true,
-        "browserErrors": true
-      },
-      "pass": true
-    },
-    {
-      "scene": "authoritative-live",
-      "configuredSeconds": 60,
-      "actualMeasuredSeconds": 60.162,
-      "canvasFramesPerSecond": 59.772,
-      "displayFrameGapMs": {
-        "count": 3595,
-        "min": 16.5,
-        "mean": 16.731,
-        "p50": 16.7,
-        "p95": 16.8,
-        "p99": 16.8,
+        "p99": 33.3,
         "max": 33.4
       },
       "canvasFrameGapMs": {
-        "count": 3595,
-        "min": 8.8,
-        "mean": 16.73,
-        "p50": 16.7,
-        "p95": 18.2,
-        "p99": 20.4,
-        "max": 23.2
+        "count": 3530,
+        "min": 3.1,
+        "mean": 17.053,
+        "p50": 16.9,
+        "p95": 19.6,
+        "p99": 22.1,
+        "max": 32.5
       },
       "animationCallbackDurationMs": {
-        "count": 3596,
-        "min": 0.3,
-        "mean": 0.738,
-        "p50": 0.7,
-        "p95": 1,
-        "p99": 1.2,
-        "max": 2.9
+        "count": 3539,
+        "min": 0,
+        "mean": 1.187,
+        "p50": 1.1,
+        "p95": 1.9,
+        "p99": 3.6,
+        "max": 12.5
       },
       "inputToNextCanvasPaintMs": {
         "count": 24,
-        "min": 0.2,
-        "mean": 0.908,
-        "p50": 0.3,
-        "p95": 5.3,
-        "p99": 5.7,
-        "max": 5.7
+        "min": 1,
+        "mean": 7.8,
+        "p50": 8.6,
+        "p95": 13.3,
+        "p99": 13.6,
+        "max": 13.6
       },
       "slowCanvasFrames": {
         "thresholdMs": 34,
@@ -338,26 +145,183 @@
       },
       "heap": {
         "samplingMode": "post-gc-endpoints",
-        "startAfterGcMiB": 4.874,
-        "endAfterGcMiB": 5.491,
-        "retainedGrowthMiB": 0.617,
+        "startAfterGcMiB": 4.766,
+        "endAfterGcMiB": 6.322,
+        "retainedGrowthMiB": 1.556,
         "peakSampleMiB": null,
         "sampleSlopeMiBPerMinute": null,
         "sampleSlopeGateEligible": false,
         "samples": [
           {
             "elapsedMs": 0,
-            "usedMiB": 4.874
+            "usedMiB": 4.766
           },
           {
-            "elapsedMs": 60248,
-            "usedMiB": 5.491
+            "elapsedMs": 60271,
+            "usedMiB": 6.322
+          }
+        ]
+      },
+      "session": {
+        "restarts": 2,
+        "canvasPaints": 3531,
+        "lifecycleMarks": [
+          {
+            "name": "result-mounted",
+            "startTime": 50954.3
+          },
+          {
+            "name": "restart-click",
+            "startTime": 50954.3
+          },
+          {
+            "name": "first-canvas-after-restart",
+            "startTime": 50965.6
+          },
+          {
+            "name": "result-mounted",
+            "startTime": 62019
+          },
+          {
+            "name": "restart-click",
+            "startTime": 62019
+          },
+          {
+            "name": "first-canvas-after-restart",
+            "startTime": 62028.9
+          }
+        ]
+      },
+      "environmentDiagnostic": {
+        "pass": true,
+        "note": "Diagnostic only; it never changes the release verdict or its 55 FPS / 22 ms p95 budget."
+      },
+      "gates": {
+        "canvasFramesPerSecond": true,
+        "canvasFrameGapP95": true,
+        "canvasFrameGapP99": true,
+        "slowCanvasFrameRatio": true,
+        "animationCallbackP95": true,
+        "animationCallbackP99": true,
+        "inputToNextPaintP95": true,
+        "inputToNextPaintP99": true,
+        "longTaskCount": true,
+        "longTaskBlockingTime": true,
+        "retainedHeapGrowth": true,
+        "sampledHeapSlope": true,
+        "browserErrors": true
+      },
+      "pass": true
+    },
+    {
+      "scene": "authoritative-live",
+      "configuredSeconds": 60,
+      "actualMeasuredSeconds": 60.098,
+      "canvasFramesPerSecond": 60.002,
+      "displayFrameGapMs": {
+        "count": 3605,
+        "min": 16.5,
+        "mean": 16.666,
+        "p50": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 16.8
+      },
+      "canvasFrameGapMs": {
+        "count": 3605,
+        "min": 12.2,
+        "mean": 16.666,
+        "p50": 16.7,
+        "p95": 18.1,
+        "p99": 18.7,
+        "max": 19.6
+      },
+      "animationCallbackDurationMs": {
+        "count": 3606,
+        "min": 0.3,
+        "mean": 0.712,
+        "p50": 0.7,
+        "p95": 1,
+        "p99": 1.2,
+        "max": 2.9
+      },
+      "inputToNextCanvasPaintMs": {
+        "count": 24,
+        "min": 0.5,
+        "mean": 5.842,
+        "p50": 5.5,
+        "p95": 9.9,
+        "p99": 11.4,
+        "max": 11.4
+      },
+      "slowCanvasFrames": {
+        "thresholdMs": 34,
+        "count": 0,
+        "ratio": 0
+      },
+      "longTasks": {
+        "supported": true,
+        "count": 0,
+        "countPerMinute": 0,
+        "totalDurationMs": 0,
+        "durationMs": {
+          "count": 0,
+          "min": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "blockingMs": 0,
+        "blockingMsPerMinute": 0,
+        "entries": [],
+        "longAnimationFrames": {
+          "supported": true,
+          "count": 0,
+          "durationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingDurationMs": {
+            "count": 0,
+            "min": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topAttributedScripts": []
+        }
+      },
+      "heap": {
+        "samplingMode": "post-gc-endpoints",
+        "startAfterGcMiB": 4.801,
+        "endAfterGcMiB": 5.341,
+        "retainedGrowthMiB": 0.54,
+        "peakSampleMiB": null,
+        "sampleSlopeMiBPerMinute": null,
+        "sampleSlopeGateEligible": false,
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "usedMiB": 4.801
+          },
+          {
+            "elapsedMs": 60173,
+            "usedMiB": 5.341
           }
         ]
       },
       "session": {
         "restarts": 0,
-        "canvasPaints": 3596,
+        "canvasPaints": 3606,
         "lifecycleMarks": []
       },
       "environmentDiagnostic": {
@@ -365,35 +329,35 @@
         "note": "Diagnostic only; it never changes the release verdict or its 55 FPS / 22 ms p95 budget."
       },
       "live": {
-        "websocketMessages": 903,
-        "snapshots": 903,
+        "websocketMessages": 902,
+        "snapshots": 902,
         "snapshotsPerSecond": 15.009,
         "snapshotInterArrivalMs": {
-          "count": 902,
-          "min": 27.8,
-          "mean": 66.657,
-          "p50": 65.6,
-          "p95": 82.1,
-          "p99": 84.3,
-          "max": 109.5
+          "count": 901,
+          "min": 51.3,
+          "mean": 66.659,
+          "p50": 66.1,
+          "p95": 78.1,
+          "p99": 79.3,
+          "max": 82.5
         },
         "groundDropCount": {
-          "count": 904,
-          "min": 562,
-          "mean": 634.133,
-          "p50": 626,
-          "p95": 722,
-          "p99": 735,
-          "max": 737
+          "count": 903,
+          "min": 568,
+          "mean": 638.858,
+          "p50": 634,
+          "p95": 699,
+          "p99": 716,
+          "max": 722
         },
         "messageHandlerDurationMs": {
-          "count": 903,
+          "count": 902,
           "min": 0.1,
-          "mean": 0.277,
+          "mean": 0.292,
           "p50": 0.3,
           "p95": 0.5,
-          "p99": 0.5,
-          "max": 0.9
+          "p99": 0.6,
+          "max": 0.8
         }
       },
       "gates": {
@@ -430,7 +394,7 @@
     "logicalCpuCount": 48,
     "cpuModel": "AMD Ryzen Threadripper 9960X 24-Cores          ",
     "totalMemoryGiB": 127.371,
-    "freeMemoryGiBAtReport": 92.679
+    "freeMemoryGiBAtReport": 91.705
   },
   "assertions": [
     "The real Canvas2D renderer was measured at 1440x900 in full-motion Chromium.",

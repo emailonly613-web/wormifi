@@ -63,7 +63,7 @@ for (const viewport of [
     const exit = await expectInsideViewport(page.getByRole("button", { name: "Exit to Wormifi menu" }), page);
     const radar = await expectInsideViewport(page.getByTestId("pirate-radar"), page);
     const tutorial = await expectInsideViewport(page.getByTestId("tutorial-coach"), page);
-    const sprint = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 12 size/i }), page);
+    const sprint = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 4 size/i }), page);
 
     expect(exit.width).toBeGreaterThanOrEqual(44);
     expect(exit.height).toBeGreaterThanOrEqual(44);
@@ -106,7 +106,7 @@ for (const viewport of [
 
     const relic = page.getByTestId("relic-status");
     const relicBox = await expectInsideViewport(relic, page);
-    const sprintAfter = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 12 size/i }), page);
+    const sprintAfter = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 4 size/i }), page);
     const authority = await expectInsideViewport(page.getByTestId("mobile-authority-proof"), page);
     expect(overlapArea(relicBox, sprintAfter)).toBe(0);
     expect(overlapArea(authority, sprintAfter)).toBe(0);

@@ -14,7 +14,13 @@ import type {
   WelcomeMessage,
   WorldMessage,
 } from "../../server/src/protocol";
-import { DEFAULT_GAME_CONFIG, getBodyRadius, getPlayerRadius } from "../game/core";
+import {
+  DEFAULT_GAME_CONFIG,
+  getBodyRadius,
+  getPlayerRadius,
+  getPlayerTurboReserveRatio,
+  getPlayerTurboSecondsRemaining,
+} from "../game/core";
 import { remainingSprintBurstMs } from "../game/sprintControl";
 import type {
   ActiveSpecialist,
@@ -53,6 +59,7 @@ import {
   drawRivalHoardGem,
   drawTreasureChest,
   drawTreasureShard,
+  drawTurboReserveGauge,
 } from "../game/treasureRender";
 import {
   commonTreasureSprite,
@@ -1680,6 +1687,14 @@ export function LiveArenaCanvas({
   const authoritative = ui.phase === "authoritative";
   const activePace = worldRef.current?.pace ?? getGamePaceProfile(paceId);
   const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
+  const turboReserveRatio = getPlayerTurboReserveRatio(
+    { mass: ui.exactMass },
+    DEFAULT_GAME_CONFIG,
+  );
+  const turboSecondsRemaining = getPlayerTurboSecondsRemaining(
+    { mass: ui.exactMass },
+    DEFAULT_GAME_CONFIG,
+  );
   const radarWorld = worldRef.current;
   const radarLandmarks: RadarLandmark[] = radarWorld
     ? [
@@ -1749,6 +1764,8 @@ export function LiveArenaCanvas({
       data-player-x={Math.round(ui.position.x)}
       data-player-y={Math.round(ui.position.y)}
       data-player-mass={ui.exactMass}
+      data-turbo-reserve={turboReserveRatio.toFixed(3)}
+      data-turbo-seconds={turboSecondsRemaining.toFixed(2)}
       data-player-length={ui.length}
       data-collision-head-radius={ui.collisionHeadRadius.toFixed(3)}
       data-collision-body-radius={ui.collisionBodyRadius.toFixed(3)}
@@ -1941,7 +1958,7 @@ export function LiveArenaCanvas({
         className={`boost-control ${boosting ? "active" : ""}`}
         data-testid="live-boost-control"
         disabled={!authoritative || ui.mass <= DEFAULT_GAME_CONFIG.minimumBoostMass}
-        aria-label={`Turbo sprint, ${sprintMultiplierLabel} speed, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second`}
+        aria-label={`Turbo sprint, ${sprintMultiplierLabel} speed, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second, ${turboSecondsRemaining.toFixed(1)} seconds available`}
         onPointerDown={(event) => {
           event.stopPropagation();
           pressSprint();
@@ -2534,6 +2551,14 @@ function drawNetworkChain(
       renderPlan: photoSkin.renderPlan,
     });
   }
+
+  drawTurboReserveGauge(context, {
+    points,
+    bodyRadius,
+    reserveRatio: getPlayerTurboReserveRatio(player, DEFAULT_GAME_CONFIG),
+    now,
+    motion: materialMotion,
+  });
 
   if (activeRelic && points[1]) {
     // Relic paint stays inside an existing body segment. It changes neither

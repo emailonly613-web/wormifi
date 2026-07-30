@@ -7,6 +7,8 @@ import {
   getPlayerRank,
   getPlayerRadius,
   getRankings,
+  getPlayerTurboReserveRatio,
+  getPlayerTurboSecondsRemaining,
   isPlayerBoosting,
   spawnDrop,
   spawnPlayer,
@@ -304,6 +306,23 @@ describe("deterministic game core", () => {
     player.mass = 61;
     player.alive = false;
     expect(isPlayerBoosting(player, state.config)).toBe(false);
+  });
+
+  it("maps spendable size to one truthful Turbo reserve and duration", () => {
+    const state = createGameState("turbo-reserve");
+    const player = spawnPlayer(state, { id: "gauge" });
+
+    expect(state.config.boostMassPerSecond).toBe(4);
+    expect(getPlayerTurboReserveRatio(player, state.config)).toBe(1);
+    expect(getPlayerTurboSecondsRemaining(player, state.config)).toBeCloseTo(3.5, 8);
+
+    player.mass = (state.config.startMass + state.config.minimumBoostMass) / 2;
+    expect(getPlayerTurboReserveRatio(player, state.config)).toBeCloseTo(0.5, 8);
+    expect(getPlayerTurboSecondsRemaining(player, state.config)).toBeCloseTo(1.75, 8);
+
+    player.mass = state.config.minimumBoostMass;
+    expect(getPlayerTurboReserveRatio(player, state.config)).toBe(0);
+    expect(getPlayerTurboSecondsRemaining(player, state.config)).toBe(0);
   });
 
   it("detects swept moving-circle contact even when endpoints do not overlap", () => {

@@ -78,7 +78,7 @@ export const DEFAULT_GAME_CONFIG: Readonly<GameConfig> = Object.freeze({
   minimumBoostMass: 34,
   baseSpeed: 100,
   boostSpeed: 200,
-  boostMassPerSecond: 12,
+  boostMassPerSecond: 4,
   shedDropMass: 2,
   shedPickupLockSeconds: 1.25,
   maximumTurnRadiansPerSecond: (270 * Math.PI) / 180,
@@ -239,6 +239,27 @@ export function isPlayerBoosting(
   return player.alive &&
     player.lastInput.boost &&
     player.mass > config.minimumBoostMass + EPSILON;
+}
+
+/**
+ * The visible Turbo reserve is the amount of size that can safely be burned.
+ * A launch-size worm is full; extra growth stays full, while sprinting drains
+ * toward the same server-enforced floor that already controls movement.
+ */
+export function getPlayerTurboReserveRatio(
+  player: Pick<PlayerState, "mass">,
+  config: Pick<GameConfig, "startMass" | "minimumBoostMass">,
+): number {
+  const fullReserveMass = Math.max(EPSILON, config.startMass - config.minimumBoostMass);
+  return Math.max(0, Math.min(1, (player.mass - config.minimumBoostMass) / fullReserveMass));
+}
+
+export function getPlayerTurboSecondsRemaining(
+  player: Pick<PlayerState, "mass">,
+  config: Pick<GameConfig, "minimumBoostMass" | "boostMassPerSecond">,
+): number {
+  if (config.boostMassPerSecond <= EPSILON) return 0;
+  return Math.max(0, player.mass - config.minimumBoostMass) / config.boostMassPerSecond;
 }
 
 function getTargetBodyLength(player: PlayerState, config: GameConfig): number {

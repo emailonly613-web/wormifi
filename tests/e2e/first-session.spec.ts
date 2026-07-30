@@ -98,7 +98,7 @@ test.describe("first Wormifi session", () => {
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
     await expect(page.getByTestId(gameContract.rank)).toContainText("SIZE RANK");
     await expect(page.getByTestId(gameContract.length)).toContainText("SIZE");
-    await expect(page.getByTestId(gameContract.boost)).toContainText("12 SIZE/S");
+    await expect(page.getByTestId(gameContract.boost)).toContainText("4 SIZE/S");
 
     const frozenStart = await Promise.all([
       arena.getAttribute("data-player-x"),
@@ -159,9 +159,15 @@ test.describe("first Wormifi session", () => {
     await expectActiveArena(page);
 
     const arena = page.getByTestId(gameContract.arena);
+    await page.keyboard.press("ArrowDown");
+    await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
+    await expect(arena).toHaveAttribute("data-turbo-reserve", "1.000");
+    const beforeY = Number(await arena.getAttribute("data-player-y"));
     await page.getByTestId(gameContract.boost).click();
     await expect(arena).toHaveAttribute("data-boosting", "true");
     await expect(arena).toHaveAttribute("data-boosting", "false", { timeout: 1_000 });
+    await expect.poll(async () => Number(await arena.getAttribute("data-player-y"))).toBeGreaterThan(beforeY);
+    await expect.poll(async () => Number(await arena.getAttribute("data-turbo-reserve"))).toBeLessThan(1);
   });
 
   test("labels Practice bots honestly before and during play", async ({ page }, testInfo) => {
