@@ -192,6 +192,108 @@ function drawRelicFallback(
   context.restore();
 }
 
+function drawGildedMultiplierPickup(
+  context: CanvasRenderingContext2D,
+  model: Readonly<GroundRelicCanvasModel>,
+  tier: TreasureMultiplierTier,
+  beaconRadius: number,
+  now: number,
+) {
+  beaconRadius = Math.max(15, beaconRadius * 1.35);
+  const rare = tier === 10;
+  const lift = (Math.sin(now * 0.0042 + tier) + 1) * beaconRadius * 0.16;
+  const spriteY = -beaconRadius * 0.35 - lift;
+  const spriteSize = Math.max(44, beaconRadius * 4.5);
+  const medalRadius = Math.max(8, beaconRadius * (rare ? 0.94 : 0.78));
+  const medalX = beaconRadius * 1.15;
+  const medalY = beaconRadius * 0.42 - lift;
+
+  // Detached shadow preserves the same floating-object language as treasure.
+  context.globalAlpha = 0.4;
+  context.fillStyle = "#020611";
+  context.beginPath();
+  context.ellipse(0, beaconRadius * 1.05, beaconRadius * 1.55, beaconRadius * 0.52, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.globalAlpha = 0.82;
+  context.strokeStyle = rare ? "#f5a8ff" : "#ffe16b";
+  context.shadowColor = rare ? "#c760ff" : "#ffca3c";
+  context.shadowBlur = rare ? 22 : 14;
+  context.lineWidth = Math.max(1.5, beaconRadius * 0.12);
+  context.setLineDash([beaconRadius * 0.62, beaconRadius * 0.3]);
+  context.lineDashOffset = -model.orbitRotation * beaconRadius * 12;
+  context.beginPath();
+  context.arc(0, 0, beaconRadius * (rare ? 2.12 : 1.82), 0, Math.PI * 2);
+  context.stroke();
+  context.setLineDash([]);
+  context.lineDashOffset = 0;
+  context.shadowBlur = 0;
+
+  context.globalAlpha = 1;
+  if (!drawPirateAtlasSprite(context, model.presentation.ground.spriteName, {
+    x: 0,
+    y: spriteY,
+    size: spriteSize,
+    rotation: model.spriteRotation * 0.38,
+  })) {
+    drawRelicFallback(context, model.presentation, beaconRadius * 1.25);
+  }
+
+  const medal = context.createRadialGradient(
+    medalX - medalRadius * 0.35,
+    medalY - medalRadius * 0.4,
+    1,
+    medalX,
+    medalY,
+    medalRadius,
+  );
+  medal.addColorStop(0, "#ffffff");
+  medal.addColorStop(0.14, rare ? "#f8c9ff" : "#fff2a6");
+  medal.addColorStop(0.48, rare ? "#a447df" : "#e89b18");
+  medal.addColorStop(1, rare ? "#2a0b58" : "#6f3408");
+  context.fillStyle = medal;
+  context.strokeStyle = rare ? "#ffffff" : "#ffe58a";
+  context.lineWidth = Math.max(1.5, medalRadius * 0.16);
+  context.shadowColor = rare ? "#e977ff" : "#ffd45f";
+  context.shadowBlur = rare ? 18 : 10;
+  context.beginPath();
+  context.arc(medalX, medalY, medalRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.shadowColor = "rgba(0, 0, 0, 0.78)";
+  context.shadowBlur = 3;
+  context.fillStyle = "#151022";
+  context.font = `950 ${Math.max(10, medalRadius * (tier === 10 ? 1.05 : 1.2))}px "Baloo 2", Inter, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(`×${tier}`, medalX, medalY + 0.5);
+  context.shadowBlur = 0;
+
+  // White-gold glints keep the multiplier readable against every sea region.
+  const glintPhase = (Math.sin(now * 0.007 + tier * 1.7) + 1) / 2;
+  context.globalAlpha = 0.42 + glintPhase * 0.58;
+  context.fillStyle = "#ffffff";
+  context.shadowColor = rare ? "#f3a9ff" : "#fff0a8";
+  context.shadowBlur = 9;
+  const glintX = -beaconRadius * 0.82;
+  const glintY = spriteY - beaconRadius * 0.85;
+  const glintSize = beaconRadius * (0.22 + glintPhase * 0.2);
+  context.beginPath();
+  context.moveTo(glintX, glintY - glintSize);
+  context.lineTo(glintX + glintSize * 0.3, glintY - glintSize * 0.25);
+  context.lineTo(glintX + glintSize, glintY);
+  context.lineTo(glintX + glintSize * 0.3, glintY + glintSize * 0.25);
+  context.lineTo(glintX, glintY + glintSize);
+  context.lineTo(glintX - glintSize * 0.3, glintY + glintSize * 0.25);
+  context.lineTo(glintX - glintSize, glintY);
+  context.lineTo(glintX - glintSize * 0.3, glintY - glintSize * 0.25);
+  context.closePath();
+  context.fill();
+  context.globalAlpha = 1;
+  context.shadowBlur = 0;
+}
+
 export function drawGroundRelicPickup(
   context: CanvasRenderingContext2D,
   drop: Readonly<GroundRelicIdentity>,
@@ -207,6 +309,17 @@ export function drawGroundRelicPickup(
   const relic = model.presentation;
   const beaconRadius = Math.max(8, options.beaconRadius);
   context.save();
+  if (relic.relicKind === "gilded-ledger" && drop.relicTier) {
+    drawGildedMultiplierPickup(
+      context,
+      model,
+      drop.relicTier,
+      beaconRadius,
+      options.now,
+    );
+    context.restore();
+    return model;
+  }
   context.shadowColor = relic.carrierHalo;
   context.shadowBlur = 24;
   context.fillStyle = "rgba(6, 24, 39, 0.97)";

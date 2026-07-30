@@ -11,6 +11,7 @@ import {
   stepLocalArena,
 } from "../src/game/localArena";
 import type { GameState, PlayerState, Vec2 } from "../src/game/types";
+import { RARE_TREASURE_CHEST_MASS } from "../src/game/treasureEconomy";
 
 function distance(first: Vec2, second: Vec2): number {
   return Math.hypot(first.x - second.x, first.y - second.y);
@@ -62,6 +63,13 @@ describe("local first-session encounter composition", () => {
       );
       expect(starterRelic).toBeDefined();
       expect(distance(player.position, starterRelic!.position)).toBeGreaterThan(250);
+      expect(session.state.drops.find((drop) => drop.id === "starter-rare-treasure-chest"))
+        .toMatchObject({
+          position: { x: -180, y: -90 },
+          mass: RARE_TREASURE_CHEST_MASS,
+          radius: 9,
+          source: "arena",
+        });
 
       for (const id of LOCAL_STARTER_RIVAL_IDS) {
         const rival = session.state.players[id];

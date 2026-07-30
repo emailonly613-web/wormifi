@@ -180,7 +180,7 @@ test("two clients receive the same server-owned board, charge, reward, and coold
   }
 });
 
-test("an ordinary room publishes all three server-owned Open Seas harbors", () => {
+test("an ordinary room publishes and authoritatively pays all Open Seas growth pads", () => {
   const room = new ArenaRoom("normal-authority", {
     targetPopulation: 0,
     targetDropCount: 0,
@@ -200,9 +200,9 @@ test("an ordinary room publishes all three server-owned Open Seas harbors", () =
     assert.deepEqual(
       world.board?.chargingStations.map((station) => [station.id, station.kind, station.massReward]),
       [
-        ["coin-cay", "harbor", 2.5],
-        ["coral-key", "harbor", 4],
-        ["kraken-atoll", "harbor", 7],
+        ["coin-cay", "harbor", 9],
+        ["coral-key", "harbor", 20],
+        ["kraken-atoll", "harbor", 42],
       ],
     );
     assert.equal(snapshot.chargingStations?.length, 3);
@@ -216,21 +216,12 @@ test("an ordinary room publishes all three server-owned Open Seas harbors", () =
     room.state.config.baseSpeed = 0;
     room.state.config.boostSpeed = 0;
     const startingMass = captain.mass;
-    const startAngle = 0.25;
-    const angularStep = 0.18;
-    const placeHead = (angle: number) => {
-      captain.position = {
-        x: coinCay.position.x + Math.cos(angle) * coinCay.wrapRadius,
-        y: coinCay.position.y + Math.sin(angle) * coinCay.wrapRadius,
-      };
-      captain.previousPosition = { ...captain.position };
-    };
-
-    placeHead(startAngle);
+    captain.position = { ...coinCay.position };
+    captain.previousPosition = { ...captain.position };
+    const requiredTicks = room.state.chargingStations[coinCay.id].requiredTicks;
     surface.simulationStep();
-    const steps = Math.ceil(coinCay.requiredWrapRadians / angularStep) + 1;
-    for (let step = 1; step <= steps; step += 1) {
-      placeHead(startAngle + angularStep * step);
+    assert.ok(captain.mass > startingMass, "the first authoritative pad tick grows immediately");
+    for (let tick = 1; tick < requiredTicks; tick += 1) {
       surface.simulationStep();
     }
     surface.broadcastSnapshot();
@@ -243,7 +234,7 @@ test("an ordinary room publishes all three server-owned Open Seas harbors", () =
       event.massAwarded === coinCay.massReward
     ));
     assert.equal(room.state.chargingStations[coinCay.id].phase, "cooldown");
-    assert.equal(captain.mass, startingMass + coinCay.massReward);
+    assert.ok(Math.abs(captain.mass - (startingMass + coinCay.massReward)) <= 1e-8);
   } finally {
     room.stop();
   }

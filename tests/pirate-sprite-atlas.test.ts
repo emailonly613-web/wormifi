@@ -52,7 +52,7 @@ describe("original pirate sprite atlas", () => {
   });
 
   it("publishes one stable path for every authored sprite", () => {
-    expect(PIRATE_SPRITE_NAMES).toHaveLength(23);
+    expect(PIRATE_SPRITE_NAMES).toHaveLength(24);
     for (const name of PIRATE_SPRITE_NAMES) {
       expect(pirateSpritePath(name)).toBe(`/assets/sprites/pirate-atlas/${name}.png`);
       const bytes = readFileSync(resolve(`public/assets/sprites/pirate-atlas/${name}.png`));

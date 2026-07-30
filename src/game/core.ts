@@ -457,7 +457,7 @@ export function spawnDrop(
     (resolvedRelicKind === "gilded-ledger" && !isTreasureMultiplierTier(options.relicTier)) ||
     (resolvedRelicKind !== "gilded-ledger" && options.relicTier !== undefined)
   ) {
-    throw new Error("Only Gilded Ledger may declare an x2, x3, or x5 tier");
+    throw new Error("Only Gilded Ledger may declare an x1-x5 or rare x10 tier");
   }
   const isSpecialistPickup = resolvedRelicKind !== undefined;
   const bankedMass = options.bankedMass ?? 0;
@@ -1504,6 +1504,7 @@ function updateHarborStation(
     const player = state.players[chargingState.playerId];
     const remainsOnPad = Boolean(
       player?.alive &&
+      player.kind === "human" &&
       !player.lastInput.boost &&
       isPointOnHarborPad(player.position, station),
     );
@@ -1561,6 +1562,7 @@ function updateHarborStation(
   }
 
   const candidate = players.find((player) =>
+    player.kind === "human" &&
     !reservedPlayers.has(player.id) &&
     !player.lastInput.boost &&
     isPointOnHarborPad(player.position, station)

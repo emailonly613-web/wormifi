@@ -185,7 +185,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     label: "Gilded Ledger",
     shortLabel: "MULTIPLIER",
     publishedDurationSeconds: 8,
-    effectText: "x2/x3/x5 NEUTRAL TREASURE",
+    effectText: "x1–x5 OR RARE x10 NEUTRAL TREASURE",
     rivalDisclosure: "TREASURE MULTIPLIER ACTIVE",
     carrierTone: "gilded-fortune",
     carrierAccent: "#ffe16b",

@@ -12,6 +12,7 @@ import {
 } from "./core";
 import { nextRandomState } from "./random";
 import {
+  RARE_TREASURE_CHEST_MASS,
   STARTER_TREASURE_MASS,
   selectNeutralTreasureMass,
 } from "./treasureEconomy";
@@ -322,6 +323,13 @@ export function buildLocalArena(
       source: "arena",
     });
   }
+  spawnDrop(state, {
+    id: "starter-rare-treasure-chest",
+    position: { x: -180, y: -90 },
+    mass: RARE_TREASURE_CHEST_MASS,
+    radius: 9,
+    source: "arena",
+  });
   seedArenaDrops(state, LOCAL_TARGET_DROP_COUNT);
   const relicDirector = new PirateRelicDirector(
     state,

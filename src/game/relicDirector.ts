@@ -10,6 +10,7 @@ import type { GameEvent, GameState, PirateRelicKind } from "./types";
 
 export const PIRATE_RELIC_RESPAWN_SECONDS = 5;
 export const PIRATE_RELIC_RADIUS = 9;
+export const GILDED_LEDGER_GROUND_COUNT = 5;
 
 /** The server retains its separate proven owner for the legacy Collector. */
 export const SERVER_DIRECTED_RELIC_KINDS = Object.freeze([
@@ -54,7 +55,11 @@ export class PirateRelicDirector {
     );
     this.relicKinds = [...new Set(relicKinds)];
     this.managedRelics = new Set(this.relicKinds);
-    for (const relicKind of this.relicKinds) this.spawn(relicKind);
+    for (const relicKind of this.relicKinds) {
+      while (this.groundRelicCount(relicKind) < this.desiredGroundCount(relicKind)) {
+        this.spawn(relicKind);
+      }
+    }
   }
 
   reconcile(events: readonly GameEvent[]): void {
@@ -77,7 +82,9 @@ export class PirateRelicDirector {
     }
 
     for (const relicKind of this.relicKinds) {
-      if (this.hasGroundRelic(relicKind)) continue;
+      const missingGroundRelics = this.desiredGroundCount(relicKind) -
+        this.groundRelicCount(relicKind);
+      if (missingGroundRelics <= 0) continue;
       if (Object.values(this.state.players).some((player) =>
         isRelicActive(this.state, player, relicKind)
       )) continue;
@@ -86,20 +93,34 @@ export class PirateRelicDirector {
         this.state.tick + this.respawnTicks;
       this.nextSpawnTick.set(relicKind, nextTick);
       if (this.state.tick < nextTick) continue;
-      this.spawn(relicKind);
+      for (let slot = 0; slot < missingGroundRelics; slot += 1) {
+        this.spawn(relicKind);
+      }
       this.nextSpawnTick.delete(relicKind);
     }
   }
 
-  private hasGroundRelic(relicKind: PirateRelicKind): boolean {
-    return this.state.drops.some((drop) => getDropRelicKind(drop) === relicKind);
+  private desiredGroundCount(relicKind: PirateRelicKind): number {
+    return relicKind === "gilded-ledger" ? GILDED_LEDGER_GROUND_COUNT : 1;
+  }
+
+  private groundRelicCount(relicKind: PirateRelicKind): number {
+    return this.state.drops.filter((drop) => getDropRelicKind(drop) === relicKind).length;
   }
 
   private spawn(relicKind: PirateRelicKind): void {
-    if (this.hasGroundRelic(relicKind)) return;
+    if (this.groundRelicCount(relicKind) >= this.desiredGroundCount(relicKind)) return;
     const point = randomPointInCircle(
       this.state.randomState,
-      Math.max(1, this.state.config.arenaRadius - 140),
+      Math.max(
+        1,
+        relicKind === "gilded-ledger"
+          ? Math.min(
+              this.state.config.arenaRadius - 140,
+              this.state.config.arenaRadius * 0.42,
+            )
+          : this.state.config.arenaRadius - 140,
+      ),
     );
     this.state.randomState = point.state;
     const number = (this.spawnNumbers.get(relicKind) ?? 0) + 1;

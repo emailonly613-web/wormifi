@@ -16,7 +16,7 @@ import type { ActiveSpecialist } from "../src/game/types";
 
 function active(
   relicKind: NonNullable<ActiveSpecialist["relicKind"]>,
-  relicTier?: 2 | 3 | 5,
+  relicTier?: ActiveSpecialist["relicTier"],
 ): ActiveSpecialist {
   return {
     kind: "collector",
@@ -139,8 +139,8 @@ describe("owner-required pirate power parity", () => {
     expect(getCameraZoomMultiplier(spyglass, 100)).toBe(1);
   });
 
-  it("Gilded Ledger applies x2/x3/x5 only to ordinary neutral treasure", () => {
-    for (const tier of [2, 3, 5] as const) {
+  it("Gilded Ledger applies x1-x5 and rare x10 only to ordinary neutral treasure", () => {
+    for (const tier of [1, 2, 3, 4, 5, 10] as const) {
       const { state, player } = movementState(`ledger-${tier}`);
       state.config.baseSpeed = 0;
       state.config.boostSpeed = 0;
@@ -193,7 +193,7 @@ describe("owner-required pirate power parity", () => {
       position: { ...player.position },
       mass: 0,
       relicKind: "gilded-ledger",
-    })).toThrow(/x2, x3, or x5/u);
+    })).toThrow(/x1-x5 or rare x10/u);
     expect(() => spawnDrop(state, {
       id: "wrong-owner",
       position: { ...player.position },

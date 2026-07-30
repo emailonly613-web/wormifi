@@ -11,6 +11,7 @@ export const PIRATE_SPRITE_NAMES = [
   "ornate-key",
   "treasure-map",
   "treasure-chest",
+  "treasure-chest-premium",
   "loot-compass",
   "vortex-astrolabe",
   "pepper-cutlass",

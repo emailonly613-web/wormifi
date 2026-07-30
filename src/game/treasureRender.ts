@@ -1,4 +1,5 @@
 import type { Vec2 } from "./types";
+import { drawPirateAtlasSprite, pirateSpritePath } from "./pirateSpriteAtlas";
 import { drawWormMaterial, type WormMaterialPattern } from "./wormMaterials";
 import { drawWormHeadFace } from "./wormHeads";
 
@@ -34,7 +35,7 @@ export const PIRATE_RENDER_ASSETS = Object.freeze({
   wormBodySash: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/serpent-body-sash.png`,
   wormTail: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/serpent-tail.png`,
   cutJewel: `${PUBLIC_ASSET_ROOT}art/cut-jewel-v1.png`,
-  treasureChest: `${PUBLIC_ASSET_ROOT}assets/sprites/pirate-atlas/treasure-chest-premium.png`,
+  treasureChest: pirateSpritePath("treasure-chest-premium"),
 });
 
 /**
@@ -680,42 +681,47 @@ export function drawTreasureChest(
   seed: number,
 ) {
   const size = spriteRadius(Math.max(22, radius * 1.65));
-  const bob = Math.sin(now * 0.0035 + seed * 0.021) * size * 0.08;
-  const image = readyRenderImage(PIRATE_RENDER_ASSETS.treasureChest);
-  const spriteHalfSize = size * (image ? 2.2 : 2.35);
-  const sprite = buildSprite(
-    `chest:${image ? "authored" : "fallback"}:${size}:${color}`,
-    chestSpriteCache,
-    spriteHalfSize,
-    (spriteContext) => {
-      if (image) {
-        paintRenderImage(
-          spriteContext,
-          image,
-          size * 3.65,
-          size * 3.65,
-          undefined,
-          "#ffcb57",
-        );
-      } else {
-        paintTreasureChest(spriteContext, size, color);
-      }
-    },
-  );
+  const lift = (Math.sin(now * 0.0035 + seed * 0.021) + 1) * size * 0.12;
+  const spriteHalfSize = size * 2.35;
   context.save();
-  context.translate(0, bob);
+  context.globalAlpha = 0.42;
+  context.fillStyle = "#020611";
+  context.beginPath();
+  context.moveTo(-size * 1.55, size * 0.95);
+  context.quadraticCurveTo(0, size * 0.43, size * 1.55, size * 0.95);
+  context.quadraticCurveTo(0, size * 1.47, -size * 1.55, size * 0.95);
+  context.closePath();
+  context.fill();
+  context.globalAlpha = 1;
+  context.translate(0, -lift);
   context.rotate(Math.sin(now * 0.0014 + seed) * 0.045);
-  if (sprite) {
-    context.drawImage(
-      sprite,
-      -sprite.width / 2,
-      -sprite.height / 2,
-      sprite.width,
-      sprite.height,
+  context.shadowColor = "#ffcb57";
+  context.shadowBlur = 14;
+  if (!drawPirateAtlasSprite(context, "treasure-chest-premium", {
+    x: 0,
+    y: 0,
+    size: size * 3.9,
+    rotation: 0,
+  })) {
+    const sprite = buildSprite(
+      `chest:fallback:${size}:${color}`,
+      chestSpriteCache,
+      spriteHalfSize,
+      (spriteContext) => paintTreasureChest(spriteContext, size, color),
     );
-  } else {
-    paintTreasureChest(context, size, color);
+    if (sprite) {
+      context.drawImage(
+        sprite,
+        -sprite.width / 2,
+        -sprite.height / 2,
+        sprite.width,
+        sprite.height,
+      );
+    } else {
+      paintTreasureChest(context, size, color);
+    }
   }
+  context.shadowBlur = 0;
   context.restore();
 }
 

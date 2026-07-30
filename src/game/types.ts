@@ -15,7 +15,7 @@ export type PirateRelicKind =
   | "gale-pennant"
   | "maelstrom-wheel"
   | "gilded-ledger";
-export type TreasureMultiplierTier = 2 | 3 | 5;
+export type TreasureMultiplierTier = 1 | 2 | 3 | 4 | 5 | 10;
 export type ChargingStationKind = "capstan" | "harbor";
 
 /**

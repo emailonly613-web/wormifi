@@ -364,8 +364,14 @@ describe("authoritative body-wrap charging", () => {
       OPEN_SEAS_BOARD,
     );
     const coinCay = state.board.chargingStations[0];
+    const scriptedBot = spawnPlayer(state, {
+      id: "aardvark-bot",
+      kind: "bot",
+      shieldSeconds: 60,
+    });
     const zulu = spawnPlayer(state, { id: "zulu", shieldSeconds: 60 });
     const alpha = spawnPlayer(state, { id: "alpha", shieldSeconds: 60 });
+    placeOnHarborPad(scriptedBot, coinCay);
     placeOnHarborPad(zulu, coinCay);
     placeOnHarborPad(alpha, coinCay);
 

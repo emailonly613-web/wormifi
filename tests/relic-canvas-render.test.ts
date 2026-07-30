@@ -41,6 +41,19 @@ describe("Relic canvas presentation", () => {
     expect(cutlass?.label).not.toContain("COMPASS");
   });
 
+  it("publishes every multiplier tier clearly, including the rare x10", () => {
+    for (const tier of [1, 2, 3, 4, 5, 10] as const) {
+      expect(createGroundRelicCanvasModel({
+        relicKind: "gilded-ledger",
+        relicTier: tier,
+        relicDurationTicks: 80,
+      }, 0.1, 1_000)).toMatchObject({
+        label: `GILDED LEDGER x${tier} · 8S`,
+        effectText: `x${tier} NEUTRAL TREASURE`,
+      });
+    }
+  });
+
   it("maps only the legacy Collector ground envelope to Loot Compass", () => {
     expect(createGroundRelicCanvasModel({
       specialist: "collector",

@@ -16,11 +16,13 @@ import {
   type LocalRunDraft,
 } from "../src/game/localArena";
 import {
+  GILDED_LEDGER_GROUND_COUNT,
   INITIAL_PIRATE_RELIC_KINDS,
   PIRATE_RELIC_RESPAWN_SECONDS,
   PirateRelicDirector,
 } from "../src/game/relicDirector";
 import {
+  GILDED_LEDGER_TIERS,
   getDropRelicKind,
   getPirateRelicSpec,
 } from "../src/game/relics";
@@ -41,8 +43,15 @@ function groundRelic(
   return state.drops.find((drop) => getDropRelicKind(drop) === relicKind);
 }
 
+function groundRelics(
+  state: Readonly<GameState>,
+  relicKind: PirateRelicKind,
+): DropState[] {
+  return state.drops.filter((drop) => getDropRelicKind(drop) === relicKind);
+}
+
 describe("local pirate Relic parity", () => {
-  it("seeds all three initial identities deterministically while retaining legacy Collector shape", () => {
+  it("seeds every Relic deterministically plus five visible multiplier tiers", () => {
     const first = buildLocalArena(
       "local-relic-seed",
       "Relic Captain",
@@ -66,9 +75,15 @@ describe("local pirate Relic parity", () => {
     }));
 
     expect(summarize(first.state)).toEqual(summarize(second.state));
-    expect(summarize(first.state).map((drop) => drop.kind).sort()).toEqual(
-      [...INITIAL_PIRATE_RELIC_KINDS].sort(),
-    );
+    for (const relicKind of INITIAL_PIRATE_RELIC_KINDS) {
+      expect(groundRelics(first.state, relicKind)).toHaveLength(
+        relicKind === "gilded-ledger" ? GILDED_LEDGER_GROUND_COUNT : 1,
+      );
+    }
+    expect(groundRelics(first.state, "gilded-ledger").map((drop) => drop.relicTier))
+      .toEqual([1, 2, 3, 4, 5]);
+    expect(GILDED_LEDGER_TIERS).toEqual([1, 2, 3, 4, 5, 2, 3, 4, 5, 10]);
+    expect(GILDED_LEDGER_TIERS.filter((tier) => tier === 10)).toHaveLength(1);
     expect(groundRelic(first.state, "loot-compass")).toMatchObject({
       id: "collector-beacon-launch",
       specialist: "collector",
@@ -149,7 +164,11 @@ describe("local pirate Relic parity", () => {
       if (relicKind === "loot-compass") {
         expect(activated).not.toHaveProperty("relicKind");
       }
-      expect(groundRelic(state, relicKind), relicKind).toBeUndefined();
+      const desiredGroundCount = relicKind === "gilded-ledger"
+        ? GILDED_LEDGER_GROUND_COUNT
+        : 1;
+      expect(groundRelics(state, relicKind), relicKind)
+        .toHaveLength(desiredGroundCount - 1);
 
       const expiryTick = 1 + durationTicks;
       while (state.tick < expiryTick) {
@@ -168,13 +187,17 @@ describe("local pirate Relic parity", () => {
         result = stepGame(state);
         director.reconcile(result.events);
       }
-      expect(groundRelic(state, relicKind), relicKind).toBeUndefined();
+      expect(groundRelics(state, relicKind), relicKind)
+        .toHaveLength(desiredGroundCount - 1);
       result = stepGame(state);
       director.reconcile(result.events);
       expect(state.tick, relicKind).toBe(respawnTick);
-      expect(groundRelic(state, relicKind), relicKind).toMatchObject({
-        id: `${relicKind}-relic-2`,
-      });
+      expect(groundRelics(state, relicKind), relicKind).toHaveLength(desiredGroundCount);
+      expect(groundRelics(state, relicKind), relicKind).toContainEqual(
+        expect.objectContaining({
+          id: `${relicKind}-relic-${relicKind === "gilded-ledger" ? 6 : 2}`,
+        }),
+      );
     }
   });
 
