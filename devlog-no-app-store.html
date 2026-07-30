@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Wormifi devlog: how the game installs on Android and iPhone straight from the web — a signed Android package, a home-screen app, and offline solo play." />
+    <meta property="og:title" content="Devlog: Shipping a Game With No App Store" />
+    <meta property="og:description" content="Wormifi devlog: how the game installs on Android and iPhone straight from the web — a signed Android package, a home-screen app, and offline" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/devlog-no-app-store.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Devlog: Shipping a Game With No App Store" />
+    <meta name="twitter:description" content="Wormifi devlog: how the game installs on Android and iPhone straight from the web — a signed Android package, a home-screen app, and offline" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog-no-app-store.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/devlog-no-app-store.html#main",
+            "headline": "Shipping a game with no app store",
+            "description": "Wormifi devlog: how the game installs on Android and iPhone straight from the web \u2014 a signed Android package, a home-scr",
+            "url": "https://wormifi.com/devlog-no-app-store.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Shipping a game with no app store",
+                "item": "https://wormifi.com/devlog-no-app-store.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Devlog: Shipping a Game With No App Store</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Devlog · distribution</span>
+        <h1>Shipping a game with no app store</h1>
+        <p class="seo-lede">We wanted the whole pipeline a store gives you — install, icon, full screen, offline — without the store. It turned out to be mostly possible, with one honest asterisk.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>What shipping without a store buys</h2>
+          <p>No review queue between us and an update — the version string in the game's corner changes minutes after we ship, and the page updates itself. No forced account. No thirty-percent platform tax silently shaping the game's economics. And the click-to-playing time stays seconds long, which is the genre's entire social contract.</p>
+        </section>
+        <section>
+          <h2>How each platform actually works</h2>
+          <p>Android gets a real signed package, downloaded <a href="/install.html">from the site</a>, a couple of megabytes, installing like any app with its own icon and full-screen play. iPhone gets the only path Apple permits — add to home screen from Safari — which produces the same on-screen result. Desktop browsers offer their own install button. And the solo modes work offline once installed, because the game carries itself with it. The asterisk: Apple will never show an automatic install prompt, so the iPhone path is four manual taps. We wrote them down instead of pretending otherwise.</p>
+        </section>
+        <section>
+          <h2>What we learned the hard way</h2>
+          <p>That "it installs" is a claim you must test on the actual platform, not infer from files being correct. Our first Android package looked perfect to every offline check we ran and refused to install on a real device — a signature format subtlety — caught only because our rule is that nothing gets announced until the true path is walked end to end. The rule survived; the broken package didn't.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

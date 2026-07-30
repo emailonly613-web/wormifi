@@ -262,16 +262,8 @@ $payload = @{
   key         = $IndexNowKey
   keyLocation = "https://wormifi.com/$IndexNowKey.txt"
   urlList     = @(
-    'https://wormifi.com/'
-    'https://wormifi.com/press.html'
-    'https://wormifi.com/guides.html'
-    'https://wormifi.com/games-like-slither-io.html'
-    'https://wormifi.com/worm-games.html'
-    'https://wormifi.com/how-to-win-worm-arena-games.html'
-    'https://wormifi.com/how-to-play.html'
-    'https://wormifi.com/multiplayer.html'
-    'https://wormifi.com/pirate-treasure.html'
-    'https://wormifi.com/privacy.html'
+    ([xml](Get-Content (Join-Path (Split-Path $PSScriptRoot -Parent) 'public/sitemap.xml') -Raw)).urlset.url |
+      ForEach-Object { $_.loc }
   )
 } | ConvertTo-Json
 foreach ($endpoint in @('https://api.indexnow.org/indexnow', 'https://www.bing.com/indexnow', 'https://yandex.com/indexnow')) {

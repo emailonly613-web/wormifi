@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Wormifi devlog: in a worm arena two players can honestly disagree about a collision. Why we made one server the only judge, and the lag trade that costs." />
+    <meta property="og:title" content="Devlog: Why One Server Decides Every Collision" />
+    <meta property="og:description" content="Wormifi devlog: in a worm arena two players can honestly disagree about a collision. Why we made one server the only judge, and the lag trad" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/devlog-one-server-authority.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Devlog: Why One Server Decides Every Collision" />
+    <meta name="twitter:description" content="Wormifi devlog: in a worm arena two players can honestly disagree about a collision. Why we made one server the only judge, and the lag trad" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog-one-server-authority.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/devlog-one-server-authority.html#main",
+            "headline": "Why one server decides every collision",
+            "description": "Wormifi devlog: in a worm arena two players can honestly disagree about a collision. Why we made one server the only jud",
+            "url": "https://wormifi.com/devlog-one-server-authority.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Why one server decides every collision",
+                "item": "https://wormifi.com/devlog-one-server-authority.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Devlog: Why One Server Decides Every Collision</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Devlog · architecture</span>
+        <h1>Why one server decides every collision</h1>
+        <p class="seo-lede">The first real decision in a multiplayer worm game isn't art or controls. It's jurisprudence: when two players disagree about a collision, who is right?</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>The problem nobody sees until it kills them</h2>
+          <p>Two worms cross. On your screen, you slipped past by a pixel. On the other player's screen — running 80 milliseconds behind yours — you didn't. Both screens are telling the truth about what they drew. A multiplayer game has to pick whose truth counts, and most casual arenas quietly pick "whoever's packet got processed in the luckiest order," which players experience as dying through empty water.</p>
+        </section>
+        <section>
+          <h2>Our answer: the browser proposes, the server disposes</h2>
+          <p>In Wormifi's live rooms, your browser sends intent — the direction you're steering, whether you're sprinting — and renders the world the server reports back. It never decides who was cut. The live badge in the corner isn't decoration: it appears only after the server has confirmed your session and delivered a fresh snapshot of the room. Until both happen, the game refuses to claim you're live, because you aren't.</p>
+        </section>
+        <section>
+          <h2>What it costs</h2>
+          <p>Honesty about the price: on a poor connection you will occasionally see correction — the server's version of events overruling what your browser guessed. We tuned the room to make that rare (the current public rooms run 32 actors with 15 snapshots per second), but we won't hide that it exists. The alternative is a game where a fast machine or a modified client can invent outcomes, and that game stops being worth winning.</p>
+        </section>
+        <section class="seo-note">
+          <h2>What transfers to other games</h2>
+          <p>If you're evaluating any worm arena, watch for the tell: do deaths near other players feel explainable? Our <a href="/how-to-win-worm-arena-games.html">strategy guide</a> assumes explainable deaths — geometry you can reason about. Games that can't promise that turn strategy back into superstition.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

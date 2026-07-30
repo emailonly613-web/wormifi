@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Wormifi devlog: every visual feature must pass a 60-second crowded-arena gate — frame pacing, long tasks, memory growth — before it ships. Here's the discipline." />
+    <meta property="og:title" content="Devlog: The 60fps Budget — Performance as a Contract" />
+    <meta property="og:description" content="Wormifi devlog: every visual feature must pass a 60-second crowded-arena gate — frame pacing, long tasks, memory growth — before it ships. H" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/devlog-60fps-budget.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Devlog: The 60fps Budget — Performance as a Contract" />
+    <meta name="twitter:description" content="Wormifi devlog: every visual feature must pass a 60-second crowded-arena gate — frame pacing, long tasks, memory growth — before it ships. H" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog-60fps-budget.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/devlog-60fps-budget.html#main",
+            "headline": "The 60fps budget: performance as a contract",
+            "description": "Wormifi devlog: every visual feature must pass a 60-second crowded-arena gate \u2014 frame pacing, long tasks, memory growth ",
+            "url": "https://wormifi.com/devlog-60fps-budget.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "The 60fps budget: performance as a contract",
+                "item": "https://wormifi.com/devlog-60fps-budget.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Devlog: The 60fps Budget — Performance as a Contract</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Devlog · performance</span>
+        <h1>The 60fps budget: performance as a contract</h1>
+        <p class="seo-lede">A worm arena earns its keep in the crowded moments — thirty crews, a thousand pieces of treasure, everyone sprinting. That's exactly when cheap games stutter.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>The gate</h2>
+          <p>Before a visual change ships, it runs a sixty-second automated scene: a crowded practice arena and an authoritative live room, measured for average frame rate, worst-frame percentiles, long tasks, input-to-paint latency, and memory growth. The thresholds are strict — a 55fps floor, tight percentile caps, effectively zero tolerance for long tasks — and a miss blocks the release. When we added the animated materials, the gate ran with them active: the crowded scene held its frame rate to within a fraction of the plain version, or the materials wouldn't have shipped.</p>
+        </section>
+        <section>
+          <h2>How the drawing stays cheap</h2>
+          <p>The tricks are boring on purpose. One traced path repainted at nested widths instead of four rebuilt paths per worm. Scale chevrons batched into a single stroke. Sprites cached at bucketed sizes. Materials that spend two or three batched passes, never one paint per body segment. Glow effects behind a user toggle because shadow blur is the most expensive pretty thing a canvas can do. None of this is clever; all of it is counted.</p>
+        </section>
+        <section class="seo-note">
+          <h2>Why players should care</h2>
+          <p>Frame pacing is fairness. If the game hitches exactly when four crews converge, the player with the smoothest machine wins the collision, not the player with the best line. A strict budget is how a <a href="/browser-games-no-download.html">browser game</a> keeps a fight winnable on a mid-range phone.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

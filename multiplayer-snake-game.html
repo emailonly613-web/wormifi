@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Multiplayer snake games live or die on one question: who decides collisions? Netcode, lag, honest player counts, and how to spot a fair arena in two minutes." />
+    <meta property="og:title" content="What Makes a Multiplayer Snake Game Actually Fair" />
+    <meta property="og:description" content="Multiplayer snake games live or die on one question: who decides collisions? Netcode, lag, honest player counts, and how to spot a fair aren" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/multiplayer-snake-game.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="What Makes a Multiplayer Snake Game Actually Fair" />
+    <meta name="twitter:description" content="Multiplayer snake games live or die on one question: who decides collisions? Netcode, lag, honest player counts, and how to spot a fair aren" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/multiplayer-snake-game.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/multiplayer-snake-game.html#main",
+            "headline": "What makes a multiplayer snake game fair",
+            "description": "Multiplayer snake games live or die on one question: who decides collisions? Netcode, lag, honest player counts, and how",
+            "url": "https://wormifi.com/multiplayer-snake-game.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Guides",
+                "item": "https://wormifi.com/guides.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "What makes a multiplayer snake game fair",
+                "item": "https://wormifi.com/multiplayer-snake-game.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>What Makes a Multiplayer Snake Game Actually Fair</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Under the hood</span>
+        <h1>What makes a multiplayer snake game fair</h1>
+        <p class="seo-lede">Two snakes cross. Two screens disagree about what happened. Everything you feel about a multiplayer snake game comes down to how it answers that.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>The collision question</h2>
+          <p>There are only two honest architectures. Client-trusting: each device reports its own outcomes — cheap, smooth, and quietly corruptible by lag or modified clients. Server-authoritative: one referee simulates the room and every browser renders its verdict — slightly corrected under bad connections, but the same truth for everyone. Wormifi's live rooms use the second, and the game refuses to show its LIVE badge until the server has confirmed your session and sent a fresh snapshot. <a href="/devlog-one-server-authority.html">The devlog tells that story</a>.</p>
+        </section>
+        <section>
+          <h2>The population question</h2>
+          <p>The genre's open secret is bots presented as people. Bots aren't the sin — an arena needs bodies at 4am — the sin is the unlabeled kind. A fair game counts its humans out loud. Wormifi's room header shows both numbers separately, and every bot in the arena wears an AI tag on its name. When you evaluate any multiplayer snake game, find its human count. If you can't, you've found your answer.</p>
+        </section>
+        <section>
+          <h2>The two-minute fairness test</h2>
+          <p>Join, then watch three things: does a death near another snake feel explainable in geometry, or random? Is there a visible player count you believe? And when you boost, does it cost something you can see? Fair games answer all three within two minutes of play. <a href="/">Try the test on ours</a> — friend rooms mean you can bring a witness with a room code.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · multiplayer guide</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="The Wormifi development log: how a browser worm arena actually gets built — server authority, conserved mass, animated skins, performance budgets, and what's next." />
+    <meta property="og:title" content="Wormifi Devlog — Building a Worm Arena in Public" />
+    <meta property="og:description" content="The Wormifi development log: how a browser worm arena actually gets built — server authority, conserved mass, animated skins, performance bu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://wormifi.com/devlog.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wormifi Devlog — Building a Worm Arena in Public" />
+    <meta name="twitter:description" content="The Wormifi development log: how a browser worm arena actually gets built — server authority, conserved mass, animated skins, performance bu" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "CollectionPage",
+            "@id": "https://wormifi.com/devlog.html#main",
+            "name": "The Wormifi devlog",
+            "description": "The Wormifi development log: how a browser worm arena actually gets built \u2014 server authority, conserved mass, animated s",
+            "url": "https://wormifi.com/devlog.html",
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "The Wormifi devlog",
+                "item": "https://wormifi.com/devlog.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Wormifi Devlog — Building a Worm Arena in Public</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Building in public</span>
+        <h1>The Wormifi devlog</h1>
+        <p class="seo-lede">How a worm arena actually gets built: the design laws, the trade-offs, and the mistakes — written by the people making them. New entries as the game grows.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>Entries</h2>
+          <dl>
+            <dt><a href="/devlog-one-server-authority.html">Why one server decides every collision</a></dt>
+            <dd>The first architecture decision, and the lag trade we made on purpose.</dd>
+            <dt><a href="/devlog-conserved-mass.html">Nothing appears from nowhere: designing conserved mass</a></dt>
+            <dd>The single design law under the treasure, the cuts, and the sprint cost.</dd>
+            <dt><a href="/devlog-animated-materials.html">Twelve skins that actually move</a></dt>
+            <dd>Building an animated material engine inside a strict frame budget.</dd>
+            <dt><a href="/devlog-60fps-budget.html">The 60fps budget: performance as a contract</a></dt>
+            <dd>Why every visual feature has to pass a 60-second crowded-arena gate before it ships.</dd>
+            <dt><a href="/devlog-no-app-store.html">Shipping a game with no app store</a></dt>
+            <dd>Installable on Android and iPhone straight from the web — what that took.</dd>
+            <dt><a href="/devlog-skins-stay-cosmetic.html">Skins stay cosmetic: our monetization line</a></dt>
+            <dd>What we will and will not sell, written down before the store opened.</dd>
+          </dl>
+        </section>
+        <section>
+          <h2>The roadmap</h2>
+          <p>What we are building next lives on its own page: <a href="/roadmap.html">the Wormifi roadmap</a> — plans labeled as plans, shipped things labeled as shipped.</p>
+        </section>
+        <section class="seo-note">
+          <h2>Why write this in public</h2>
+          <p>Worm games are a genre where every developer quietly copies everyone else. Writing our decisions down keeps us honest about which ideas are ours, which are inherited, and why each one is in the game. It also means that when the game claims something — fair collisions, honest sprint costs — you can read exactly how it works underneath.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

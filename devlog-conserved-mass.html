@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Wormifi devlog: one design law — nothing appears from nowhere — decides how treasure drops, what cutting a rival pays, and why sprinting scatters your own size." />
+    <meta property="og:title" content="Devlog: Designing Conserved Mass in a Worm Game" />
+    <meta property="og:description" content="Wormifi devlog: one design law — nothing appears from nowhere — decides how treasure drops, what cutting a rival pays, and why sprinting sca" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/devlog-conserved-mass.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Devlog: Designing Conserved Mass in a Worm Game" />
+    <meta name="twitter:description" content="Wormifi devlog: one design law — nothing appears from nowhere — decides how treasure drops, what cutting a rival pays, and why sprinting sca" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog-conserved-mass.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/devlog-conserved-mass.html#main",
+            "headline": "Nothing appears from nowhere",
+            "description": "Wormifi devlog: one design law \u2014 nothing appears from nowhere \u2014 decides how treasure drops, what cutting a rival pays, a",
+            "url": "https://wormifi.com/devlog-conserved-mass.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Nothing appears from nowhere",
+                "item": "https://wormifi.com/devlog-conserved-mass.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Devlog: Designing Conserved Mass in a Worm Game</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Devlog · design</span>
+        <h1>Nothing appears from nowhere</h1>
+        <p class="seo-lede">Early on we wrote one sentence on the whiteboard and made everything obey it: every reward in the arena must come from somewhere you can point at.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>What the law changes</h2>
+          <p>Cut a rival captain and their crew doesn't vanish into a score popup — the conserved mass drops where they fell as a marked <a href="/pirate-treasure.html">rival hoard</a>. Sprint and the size you burn (the cost is on the button: 2.0× speed for −4 size per second) scatters behind you as wake loot in your colour, collectable by anyone, including the captain chasing you. Even the arena's chests are placed spend: a big reward you can see and weigh before you commit to the approach.</p>
+        </section>
+        <section>
+          <h2>Why bother — most games don't</h2>
+          <p>Because conservation is what makes a lead feel dangerous instead of safe. In a game where killed mass evaporates, the biggest worm is just a number other players can't touch. In a conserved arena, a giant is a walking treasury with an exposed head — worth hunting, worth vulturing, worth baiting. Every advantage stays physically present in the world and therefore takeable. That's where the genre's drama actually lives.</p>
+        </section>
+        <section>
+          <h2>The subtle consequence: information</h2>
+          <p>Conservation accidentally built our information system. A pile of hoard means a fight just ended here and the winner is nearby. A trail of wake loot names who paid for it, where they went, and how desperate they were. The arena floor becomes a readable record of the last sixty seconds. We didn't design that; the law produced it, and now the <a href="/how-to-win-worm-arena-games.html">best players read the floor</a> like a newspaper.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>
