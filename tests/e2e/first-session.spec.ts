@@ -59,6 +59,21 @@ async function expectLauncher(page: Page) {
   ).toBeVisible();
   await expect(page.getByTestId("friend-room-card")).toBeVisible();
   await expect(page.getByTestId("lobby-room-identity")).toContainText("ROOM #");
+  await expect(page.getByTestId("lobby-invite")).toContainText("CHALLENGE A FRIEND");
+
+  const launcherFit = await page.locator(".launch-panel").evaluate((panel) => {
+    const bounds = panel.getBoundingClientRect();
+    return {
+      bottom: bounds.bottom,
+      clientHeight: panel.clientHeight,
+      scrollHeight: panel.scrollHeight,
+      top: bounds.top,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(launcherFit.scrollHeight).toBeLessThanOrEqual(launcherFit.clientHeight + 1);
+  expect(launcherFit.top).toBeGreaterThanOrEqual(0);
+  expect(launcherFit.bottom).toBeLessThanOrEqual(launcherFit.viewportHeight);
 }
 
 async function expectActiveArena(page: Page) {
@@ -214,6 +229,7 @@ test.describe("first Wormifi session", () => {
     await page.goto("/?room=crew-246810&arena_ws=ws%3A%2F%2Flocalhost%3A9999&c=discard-me");
     await expect(page.getByTestId("lobby-room-identity")).toHaveText("ROOM #CREW-246810");
     await expect(page.getByLabel("Room number or code")).toHaveValue("crew-246810");
+    await expect(page.getByTestId("lobby-invite")).toContainText("CHALLENGE A FRIEND");
 
     await page.getByTestId("lobby-invite").click();
     const dialog = page.getByTestId("room-invite-dialog");

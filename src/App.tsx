@@ -516,224 +516,242 @@ export function App() {
           />
         ) : (
         <section className="launch-panel" aria-labelledby="wormifi-title">
-          <div className="brand-lockup" aria-label="Wormifi">
-            <span className="brand-orbit brand-orbit-a" />
-            <span className="brand-orbit brand-orbit-b" />
-            <h1 id="wormifi-title">WORMIFI</h1>
-            <p>TREASURE CREW ARENA</p>
+          <div className="launch-header">
+            <div className="brand-lockup" aria-label="Wormifi">
+              <span className="brand-orbit brand-orbit-a" />
+              <span className="brand-orbit brand-orbit-b" />
+              <h1 id="wormifi-title">WORMIFI</h1>
+              <p>TREASURE CREW ARENA</p>
+            </div>
+
+            <div className="promise-card" id="game-promise">
+              <strong>Hunt rare treasure.</strong>
+              <span>Grow your pirate crew. Cut rival captains. Rule the tide.</span>
+            </div>
           </div>
 
-          <div className="promise-card" id="game-promise">
-            <strong>Hunt rare treasure.</strong>
-            <span>Grow your pirate crew. Cut rival captains. Rule the tide.</span>
-          </div>
-
-          {challenge && (
-            <div className="incoming-challenge" data-testid="incoming-challenge">
-              <small>{rivalLabel(challenge)} SENT A RIVALRY RUN</small>
-              <strong>Beat {challenge.target.value.toLocaleString()} points</strong>
-              <span>Same arena seed. One clean attempt.</span>
-            </div>
-          )}
-
-          <label className="nickname-field">
-            <span>YOUR ARENA NAME</span>
-            <input
-              value={name}
-              maxLength={18}
-              onChange={(event) => setName(event.target.value.replace(/[^a-z0-9 _-]/gi, ""))}
-              aria-label="Your arena name"
-            />
-          </label>
-
-          {!isCrazyGamesDistribution && <button
-              type="button"
-              className="live-lab-button skin-studio-launch"
-              data-testid="skin-studio-launch"
-              onClick={() => setSkinStudioOpen(true)}
-            >
-              <b>CUSTOMIZE SKIN</b>
-              <small>PRIVATE PHOTO SKINS · YOUR PHOTOS STAY ON THIS DEVICE</small>
-            </button>}
-
-          {!isCrazyGamesDistribution && (
-            <BoardPicker
-              value={requestedBoardId}
-              existingRoomBoardId={authoritativeBoardId}
-              onChange={chooseBoard}
-            />
-          )}
-
-          <PacePicker
-            value={requestedPaceId}
-            existingRoomPaceId={authoritativePaceId}
-            onChange={choosePace}
-          />
-
-          {!isCrazyGamesDistribution && <section className="friend-room-card" data-testid="friend-room-card" aria-labelledby="friend-room-title">
-            <div className="friend-room-heading">
-              <span id="friend-room-title">FRIEND ROOM</span>
-              <strong data-testid="lobby-room-identity">{roomIdentityLabel(roomDraft)}</strong>
-            </div>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                setChallenge(null);
-                start("live");
-              }}
-            >
-              <label>
-                <span className="sr-only">Room number or code</span>
+          <div className="launch-columns">
+            <div className="launch-column launch-captain-column">
+              <label className="nickname-field">
+                <span>YOUR ARENA NAME</span>
                 <input
-                  value={roomDraft}
-                  maxLength={32}
-                  aria-label="Room number or code"
-                  onChange={(event) => setRoomDraft(
-                    event.target.value.toLowerCase().replace(/[^a-z0-9-]/gu, "").slice(0, 32),
-                  )}
-                  onBlur={() => prepareRoom()}
+                  value={name}
+                  maxLength={18}
+                  onChange={(event) => setName(event.target.value.replace(/[^a-z0-9 _-]/gi, ""))}
+                  aria-label="Your arena name"
                 />
               </label>
-              <button type="submit" className="room-join-button">JOIN ROOM</button>
-              <button
+
+              {!isCrazyGamesDistribution && <button
                 type="button"
+                className="live-lab-button skin-studio-launch"
+                data-testid="skin-studio-launch"
+                onClick={() => setSkinStudioOpen(true)}
+              >
+                <b>CUSTOMIZE SKIN</b>
+                <small>PRIVATE PHOTO SKINS · YOUR PHOTOS STAY ON THIS DEVICE</small>
+              </button>}
+
+              <div className="control-picker" role="group" aria-label="Mobile helm position">
+                <small>MOBILE HELM</small>
+                <div>
+                  {CONTROL_SCHEME_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={controlScheme === option.id ? "active" : ""}
+                      aria-pressed={controlScheme === option.id}
+                      data-testid={`control-${option.id}`}
+                      onClick={() => setControlScheme(option.id)}
+                    >
+                      <b>{option.label}</b>
+                      <span>{option.detail}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="practice-button" onClick={() => {
+                setChallenge(null);
+                start("practice");
+              }}>
+                PRACTICE WITH LABELED BOTS
+              </button>
+
+              <div className="trust-row" aria-label="Game promises">
+                <span>NO SIGN-UP</span>
+                <span>NO AD BEFORE PLAY</span>
+                <span>NO PAY-TO-WIN</span>
+              </div>
+            </div>
+
+            <div className="launch-column launch-world-column">
+              {!isCrazyGamesDistribution && (
+                <BoardPicker
+                  value={requestedBoardId}
+                  existingRoomBoardId={authoritativeBoardId}
+                  onChange={chooseBoard}
+                />
+              )}
+
+              <PacePicker
+                value={requestedPaceId}
+                existingRoomPaceId={authoritativePaceId}
+                onChange={choosePace}
+              />
+            </div>
+
+            <div className="launch-column launch-play-column">
+              {challenge && (
+                <div className="incoming-challenge" data-testid="incoming-challenge">
+                  <small>{rivalLabel(challenge)} SENT A RIVALRY RUN</small>
+                  <strong>Beat {challenge.target.value.toLocaleString()} points</strong>
+                  <span>Same arena seed. One clean attempt.</span>
+                </div>
+              )}
+
+              {!isCrazyGamesDistribution && <section className="friend-room-card" data-testid="friend-room-card" aria-labelledby="friend-room-title">
+                <div className="friend-room-heading">
+                  <span id="friend-room-title">CHALLENGE A FRIEND</span>
+                  <strong data-testid="lobby-room-identity">{roomIdentityLabel(roomDraft)}</strong>
+                </div>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setChallenge(null);
+                    start("live");
+                  }}
+                >
+                  <label>
+                    <span className="sr-only">Room number or code</span>
+                    <input
+                      value={roomDraft}
+                      maxLength={32}
+                      aria-label="Room number or code"
+                      onChange={(event) => setRoomDraft(
+                        event.target.value.toLowerCase().replace(/[^a-z0-9-]/gu, "").slice(0, 32),
+                      )}
+                      onBlur={() => prepareRoom()}
+                    />
+                  </label>
+                  <button type="submit" className="room-join-button">JOIN ROOM</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextRoom = createCrewRoomId();
+                      setChallenge(null);
+                      prepareRoom(nextRoom);
+                      setCopyStatus("");
+                    }}
+                  >
+                    NEW ROOM
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="friend-challenge-button"
+                  data-testid="lobby-invite"
+                  onClick={openInvite}
+                >
+                  <b>⚔ CHALLENGE A FRIEND</b>
+                  <span>SHARE THIS LIVE ROOM LINK</span>
+                </button>
+                <small>One link puts both captains in the same live arena.</small>
+              </section>}
+
+              <button
+                ref={playButtonRef}
+                className="play-button"
+                data-testid="live-lab-button"
                 onClick={() => {
-                  const nextRoom = createCrewRoomId();
-                  setChallenge(null);
-                  prepareRoom(nextRoom);
-                  setCopyStatus("");
+                  if (isCrazyGamesDistribution) start(mode === "live" ? "rush" : mode);
+                  else if (challenge) start(mode);
+                  else start("live");
                 }}
               >
-                NEW ROOM
+                <span>{isCrazyGamesDistribution ? "PLAY NOW" : challenge ? "ACCEPT CHALLENGE" : "PLAY LIVE"}</span>
+                <small>
+                  {isCrazyGamesDistribution
+                    ? `${mode === "endless" ? "Endless solo" : "90-second solo"} · one click to the arena`
+                    : challenge
+                    ? "Same seed · beat the target"
+                    : `${roomIdentityLabel(roomDraft)} · humans + clearly labeled AI backfill`}
+                </small>
               </button>
-              <button type="button" data-testid="lobby-invite" onClick={openInvite}>INVITE</button>
-            </form>
-            <small>Same room code = same live arena. Send the link, then both press Play Live.</small>
-          </section>}
 
-          <div className="control-picker" role="group" aria-label="Mobile helm position">
-            <small>MOBILE HELM</small>
-            <div>
-              {CONTROL_SCHEME_OPTIONS.map((option) => (
+              <div className="mode-tabs" role="group" aria-label="Solo mode">
                 <button
-                  key={option.id}
-                  type="button"
-                  className={controlScheme === option.id ? "active" : ""}
-                  aria-pressed={controlScheme === option.id}
-                  data-testid={`control-${option.id}`}
-                  onClick={() => setControlScheme(option.id)}
+                  aria-pressed={mode === "rush"}
+                  className={mode === "rush" ? "active" : ""}
+                  onClick={() => {
+                    setMode("rush");
+                    setChallenge(null);
+                  }}
                 >
-                  <b>{option.label}</b>
-                  <span>{option.detail}</span>
+                  <b>90s RUSH</b><small>Fast score chase</small>
                 </button>
-              ))}
+                <button
+                  aria-pressed={mode === "endless"}
+                  className={mode === "endless" ? "active" : ""}
+                  onClick={() => {
+                    setMode("endless");
+                    setChallenge(null);
+                  }}
+                >
+                  <b>ENDLESS</b><small>Grow without limits</small>
+                </button>
+              </div>
+
+              {!isCrazyGamesDistribution && <button
+                className="live-lab-button"
+                data-testid="solo-run-button"
+                onClick={() => start(mode)}
+              >
+                <b>{mode === "endless" ? "PLAY ENDLESS SOLO" : "PLAY 90S SOLO"}</b>
+                <small>Immediate local run · exact six-second replay on finish</small>
+              </button>}
+
+              {rewardedSkinMenuEnabled && (
+                <section
+                  className="monetization-menu-card rewarded-ad-card"
+                  aria-label="Optional rewarded skin unlock"
+                  data-testid="rewarded-skin-menu"
+                >
+                  <div>
+                    <b>{REWARDED_CORSAIR_SKIN_LABEL}: {rewardedSkinEquipped ? "EQUIPPED" : "LOCKED"}</b>
+                    <small>Optional video · unlocks one gold cosmetic skin after the video completes</small>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      disabled={rewardedSkinEquipped}
+                      onClick={requestRewardedOffer}
+                    >
+                      {rewardedSkinEquipped ? "SKIN EQUIPPED" : "WATCH VIDEO · UNLOCK SKIN"}
+                    </button>
+                    <button type="button" onClick={() => setAdStatus("Optional reward skipped.")}>NOT NOW</button>
+                  </div>
+                </section>
+              )}
+
+              {currencyStoreMenuEnabled && (
+                <section
+                  className="monetization-menu-card currency-store-card"
+                  aria-label="Cosmetic currency store"
+                  data-testid="currency-store-menu"
+                >
+                  <div>
+                    <b>SHIP'S PURSE: {doubloons.toLocaleString()} DOUBLOONS</b>
+                    <small>Cosmetic packs only · the treasury opens between runs and never covers active gameplay</small>
+                  </div>
+                  <button type="button" onClick={() => setCurrencyStoreOpen(true)}>
+                    OPEN CAPTAIN'S TREASURY
+                  </button>
+                </section>
+              )}
+
+              {isCrazyGamesDistribution && adStatus && <p className="platform-ad-status" role="status">{adStatus}</p>}
             </div>
-          </div>
-
-          <button
-            ref={playButtonRef}
-            className="play-button"
-            data-testid="live-lab-button"
-            onClick={() => {
-              if (isCrazyGamesDistribution) start(mode === "live" ? "rush" : mode);
-              else if (challenge) start(mode);
-              else start("live");
-            }}
-          >
-            <span>{isCrazyGamesDistribution ? "PLAY NOW" : challenge ? "ACCEPT CHALLENGE" : "PLAY LIVE"}</span>
-            <small>
-              {isCrazyGamesDistribution
-                ? `${mode === "endless" ? "Endless solo" : "90-second solo"} · one click to the arena`
-                : challenge
-                ? "Same seed · beat the target"
-                : `${roomIdentityLabel(roomDraft)} · humans + clearly labeled AI backfill`}
-            </small>
-          </button>
-
-          <div className="mode-tabs" role="group" aria-label="Solo mode">
-            <button
-              aria-pressed={mode === "rush"}
-              className={mode === "rush" ? "active" : ""}
-              onClick={() => {
-                setMode("rush");
-                setChallenge(null);
-              }}
-            >
-              <b>90s RUSH</b><small>Fast score chase</small>
-            </button>
-            <button
-              aria-pressed={mode === "endless"}
-              className={mode === "endless" ? "active" : ""}
-              onClick={() => {
-                setMode("endless");
-                setChallenge(null);
-              }}
-            >
-              <b>ENDLESS</b><small>Grow without limits</small>
-            </button>
-          </div>
-
-          {!isCrazyGamesDistribution && <button
-            className="live-lab-button"
-            data-testid="solo-run-button"
-            onClick={() => start(mode)}
-          >
-            <b>{mode === "endless" ? "PLAY ENDLESS SOLO" : "PLAY 90S SOLO"}</b>
-            <small>Immediate local run · exact six-second replay on finish</small>
-          </button>}
-
-          {rewardedSkinMenuEnabled && (
-            <section
-              className="monetization-menu-card rewarded-ad-card"
-              aria-label="Optional rewarded skin unlock"
-              data-testid="rewarded-skin-menu"
-            >
-              <div>
-                <b>{REWARDED_CORSAIR_SKIN_LABEL}: {rewardedSkinEquipped ? "EQUIPPED" : "LOCKED"}</b>
-                <small>Optional video · unlocks one gold cosmetic skin after the video completes</small>
-              </div>
-              <div>
-                <button
-                  type="button"
-                  disabled={rewardedSkinEquipped}
-                  onClick={requestRewardedOffer}
-                >
-                  {rewardedSkinEquipped ? "SKIN EQUIPPED" : "WATCH VIDEO · UNLOCK SKIN"}
-                </button>
-                <button type="button" onClick={() => setAdStatus("Optional reward skipped.")}>NOT NOW</button>
-              </div>
-            </section>
-          )}
-
-          {currencyStoreMenuEnabled && (
-            <section
-              className="monetization-menu-card currency-store-card"
-              aria-label="Cosmetic currency store"
-              data-testid="currency-store-menu"
-            >
-              <div>
-                <b>SHIP'S PURSE: {doubloons.toLocaleString()} DOUBLOONS</b>
-                <small>Cosmetic packs only · the treasury opens between runs and never covers active gameplay</small>
-              </div>
-              <button type="button" onClick={() => setCurrencyStoreOpen(true)}>
-                OPEN CAPTAIN'S TREASURY
-              </button>
-            </section>
-          )}
-
-          {isCrazyGamesDistribution && adStatus && <p className="platform-ad-status" role="status">{adStatus}</p>}
-
-          <button className="practice-button" onClick={() => {
-            setChallenge(null);
-            start("practice");
-          }}>
-            PRACTICE WITH LABELED BOTS
-          </button>
-
-          <div className="trust-row" aria-label="Game promises">
-            <span>NO SIGN-UP</span>
-            <span>NO AD BEFORE PLAY</span>
-            <span>NO PAY-TO-WIN</span>
           </div>
         </section>
       ))}
