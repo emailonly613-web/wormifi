@@ -38,7 +38,8 @@ Step "set VITE_GA4_MEASUREMENT_ID=$Ga4MeasurementId (BUILD_TIME, static site 'we
 # catchall_document answered 200 with index.html for every unknown path, which
 # is a soft 404: search engines index each typo as a duplicate arena. There is
 # no client-side router in this app, so nothing depends on the catch-all.
-if ($web.PSObject.Properties.Name -contains 'catchall_document') {
+$hadCatchall = $web.PSObject.Properties.Name -contains 'catchall_document'
+if ($hadCatchall) {
   $web.PSObject.Properties.Remove('catchall_document')
   Step 'removed catchall_document (soft-404 source)'
 }
@@ -69,14 +70,33 @@ if ($DryRun) {
   exit 0
 }
 
-Step 'applying spec (this triggers a deployment)'
-doctl apps update $AppId --spec $specFile --wait --format ID,Spec.Name
-if ($LASTEXITCODE -ne 0) { throw 'spec update failed' }
+# Whether the live spec already carries every setting this script owns. When it
+# does, the spec step is skipped entirely: a spec-triggered deployment builds
+# the commit PINNED on the app (the last attempt), not the branch tip, so a
+# needless spec update after a broken push can only rebuild the broken pin.
+$gaAlready = @($web.envs | Where-Object { $_.key -eq 'VITE_GA4_MEASUREMENT_ID' -and $_.value -eq $Ga4MeasurementId }).Count -gt 0
+$specUpToDate = $gaAlready -and
+  -not $hadCatchall -and
+  ($specJson | ConvertFrom-Json).static_sites[0].error_document -eq '404.html' -and
+  @(($specJson | ConvertFrom-Json).ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0
+
+if ($specUpToDate) {
+  Step 'live spec already matches; skipping the spec update'
+} else {
+  Step 'applying spec (this triggers a deployment of the app-pinned commit)'
+  doctl apps update $AppId --spec $specFile --wait --format ID,Spec.Name
+  if ($LASTEXITCODE -ne 0) {
+    # The spec itself applies even when its triggered deployment fails (for
+    # example when the pinned commit no longer builds). The branch-tip
+    # deployment below is the recovery path, so this is a warning, not a stop.
+    Step 'WARNING: the spec-triggered deployment failed; deploying the branch tip instead'
+  }
+}
 Remove-Item $specFile -Force
 
-# A spec update deploys whatever main pointed at when App Platform cloned, so a
-# push landing in the same minute can be missed. Deploy again from the current
-# tip whenever the running build is behind origin/main.
+# Only doctl apps create-deployment re-resolves the branch tip; spec updates
+# reuse the pinned commit. Deploy fresh whenever the running build is behind
+# origin/main — including after the pinned-commit build above failed.
 $originTip = (git -C (Split-Path $PSScriptRoot -Parent) ls-remote origin main).Split()[0]
 $running = (Invoke-RestMethod -Uri 'https://wormifi.com/healthz').buildRevision
 if ($running -ne $originTip) {
