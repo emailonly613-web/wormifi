@@ -354,9 +354,18 @@ describe("deterministic game core", () => {
     expect(attacker.alive).toBe(false);
     expect(attacker.killedBy).toBe(owner.id);
     expect(owner.stats.kills).toBe(1);
-    expect(result.events.some(
+    const death = result.events.find(
       (event) => event.type === "playerDied" && event.playerId === attacker.id,
-    )).toBe(true);
+    );
+    expect(death?.type).toBe("playerDied");
+    if (!death || death.type !== "playerDied") throw new Error("missing collision death");
+    expect(death.collisionTime).toBeGreaterThan(0);
+    expect(death.collisionTime).toBeLessThan(1);
+    expect(attacker.position.x).toBeCloseTo(-10 + 20 * death.collisionTime, 8);
+    expect(attacker.position.y).toBeCloseTo(10, 8);
+    expect(state.drops.find((drop) =>
+      drop.source === "death" && drop.originPlayerId === attacker.id
+    )?.position).toEqual(attacker.position);
     const uncollectedDeathMass =
       state.drops
         .filter((drop) => drop.source === "death")

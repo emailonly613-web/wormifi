@@ -12,6 +12,7 @@ import {
   selectChargingStationPresentation,
   type ChargingStationPresentation,
 } from "../game/chargingStationRender";
+import { appendDeathReleaseParticles } from "../game/deathRelease";
 import {
   DEFAULT_GAME_CONFIG,
   calculateScore,
@@ -801,21 +802,12 @@ export function ArenaCanvas({
         if (event.type === "playerDied") {
           const victim = runtime.state.players[event.playerId];
           if (victim && !runtime.reducedMotion) {
-            const palette = paletteFor(victim.id);
-            for (let index = 0; index < 42; index += 1) {
-              const angle = (index / 42) * Math.PI * 2;
-              const speed = 70 + (index % 9) * 17;
-              runtime.particles.push({
-                x: victim.position.x,
-                y: victim.position.y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                life: 0.8 + (index % 5) * 0.08,
-                maxLife: 1.15,
-                radius: 4 + (index % 4),
-                color: palette[index % palette.length],
-              });
-            }
+            appendDeathReleaseParticles(
+              runtime.particles,
+              victim,
+              paletteFor(victim.id),
+              runtime.state.tick,
+            );
           }
           if (event.killerId === PLAYER_ID && event.playerId !== PLAYER_ID) {
             if (!runtime.reducedMotion) runtime.shakeUntil = performance.now() + 180;
@@ -827,14 +819,14 @@ export function ArenaCanvas({
           if (event.playerId === PLAYER_ID && victim) {
             runtime.runEnded = true;
             if (!runtime.reducedMotion) {
-              runtime.impactUntil = performance.now() + 280;
-              runtime.shakeUntil = performance.now() + 440;
+              runtime.impactUntil = performance.now() + 160;
+              runtime.shakeUntil = performance.now() + 220;
             }
             const killer = event.killerId ? runtime.state.players[event.killerId] : undefined;
             const cause = event.cause === "boundary"
               ? "The arena edge caught your Core."
               : `You hit ${killer?.name ?? "a rival"}’s living chain.`;
-            window.setTimeout(() => commitResult(victim, cause), 340);
+            window.setTimeout(() => commitResult(victim, cause), 220);
           }
         }
       }
@@ -1784,7 +1776,7 @@ function renderArena(
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
   if (!runtime.reducedMotion && runtime.shakeUntil > now) {
-    const intensity = clamp((runtime.shakeUntil - now) / 440, 0, 1) * 9;
+    const intensity = clamp((runtime.shakeUntil - now) / 220, 0, 1) * 3;
     context.translate(
       Math.sin(now * 0.19) * intensity,
       Math.cos(now * 0.23) * intensity,
@@ -1890,8 +1882,8 @@ function renderArena(
   drawArenaVignette(context, width, height);
 
   if (!runtime.reducedMotion && runtime.impactUntil > now) {
-    const alpha = clamp((runtime.impactUntil - now) / 280, 0, 1);
-    context.fillStyle = `rgba(255, 67, 121, ${alpha * 0.28})`;
+    const alpha = clamp((runtime.impactUntil - now) / 160, 0, 1);
+    context.fillStyle = `rgba(255, 67, 121, ${alpha * 0.12})`;
     context.fillRect(0, 0, width, height);
   }
 }

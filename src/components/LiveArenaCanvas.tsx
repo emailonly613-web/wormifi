@@ -46,6 +46,7 @@ import {
   selectChargingStationPresentation,
   type ChargingStationPresentation,
 } from "../game/chargingStationRender";
+import { appendDeathReleaseParticles } from "../game/deathRelease";
 import {
   ARENA_CANVAS_CONTEXT_OPTIONS,
   arenaBackingScale,
@@ -1364,13 +1365,11 @@ export function LiveArenaCanvas({
               const victim = message.players.find((player) => player.id === gameEvent.playerId) ??
                 snapshotRef.current?.players.find((player) => player.id === gameEvent.playerId);
               if (victim) {
-                pushLiveBurst(
+                appendDeathReleaseParticles(
                   particlesRef.current,
-                  victim.position,
-                  reducedMotionRef.current ? 0 : 42,
+                  victim,
                   palettes[stableNumber(victim.id) % palettes.length],
                   message.tick,
-                  1.45,
                 );
               }
               if (gameEvent.killerId === handshake.playerId && gameEvent.playerId !== handshake.playerId) {

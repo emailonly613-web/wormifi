@@ -1139,6 +1139,10 @@ function resolveDeaths(
     const victim = state.players[death.victimId];
     if (!victim?.alive) continue;
 
+    if (death.cause === "collision" && death.collisionTime < 1) {
+      placePlayerAtStepFraction(victim, death.collisionTime);
+    }
+
     victim.alive = false;
     victim.diedAtTick = state.tick;
     victim.killedBy = death.killerId;
@@ -1158,6 +1162,29 @@ function resolveDeaths(
       collisionTime: death.collisionTime,
     });
   }
+}
+
+/**
+ * Resolve a swept collision at its real sub-step contact pose. Collision
+ * detection already returns this fraction; retaining the end-of-step pose
+ * made the defeated head, visual release, and body-shaped hoard appear beyond
+ * the surface that was actually struck.
+ */
+function placePlayerAtStepFraction(player: PlayerState, fraction: number): void {
+  const alpha = Math.max(0, Math.min(1, fraction));
+  player.position.x = lerp(player.previousPosition.x, player.position.x, alpha);
+  player.position.y = lerp(player.previousPosition.y, player.position.y, alpha);
+  const priorTail = player.previousBody.at(-1) ?? player.previousPosition;
+  for (let index = 0; index < player.body.length; index += 1) {
+    const current = player.body[index];
+    const previous = player.previousBody[index] ?? priorTail;
+    current.x = lerp(previous.x, current.x, alpha);
+    current.y = lerp(previous.y, current.y, alpha);
+  }
+}
+
+function lerp(first: number, second: number, alpha: number): number {
+  return first + (second - first) * alpha;
 }
 
 function collectDrops(state: GameState, events: GameEvent[]): void {
