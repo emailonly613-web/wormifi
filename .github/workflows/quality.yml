@@ -21,7 +21,11 @@ jobs:
         with:
           node-version: 24.14.1
           cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir server install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:soak
@@ -61,7 +65,11 @@ jobs:
         with:
           node-version: 24.14.1
           cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir server install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - run: pnpm test:e2e:pwa
