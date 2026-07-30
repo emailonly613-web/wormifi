@@ -435,6 +435,192 @@ function drawOracleSpiral(
   }
 }
 
+/**
+ * FOUNDER'S PACK — Kraken's Ink. Drifting abyssal ink billows, curling
+ * tentacle flicks whose curl breathes with time, and paired sucker marks.
+ */
+function drawKrakenInk(
+  context: CanvasRenderingContext2D,
+  options: WormMaterialOptions,
+) {
+  const { points, bodyRadius, palette, identity, now, motion, glow } = options;
+  if (points.length < 3) return;
+  const t = now * 0.0014 * motion + identity * 0.47;
+
+  // Ink billows sliding slowly along the hull.
+  context.globalAlpha = 0.34;
+  context.fillStyle = palette[1] ?? "#1b0f33";
+  context.beginPath();
+  for (let index = 1; index < points.length - 1; index += 2) {
+    const drift = Math.sin(t + index * 0.9);
+    const tangent = tangentAt(points, index);
+    const radius = bodyRadius * (0.3 + 0.2 * Math.abs(drift));
+    const x = points[index].x + tangent.x * drift * bodyRadius * 0.3;
+    const y = points[index].y + tangent.y * drift * bodyRadius * 0.3;
+    context.moveTo(x + radius, y);
+    context.arc(x, y, radius, 0, TAU);
+  }
+  context.fill();
+
+  // Tentacle flicks curling off alternating sides; the curl breathes.
+  context.globalAlpha = 0.55;
+  context.strokeStyle = palette[0] ?? "#8a5cff";
+  context.lineWidth = Math.max(1, bodyRadius * 0.14);
+  context.lineCap = "round";
+  applyGlow(context, palette[0] ?? "#8a5cff", bodyRadius, glow);
+  context.beginPath();
+  for (let index = 1; index < points.length - 1; index += 2) {
+    const tangent = tangentAt(points, index);
+    const side = index % 4 === 1 ? 1 : -1;
+    const breathe = 0.44 + 0.18 * Math.sin(t * 2.1 + index * 1.9);
+    const reach = bodyRadius * breathe;
+    const point = points[index];
+    const normalX = -tangent.y * side;
+    const normalY = tangent.x * side;
+    context.moveTo(point.x, point.y);
+    // The control point swings with time so the tip appears to curl.
+    const curl = Math.sin(t * 1.7 + index) * 0.5;
+    context.quadraticCurveTo(
+      point.x + normalX * reach * 0.55 + tangent.x * reach * curl,
+      point.y + normalY * reach * 0.55 + tangent.y * reach * curl,
+      point.x + normalX * reach - tangent.x * reach * 0.4,
+      point.y + normalY * reach - tangent.y * reach * 0.4,
+    );
+  }
+  context.stroke();
+  clearGlow(context);
+
+  // Paired sucker marks, static, along the opposite side.
+  context.globalAlpha = 0.4;
+  context.fillStyle = palette[2] ?? "#d9c6ff";
+  context.beginPath();
+  for (let index = 2; index < points.length - 1; index += 3) {
+    const tangent = tangentAt(points, index);
+    const side = index % 4 === 1 ? -1 : 1;
+    const radius = Math.max(0.6, bodyRadius * 0.07);
+    for (let pair = 0; pair < 2; pair += 1) {
+      const along = (pair === 0 ? -1 : 1) * bodyRadius * 0.16;
+      const x = points[index].x - tangent.y * side * bodyRadius * 0.42 + tangent.x * along;
+      const y = points[index].y + tangent.x * side * bodyRadius * 0.42 + tangent.y * along;
+      context.moveTo(x + radius, y);
+      context.arc(x, y, radius, 0, TAU);
+    }
+  }
+  context.fill();
+}
+
+/**
+ * FOUNDER'S PACK — Phoenix Wake. Embers rise off the hull and fade as they
+ * climb; a reignition pulse sweeps TAIL→HEAD — deliberately the opposite
+ * direction to the free crown gleam, so the two never read as one effect.
+ */
+function drawPhoenixWake(
+  context: CanvasRenderingContext2D,
+  options: WormMaterialOptions,
+) {
+  const { points, bodyRadius, palette, identity, now, motion, glow } = options;
+  if (points.length < 3) return;
+  const t = now * 0.0019 * motion + identity * 0.31;
+
+  // Charred spine the fire lives on.
+  context.globalAlpha = 0.3;
+  context.strokeStyle = palette[1] ?? "#4a1208";
+  context.lineWidth = Math.max(1, bodyRadius * 0.12);
+  context.beginPath();
+  context.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) {
+    context.lineTo(points[index].x, points[index].y);
+  }
+  context.stroke();
+
+  // Embers in two age groups so alpha varies without per-ember paints.
+  for (let pass = 0; pass < 2; pass += 1) {
+    context.globalAlpha = pass === 0 ? 0.62 : 0.3;
+    context.fillStyle = pass === 0 ? (palette[0] ?? "#ff7a2f") : (palette[2] ?? "#ffd36a");
+    if (pass === 0) applyGlow(context, palette[0] ?? "#ff7a2f", bodyRadius, glow);
+    context.beginPath();
+    for (let index = 1 + pass; index < points.length - 1; index += 2) {
+      const rise = fract(t * 0.9 + index * 0.37);
+      const lift = rise * bodyRadius * 0.58;
+      if (lift > bodyRadius * MATERIAL_MAX_OFFSET) continue;
+      const tangent = tangentAt(points, index);
+      const side = index % 4 === 1 ? 1 : -1;
+      const size = Math.max(0.7, bodyRadius * 0.13 * (1 - rise * 0.6));
+      const x = points[index].x - tangent.y * side * lift + tangent.x * Math.sin(rise * TAU) * bodyRadius * 0.08;
+      const y = points[index].y + tangent.x * side * lift + tangent.y * Math.sin(rise * TAU) * bodyRadius * 0.08;
+      context.moveTo(x, y - size);
+      context.lineTo(x + size, y);
+      context.lineTo(x, y + size);
+      context.lineTo(x - size, y);
+      context.closePath();
+    }
+    context.fill();
+    if (pass === 0) clearGlow(context);
+  }
+
+  // The reignition pulse, sweeping tail→head.
+  const sweep = 1 - fract(t * 0.24);
+  const center = sweep * (points.length - 1);
+  const span = Math.max(2, points.length * 0.18);
+  const from = Math.max(0, Math.ceil(center - span));
+  const to = Math.min(points.length - 1, Math.floor(center + span));
+  if (to > from) {
+    context.globalAlpha = 0.58;
+    context.strokeStyle = "#fff1c4";
+    context.lineWidth = Math.max(1.2, bodyRadius * 0.26);
+    applyGlow(context, "#ffb35c", bodyRadius, glow);
+    context.beginPath();
+    context.moveTo(points[from].x, points[from].y);
+    for (let index = from + 1; index <= to; index += 1) {
+      context.lineTo(points[index].x, points[index].y);
+    }
+    context.stroke();
+    clearGlow(context);
+  }
+}
+
+/**
+ * FOUNDER'S PACK — Leviathan Scale. Overlapping plate arcs across the hull;
+ * three phase-offset color passes make the iridescence roll down the body.
+ */
+function drawLeviathanScale(
+  context: CanvasRenderingContext2D,
+  options: WormMaterialOptions,
+) {
+  const { points, bodyRadius, palette, identity, now, motion, glow } = options;
+  if (points.length < 3) return;
+  const t = now * 0.0016 * motion + identity * 0.67;
+  const radius = bodyRadius * 0.55;
+  const colors = [
+    palette[0] ?? "#2fd6c3",
+    palette[2] ?? "#9a7bff",
+    "#ffd36a",
+  ];
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    // Each pass owns every third plate; its shimmer rolls along the body.
+    context.strokeStyle = colors[pass];
+    context.globalAlpha = 0.22 + 0.2 * Math.sin(t * 1.8 + pass * (TAU / 3));
+    context.lineWidth = Math.max(1, bodyRadius * 0.13);
+    context.lineCap = "round";
+    if (pass === 0) applyGlow(context, colors[0], bodyRadius, glow);
+    context.beginPath();
+    for (let index = 1 + pass; index < points.length - 1; index += 3) {
+      const tangent = tangentAt(points, index);
+      const facing = Math.atan2(tangent.y, tangent.x);
+      const point = points[index];
+      // A plate is a rearward-open arc, like one fish scale seen side-on.
+      context.moveTo(
+        point.x + Math.cos(facing + Math.PI * 0.62) * radius,
+        point.y + Math.sin(facing + Math.PI * 0.62) * radius,
+      );
+      context.arc(point.x, point.y, radius, facing + Math.PI * 0.62, facing + Math.PI * 1.38);
+    }
+    context.stroke();
+    if (pass === 0) clearGlow(context);
+  }
+}
+
 const MATERIAL_RENDERERS: Record<
   WormMaterialPattern,
   (context: CanvasRenderingContext2D, options: WormMaterialOptions) => void
@@ -448,6 +634,9 @@ const MATERIAL_RENDERERS: Record<
   "cutlass-flame": drawCutlassFlame,
   "broadside-bolt": drawBroadsideBolt,
   "oracle-spiral": drawOracleSpiral,
+  "kraken-ink": drawKrakenInk,
+  "phoenix-wake": drawPhoenixWake,
+  "leviathan-scale": drawLeviathanScale,
 };
 
 /**

@@ -14,9 +14,11 @@ import {
 } from "../src/game/photoSkin";
 
 describe("public-safe authored cosmetic themes", () => {
-  it("has one stable default and a closed nine-theme catalog", () => {
+  it("has one stable default, the original free nine, and the founder trio", () => {
     expect(DEFAULT_COSMETIC_THEME_ID).toBe("tideglass-corsair");
-    expect(COSMETIC_THEME_CATALOG.map((theme) => theme.id)).toEqual([
+    // The free nine are position-stable forever; a change here means a free
+    // theme was renamed, removed, or walled off.
+    expect(COSMETIC_THEME_CATALOG.slice(0, 9).map((theme) => theme.id)).toEqual([
       "tideglass-corsair",
       "sunken-crown",
       "coral-signal",
@@ -27,7 +29,12 @@ describe("public-safe authored cosmetic themes", () => {
       "storm-cannon",
       "vortex-oracle",
     ]);
-    expect(new Set(COSMETIC_THEME_CATALOG.map((theme) => theme.palette.join("|"))).size).toBe(9);
+    expect(COSMETIC_THEME_CATALOG.slice(9).map((theme) => theme.id)).toEqual([
+      "krakens-ink",
+      "phoenix-wake",
+      "leviathan-scale",
+    ]);
+    expect(new Set(COSMETIC_THEME_CATALOG.map((theme) => theme.palette.join("|"))).size).toBe(12);
     expect(isCosmeticThemeId("sunken-crown")).toBe(true);
     expect(isCosmeticThemeId("data:image/webp;base64,private")).toBe(false);
     expect(isCosmeticThemeId("ghost-theme")).toBe(false);

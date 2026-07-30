@@ -75,10 +75,57 @@ if ($hadCatchall) {
 $web | Add-Member -NotePropertyName error_document -NotePropertyValue '404.html' -Force
 Step 'set error_document=404.html'
 
+# --- 4a. The Founder's Pack store service ---------------------------------
+# A separate tiny component so store code never rides inside the arena
+# service. Secrets come from this machine's stores at deploy time: the Stripe
+# key from the Stripe CLI login, the unlock secret from the signing directory
+# (created once, beside the Android keystore). Neither is ever committed.
+$stripeConfig = Join-Path $env:USERPROFILE '.config\stripe\config.toml'
+$stripeKey = if (Test-Path $stripeConfig) {
+  ([regex]::Match((Get-Content $stripeConfig -Raw), "sk_test_[A-Za-z0-9]+")).Value
+} else { '' }
+$unlockSecretPath = 'D:\wormifi-signing\wormifi-unlock-secret.txt'
+$unlockSecret = if (Test-Path $unlockSecretPath) { (Get-Content $unlockSecretPath -Raw).Trim() } else { '' }
+
+$storeAlready = @($spec.services | Where-Object { $_.name -eq 'store' }).Count -gt 0
+if (-not $storeAlready) {
+  if (-not $stripeKey -or -not $unlockSecret) { throw 'store secrets unavailable on this machine' }
+  $storeService = [pscustomobject]@{
+    name             = 'store'
+    git              = [pscustomobject]@{
+      repo_clone_url = 'https://github.com/emailonly613-web/wormifi.git'
+      branch         = 'main'
+    }
+    source_dir       = '/store'
+    environment_slug = 'node-js'
+    run_command      = 'node src/server.mjs'
+    http_port        = 8090
+    instance_count   = 1
+    instance_size_slug = 'basic-xxs'
+    health_check     = [pscustomobject]@{
+      http_path             = '/store/healthz'
+      port                  = 8090
+      initial_delay_seconds = 5
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 3
+    }
+    envs             = @(
+      [pscustomobject]@{ key = 'STRIPE_SECRET_KEY'; scope = 'RUN_TIME'; type = 'SECRET'; value = $stripeKey }
+      [pscustomobject]@{ key = 'WORMIFI_UNLOCK_SECRET'; scope = 'RUN_TIME'; type = 'SECRET'; value = $unlockSecret }
+      [pscustomobject]@{ key = 'WORMIFI_PUBLIC_ORIGIN'; scope = 'RUN_TIME'; value = 'https://wormifi.com' }
+      [pscustomobject]@{ key = 'PORT'; scope = 'RUN_TIME'; value = '8090' }
+    )
+  }
+  $spec.services = @($spec.services) + $storeService
+  Step "added the store service component ($(if ($stripeKey.StartsWith('sk_test_')) { 'test' } else { 'live' }) mode key)"
+}
+
 # --- 4. www -> apex, one permanent redirect -------------------------------
 # Both hosts served 200 with identical bytes. The canonical tag alone leaves
 # two crawlable copies; a 301 collapses them before a crawler has to guess.
-$rules = @($spec.ingress.rules | Where-Object { -not $_.redirect })
+$rules = @($spec.ingress.rules | Where-Object { -not $_.redirect -and $_.component.name -ne 'store' })
 $wwwRedirect = [pscustomobject]@{
   match    = [pscustomobject]@{
     authority = [pscustomobject]@{ exact = 'www.wormifi.com' }
@@ -86,8 +133,13 @@ $wwwRedirect = [pscustomobject]@{
   }
   redirect = [pscustomobject]@{ authority = 'wormifi.com'; redirect_code = 301 }
 }
-$spec.ingress.rules = @($wwwRedirect) + $rules
-Step 'prepended www.wormifi.com -> wormifi.com 301 ingress rule'
+# The store rule must precede the "/" catch-all that feeds the static site.
+$storeRule = [pscustomobject]@{
+  match     = [pscustomobject]@{ path = [pscustomobject]@{ prefix = '/store' } }
+  component = [pscustomobject]@{ name = 'store'; preserve_path_prefix = $true }
+}
+$spec.ingress.rules = @($wwwRedirect, $storeRule) + $rules
+Step 'prepended the www 301 and /store ingress rules'
 
 # --- 5. Apply -------------------------------------------------------------
 $specFile = Join-Path $env:TEMP "wormifi-spec-$(Get-Random).json"
@@ -109,7 +161,9 @@ $specUpToDate = $gaAlready -and
   $arenaRuntimeAlready -and
   -not $hadCatchall -and
   $liveWeb.error_document -eq '404.html' -and
-  @($liveSpec.ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0
+  @($liveSpec.ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0 -and
+  @($liveSpec.services | Where-Object { $_.name -eq 'store' }).Count -gt 0 -and
+  @($liveSpec.ingress.rules | Where-Object { $_.component.name -eq 'store' }).Count -gt 0
 
 if ($specUpToDate) {
   Step 'live spec already matches; skipping the spec update'
@@ -185,6 +239,15 @@ try {
   if ($_.Exception.Response) { $wwwCode = [int]$_.Exception.Response.StatusCode }
 }
 if ($wwwCode -eq 301) { Step 'PROVEN: www answers 301' } else { $fail += "www answered $wwwCode, expected 301" }
+
+# The store must answer through the public ingress before any buyer can.
+try {
+  $storeHealth = Invoke-RestMethod -Uri 'https://wormifi.com/store/healthz' -TimeoutSec 20
+  if ($storeHealth.ok) { Step "PROVEN: store answers through the public ingress ($($storeHealth.mode) mode)" }
+  else { $fail += 'store healthz answered without ok:true' }
+} catch {
+  $fail += "store healthz unreachable: $($_.Exception.Message)"
+}
 
 foreach ($p in @('/robots.txt', '/sitemap.xml', '/404.html', "/$IndexNowKey.txt")) {
   $r = Invoke-WebRequest -Uri "https://wormifi.com$p" -UseBasicParsing -SkipHttpErrorCheck

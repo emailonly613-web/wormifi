@@ -52,8 +52,16 @@ import {
   PhotoSkinImageCache,
   createPhotoSkinRenderPlan,
   readPhotoSkinState,
+  selectPhotoSkinTheme,
   type PhotoSkinState,
 } from "./game/photoSkin";
+import { DEFAULT_COSMETIC_THEME_ID, isPremiumCosmeticThemeId } from "./game/cosmeticThemes";
+import {
+  STORE_API_BASE,
+  isFounderPackUnlocked,
+  normalizeFounderPackGrant,
+  storeFounderPackGrant,
+} from "./game/premiumSkins";
 import type { PhotoSkinCanvasAppearance } from "./game/photoSkinCanvas";
 import {
   readDoubloons,
@@ -235,6 +243,45 @@ export function App() {
       active = false;
     };
   }, [photoSkinRenderPlan]);
+
+  useEffect(() => {
+    // Returning from Stripe: ?founder_session=cs_… means checkout finished.
+    // The grant is minted only after the store re-confirms the session as paid
+    // with Stripe, so a hand-typed session id cannot unlock anything.
+    if (isCrazyGamesDistribution) return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("founder_session");
+    if (!sessionId) return;
+    params.delete("founder_session");
+    const cleanQuery = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`);
+    void fetch(`${STORE_API_BASE}/verify?session_id=${encodeURIComponent(sessionId)}`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!body?.granted) return;
+        const grant = normalizeFounderPackGrant({
+          sessionId: body.sessionId,
+          token: body.token,
+          grantedAtMs: Date.now(),
+        });
+        if (grant && storeFounderPackGrant(grant)) {
+          // Land the buyer in the studio with the pack already unlocked.
+          setSkinStudioOpen(true);
+        }
+      })
+      .catch(() => {
+        // The purchase stays restorable: verify re-runs on the next visit
+        // with the same session id from the Stripe receipt.
+      });
+  }, []);
+
+  useEffect(() => {
+    // A premium theme id without an unlock on this device (cleared storage,
+    // copied URL, another browser) falls back to the free default.
+    if (isPremiumCosmeticThemeId(photoSkinState.themeId) && !isFounderPackUnlocked()) {
+      setPhotoSkinState((current) => selectPhotoSkinTheme(current, DEFAULT_COSMETIC_THEME_ID));
+    }
+  }, [photoSkinState.themeId]);
 
   useEffect(() => {
     if (!isCrazyGamesDistribution) return;

@@ -82,6 +82,35 @@ export const COSMETIC_THEME_CATALOG = [
     pattern: "oracle-spiral",
     tier: "rare",
   },
+  // FOUNDER'S PACK — the paid legend trio. New content only: every theme above
+  // this line was free before the pack existed and stays free forever.
+  {
+    id: "krakens-ink",
+    label: "KRAKEN'S INK",
+    description: "Abyssal ink billows and curling tentacle shadow.",
+    palette: ["#8a5cff", "#140b2e", "#d9c6ff"],
+    pattern: "kraken-ink",
+    tier: "legend",
+    premium: true,
+  },
+  {
+    id: "phoenix-wake",
+    label: "PHOENIX WAKE",
+    description: "Rising embers over a charred crimson keel.",
+    palette: ["#ff7a2f", "#3a0d08", "#ffd36a"],
+    pattern: "phoenix-wake",
+    tier: "legend",
+    premium: true,
+  },
+  {
+    id: "leviathan-scale",
+    label: "LEVIATHAN SCALE",
+    description: "Deep-sea plate armor rolling with iridescent light.",
+    palette: ["#2fd6c3", "#0a2b40", "#9a7bff"],
+    pattern: "leviathan-scale",
+    tier: "legend",
+    premium: true,
+  },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -89,7 +118,17 @@ export const COSMETIC_THEME_CATALOG = [
   palette: readonly string[];
   pattern: WormMaterialPattern;
   tier: CosmeticThemeTier;
+  premium?: true;
 }[];
+
+/** Paid catalog entries. Equipping one requires an unlock; seeing one never does. */
+export const PREMIUM_COSMETIC_THEME_IDS: ReadonlySet<string> = new Set(
+  COSMETIC_THEME_CATALOG.filter((theme) => "premium" in theme && theme.premium).map((theme) => theme.id),
+);
+
+export function isPremiumCosmeticThemeId(value: unknown): boolean {
+  return typeof value === "string" && PREMIUM_COSMETIC_THEME_IDS.has(value);
+}
 
 /** Every animated material must be reachable through some authored theme. */
 const UNUSED_PATTERNS = WORM_MATERIAL_PATTERNS.filter(

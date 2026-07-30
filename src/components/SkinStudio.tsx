@@ -35,7 +35,18 @@ import {
   type MaterialMotionLevel,
   type RenderPreferences,
 } from "../game/renderPreferences";
-import type { CosmeticThemeTier } from "../game/cosmeticThemes";
+import {
+  getCosmeticTheme,
+  isPremiumCosmeticThemeId,
+  type CosmeticThemeTier,
+} from "../game/cosmeticThemes";
+import {
+  FOUNDER_PACK,
+  STORE_API_BASE,
+  canEquipTheme,
+  isFounderPackUnlocked,
+  isFounderStoreVisible,
+} from "../game/premiumSkins";
 
 const MOTION_LEVEL_COPY: Record<MaterialMotionLevel, { label: string; detail: string }> = {
   full: { label: "FULL", detail: "Materials flow at full speed." },
@@ -86,6 +97,11 @@ export function SkinStudio({
 
   const [state, setState] = useState<PhotoSkinState>(loadedRef.current.state);
   const [renderPrefs, setRenderPrefs] = useState<RenderPreferences>(() => readRenderPreferences());
+  const [founderUnlocked, setFounderUnlocked] = useState(() => isFounderPackUnlocked());
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const founderStoreVisible = founderUnlocked ||
+    (typeof window !== "undefined" && isFounderStoreVisible(window.location.search));
   const reducedMotionRef = useRef(
     typeof window !== "undefined" &&
     (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false),
@@ -116,6 +132,9 @@ export function SkinStudio({
     let active = true;
     let frameHandle = 0;
     const renderPlan = createPhotoSkinRenderPlan(state);
+    // A "try before you unlock" preview repaints the worm in a premium theme
+    // without ever writing it into the persisted state.
+    const previewTheme = previewThemeId ? getCosmeticTheme(previewThemeId) : renderPlan.theme;
     // Reduced motion wins over every studio control, exactly as in the arena.
     const motionScale = reducedMotionRef.current ? 0 : PREVIEW_MOTION_SCALE[renderPrefs.materialMotion];
     let decoded: ReadonlyMap<string, CanvasImageSource> = new Map();
@@ -164,12 +183,12 @@ export function SkinStudio({
         points,
         headRadius,
         bodyRadius,
-        palette: renderPlan.theme.palette,
+        palette: previewTheme.palette,
         direction: { x: 1, y: 0 },
         shielded: false,
         identity: 26,
         now: now * motionScale,
-        pattern: renderPlan.theme.pattern,
+        pattern: previewTheme.pattern,
         materialMotion: motionScale,
         materialGlow: renderPrefs.materialGlow,
       });
@@ -209,7 +228,7 @@ export function SkinStudio({
       active = false;
       if (frameHandle) cancelAnimationFrame(frameHandle);
     };
-  }, [renderPrefs, state]);
+  }, [previewThemeId, renderPrefs, state]);
 
   const commit = (next: PhotoSkinState, nextStatus: string) => {
     setState(next);
@@ -308,14 +327,17 @@ export function SkinStudio({
       <fieldset className="skin-studio-themes">
         <legend>AUTHORED THEME OTHER PLAYERS CAN SEE</legend>
         <div>
-          {PHOTO_SKIN_THEMES.map((theme) => (
+          {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => (
             <label key={theme.id} className={state.themeId === theme.id ? "selected" : ""}>
               <input
                 type="radio"
                 name={`${titleId}-theme`}
                 value={theme.id}
                 checked={state.themeId === theme.id}
-                onChange={() => commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} selected for public play.`)}
+                onChange={() => {
+                  setPreviewThemeId(null);
+                  commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} selected for public play.`);
+                }}
               />
               <span className="skin-theme-swatches" aria-hidden="true">
                 {theme.palette.map((color) => <i key={color} style={{ backgroundColor: color }} />)}
@@ -333,6 +355,100 @@ export function SkinStudio({
           ))}
         </div>
       </fieldset>
+
+      {founderStoreVisible && (
+        <fieldset
+          className="skin-studio-founder"
+          data-testid="skin-studio-founder"
+          data-founder-unlocked={founderUnlocked ? "true" : "false"}
+        >
+          <legend>{FOUNDER_PACK.label} · THREE LEGEND SKINS</legend>
+          <div className="skin-founder-themes">
+            {FOUNDER_PACK.themeIds.map((themeId) => {
+              const theme = getCosmeticTheme(themeId);
+              const equippable = founderUnlocked && canEquipTheme(theme.id);
+              return (
+                <label
+                  key={theme.id}
+                  className={state.themeId === theme.id ? "selected" : previewThemeId === theme.id ? "previewing" : ""}
+                >
+                  <input
+                    type="radio"
+                    name={`${titleId}-theme`}
+                    value={theme.id}
+                    checked={state.themeId === theme.id}
+                    disabled={!equippable}
+                    onChange={() => {
+                      if (!canEquipTheme(theme.id)) return;
+                      setPreviewThemeId(null);
+                      commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} equipped for public play.`);
+                    }}
+                  />
+                  <span className="skin-theme-swatches" aria-hidden="true">
+                    {theme.palette.map((color) => <i key={color} style={{ backgroundColor: color }} />)}
+                  </span>
+                  <strong>
+                    {theme.label}
+                    <em className="skin-theme-tier tier-legend">LEGEND</em>
+                  </strong>
+                  <small>{theme.description}</small>
+                  {!founderUnlocked && (
+                    <button
+                      type="button"
+                      className="skin-founder-preview"
+                      data-testid={`founder-preview-${theme.id}`}
+                      onClick={() => {
+                        setPreviewThemeId(previewThemeId === theme.id ? null : theme.id);
+                        setStatus(previewThemeId === theme.id
+                          ? "Preview closed."
+                          : `${theme.label} preview — your equipped theme is unchanged.`);
+                      }}
+                    >
+                      {previewThemeId === theme.id ? "CLOSE PREVIEW" : "PREVIEW"}
+                    </button>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+          {founderUnlocked ? (
+            <small className="skin-founder-owned">FOUNDER'S PACK UNLOCKED ON THIS DEVICE · pick any legend above.</small>
+          ) : (
+            <div className="skin-founder-buy">
+              <button
+                type="button"
+                className="skin-founder-unlock"
+                data-testid="founder-unlock-button"
+                disabled={checkoutBusy}
+                onClick={() => {
+                  setCheckoutBusy(true);
+                  setStatus("Opening secure Stripe checkout…");
+                  void fetch(`${STORE_API_BASE}/checkout`, { method: "POST" })
+                    .then(async (response) => {
+                      const body = await response.json().catch(() => ({}));
+                      if (response.ok && typeof body.url === "string") {
+                        window.location.assign(body.url);
+                        return;
+                      }
+                      throw new Error(typeof body.error === "string" ? body.error : "Checkout is unavailable right now.");
+                    })
+                    .catch((checkoutError: unknown) => {
+                      setCheckoutBusy(false);
+                      setError(checkoutError instanceof Error ? checkoutError.message : "Checkout is unavailable right now.");
+                      setStatus("Nothing was charged.");
+                    });
+                }}
+              >
+                {checkoutBusy ? "OPENING CHECKOUT…" : `UNLOCK ALL THREE · ${FOUNDER_PACK.priceLabel}`}
+              </button>
+              <small>
+                One-time purchase through Stripe's secure checkout. Unlocks on this device;
+                keep your receipt email to restore. Every other theme stays free forever.
+              </small>
+            </div>
+          )}
+        </fieldset>
+      )}
 
       <fieldset className="skin-studio-motion" data-testid="skin-studio-motion">
         <legend>MATERIAL MOTION &amp; GLOW · THIS DEVICE</legend>

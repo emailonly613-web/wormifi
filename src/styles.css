@@ -2525,6 +2525,120 @@ input:focus-visible {
   box-shadow: 0 0 8px rgba(244, 199, 91, 0.45);
 }
 
+/* FOUNDER'S PACK storefront — gold-trimmed, but the same studio language. */
+.skin-studio-founder {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(244, 199, 91, 0.42);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(24, 16, 4, 0.82), rgba(4, 22, 37, 0.78));
+  display: grid;
+  gap: 10px;
+}
+
+.skin-studio-founder legend {
+  padding: 0 6px;
+  color: #ffe39a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.skin-founder-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.skin-founder-themes label {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(244, 199, 91, 0.28);
+  border-radius: 14px;
+  background: rgba(4, 22, 37, 0.84);
+  display: grid;
+  gap: 4px;
+}
+
+.skin-founder-themes label.selected {
+  border-color: rgba(255, 227, 154, 0.85);
+  background: rgba(74, 56, 12, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 227, 154, 0.2);
+}
+
+.skin-founder-themes label.previewing {
+  border-color: rgba(138, 255, 234, 0.6);
+}
+
+.skin-founder-themes input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.skin-founder-themes strong {
+  color: #fff4d6;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.skin-founder-themes small {
+  color: #bfae8a;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.skin-founder-preview {
+  justify-self: start;
+  margin-top: 3px;
+  padding: 4px 9px;
+  border: 1px solid rgba(138, 255, 234, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: #8affea;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.skin-founder-buy {
+  display: grid;
+  gap: 6px;
+}
+
+.skin-founder-unlock {
+  justify-self: start;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #ffe9a4, #f4c75b);
+  color: #2c1a02;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(244, 199, 91, 0.35);
+}
+
+.skin-founder-unlock:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.skin-founder-buy small,
+.skin-founder-owned {
+  color: rgba(232, 220, 188, 0.72);
+  font-size: 0.62rem;
+  line-height: 1.35;
+}
+
+.skin-founder-owned {
+  color: #8affea;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
 .skin-studio-motion {
   margin: 0;
   padding: 12px;

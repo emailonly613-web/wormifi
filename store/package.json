@@ -1,0 +1,13 @@
+{
+  "name": "wormifi-store",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Founder's Pack checkout and unlock verification. Zero runtime dependencies.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.mjs"
+  }
+}
