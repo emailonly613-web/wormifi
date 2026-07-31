@@ -15,6 +15,7 @@ size as collectable wake loot. Design law: nothing appears from nowhere -
 killed crews drop their conserved mass where they fell.
 
 ## Play
+- [Founding 50 external test](https://wormifi.com/founding-50.html?utm_source=llms&utm_medium=machine_discovery&utm_campaign=founding_50&utm_id=llms): play one run, host a free private room, or invite one friend
 - [Play Wormifi](https://wormifi.com/): the game itself, playable instantly
 - [Install on any phone](https://wormifi.com/install.html): Android package or iPhone home screen, no app store
 

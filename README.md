@@ -2,6 +2,8 @@
 
 **Play it now: [wormifi.com](https://wormifi.com/)** — free in your browser, no download, no account. [Install it on your phone](https://wormifi.com/install.html) without an app store.
 
+**Founding 50 external test:** [play one honest run](https://wormifi.com/founding-50.html?utm_source=github&utm_medium=repository&utm_campaign=founding_50&utm_id=readme), then open a free private room and invite one friend only if the arena earns another round.
+
 Wormifi is an original living-chain arena web game. It keeps the category's
 instantly legible collect-grow-outmaneuver loop while making every follower a
 character, every arena reward readable before collection, and every local run
@@ -81,6 +83,8 @@ alias were declared only after the public HTTPS/WSS/mobile/replay gate passed.
 
 ## Design and operating documents
 
+- `docs/FIRST-50-AUTONOMOUS-ACQUISITION.md` — the current traffic-first law,
+  owned acquisition engine, measurement boundary, and external-identity blockers.
 - `docs/CURRENT-COMPETITOR-BENCHMARK.md` — current category evidence, player
   complaint patterns, the 100-point scorecard, and launch-versus-later choices.
 - `docs/GROUND-FOOD-AND-POWER-SYSTEM.md` — the fair pirate-treasure architecture,
