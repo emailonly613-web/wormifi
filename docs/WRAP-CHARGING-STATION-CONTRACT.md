@@ -16,28 +16,31 @@ fully vulnerable to ordinary rival collisions. Boost casts off.
 
 ## Authoritative rules
 
-- The original `open-seas` board declares zero stations and runs no charging
-  branch. The first opt-in `black-pearl-relay` profile declares two capstans.
+- The default `open-seas` board now declares two small physical orbit rings and
+  one large harbor pad. `Coin Cay` requires a 1.5-second physical wrap for +9
+  match size; `Coral Key` requires 2.25 seconds for +20; `Kraken Atoll`
+  requires 7 seconds for +42. The opt-in `black-pearl-relay` profile retains
+  its two original capstans.
 - Station identity, name, center, core, wrap lane, dock, reward and timing come
   from the room's immutable server board config.
-- The head must be inside the dock radius and at least **12 contiguous body
-  segments** must remain in the wrap lane.
-- Initial completion geometry is **300 degrees** of net winding with at least
-  82% same-direction consistency. Reversing back and forth cannot fake a coil;
-  a body link jumping more than 90 degrees also terminates the contiguous proof.
+- The head must be inside the station's dock radius and the configured minimum
+  contiguous body segments must remain in the wrap lane: 6, 10 and 14 on the
+  three Open Seas objectives.
+- Completion geometry is roughly one orbit (5.3, 5.45 and 5.55 radians) with at
+  least 82% same-direction consistency. Reversing back and forth cannot fake a
+  coil; a body link jumping more than 90 degrees also terminates the contiguous
+  proof.
 - Only one player owns a station attempt. Simultaneous candidates resolve by
   stable player ID order in the same deterministic simulation step.
-- A valid coil latches for an initial **2.4 seconds**. Growth is awarded against
+- A valid coil latches for its configured duration. Growth is awarded against
   the progress high-water mark, so interruption/decay/resume cannot mint the
   same partial reward twice.
 - Leaving the dock or lane, changing winding direction, dying, losing the body,
-  or pressing boost interrupts. The initial grace is **0.35 seconds**, followed
-  by deterministic two-progress-ticks-per-simulation-tick decay and a **4
-  second** reset cooldown.
-- Initial completion reward: **+24 match size**, disclosed and identical for
-  every player. It is not permanent currency, a purchased advantage or a random
-  multiplier; it updates ordinary body growth.
-- Initial completion cooldown: **20 seconds**.
+  or pressing boost interrupts. Open Seas uses a 0.25-second grace, four
+  progress ticks of decay per simulation tick and a 1-second reset cooldown.
+- Completion reward is the station's fixed disclosed match-size value. It is
+  not permanent currency, a purchased advantage or a random multiplier.
+- Open Seas completion cooldowns are 4, 6 and 8 seconds respectively.
 - Charging grants no shield, collision exception, speed change, hidden immunity
   or control over another player.
 
@@ -49,6 +52,9 @@ balance evidence, but clients may never decide progress or award size.
 - Local and live arenas render the configured core, wrap annulus, dock, winding
   direction, progress, interruption and cooldown directly from board config and
   authoritative station state.
+- Small stations use orbit beads, direction arrows, a head-shaped dock and a
+  faceted prize core so their risk/reward reads without instructional words.
+  Kraken Atoll uses three growth crests tied to its real multiplier stages.
 - The player's HUD exposes station name, phase, readable instruction and native
   progress semantics without changing steering or simulation truth.
 - The pirate-chart radar shows configured station landmarks and distinguishes an

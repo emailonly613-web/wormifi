@@ -9,12 +9,15 @@ import type {
   TreasureMultiplierTier,
 } from "./types";
 
+const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL;
+
 export type RelicCarrierTone =
   | "brass-current"
   | "emerald-watch"
   | "pepper-fire"
   | "gale-wind"
   | "maelstrom-current"
+  | "storm-charge"
   | "gilded-fortune";
 
 export interface RelicGroundSilhouette {
@@ -25,7 +28,7 @@ export interface RelicGroundSilhouette {
     | "pepper-cutlass"
     | "shipwheel-shield"
     | "vortex-astrolabe"
-  > | "treasure-multiplier";
+  > | "treasure-multiplier" | "storm-battery";
   assetPath: string;
   accessibleLabel: string;
   scale: number;
@@ -36,6 +39,7 @@ export interface RelicGroundSilhouette {
     | "ember-flicker"
     | "wind-stream"
     | "maelstrom-turn"
+    | "lightning-pulse"
     | "multiplier-float";
   reducedMotionEquivalent: "static-high-contrast-outline";
 }
@@ -44,7 +48,7 @@ export interface RelicPresentation {
   relicKind: PirateRelicKind;
   label: string;
   shortLabel: string;
-  publishedDurationSeconds: 8 | 10 | 12;
+  publishedDurationSeconds: 7 | 8 | 10 | 12;
   effectText: string;
   rivalDisclosure: string;
   carrierTone: RelicCarrierTone;
@@ -84,7 +88,11 @@ function presentation(
       ...values.ground,
       assetPath: values.ground.spriteName === "treasure-multiplier"
         ? ""
-        : pirateSpritePath(values.ground.spriteName),
+        : values.ground.spriteName === "storm-battery"
+          ? `${PUBLIC_ASSET_ROOT}assets/relics/storm-battery.svg`
+        : values.ground.spriteName === "loot-compass"
+          ? `${PUBLIC_ASSET_ROOT}assets/relics/treasure-magnet.svg`
+          : pirateSpritePath(values.ground.spriteName),
     }),
   });
 }
@@ -93,8 +101,8 @@ export const RELIC_PRESENTATIONS: Readonly<
   Record<PirateRelicKind, RelicPresentation>
 > = Object.freeze({
   "loot-compass": presentation("loot-compass", {
-    label: "Loot Compass",
-    shortLabel: "COMPASS",
+    label: "Treasure Magnet",
+    shortLabel: "MAGNET",
     publishedDurationSeconds: 12,
     effectText: "PULLS GEMS + YOUR WAKE LOOT",
     rivalDisclosure: "EXTENDED PICKUP REACH",
@@ -103,7 +111,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     carrierHalo: "rgba(255, 196, 73, 0.48)",
     ground: {
       spriteName: "loot-compass",
-      accessibleLabel: "Loot Compass Relic on the arena floor",
+      accessibleLabel: "Treasure Magnet power-up on the arena floor",
       scale: 1.3,
       fallbackGlyph: "✦",
       motion: "slow-turn",
@@ -182,11 +190,29 @@ export const RELIC_PRESENTATIONS: Readonly<
       reducedMotionEquivalent: "static-high-contrast-outline",
     },
   }),
+  "storm-battery": presentation("storm-battery", {
+    label: "Twin Turbo Lightning",
+    shortLabel: "2× TANKS",
+    publishedDurationSeconds: 7,
+    effectText: "7S ZERO-COST TURBO · TWO FULL STARTING TANKS",
+    rivalDisclosure: "TWIN TURBO CHARGE ACTIVE",
+    carrierTone: "storm-charge",
+    carrierAccent: "#ffe86b",
+    carrierHalo: "rgba(84, 218, 255, 0.54)",
+    ground: {
+      spriteName: "storm-battery",
+      accessibleLabel: "Twin Turbo Lightning power-up on the arena floor",
+      scale: 1.4,
+      fallbackGlyph: "ϟ",
+      motion: "lightning-pulse",
+      reducedMotionEquivalent: "static-high-contrast-outline",
+    },
+  }),
   "gilded-ledger": presentation("gilded-ledger", {
     label: "Treasure Multiplier",
     shortLabel: "MULTIPLIER",
     publishedDurationSeconds: 8,
-    effectText: "2×, 5×, OR RARE 10× ALL TREASURE",
+    effectText: "2×, 3×, 4×, 5×, OR RARE 10× ALL TREASURE",
     rivalDisclosure: "TREASURE MULTIPLIER ACTIVE",
     carrierTone: "gilded-fortune",
     carrierAccent: "#ffe16b",
@@ -208,6 +234,7 @@ export function isPirateRelicKind(value: unknown): value is PirateRelicKind {
     value === "pepper-cutlass" ||
     value === "gale-pennant" ||
     value === "maelstrom-wheel" ||
+    value === "storm-battery" ||
     value === "gilded-ledger";
 }
 
@@ -229,7 +256,7 @@ export function getRelicRivalDisclosure(
     : relic.rivalDisclosure;
 }
 
-/** An absent protocol-v5 Relic identity is the original Loot Compass. */
+/** An absent protocol-v5 Relic identity is the original Treasure Magnet. */
 export function resolveRelicPresentation(
   relicKind?: PirateRelicKind,
 ): RelicPresentation {

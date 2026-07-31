@@ -17,6 +17,9 @@ import {
   readPhotoSkinState,
   removePhotoSkinPhoto,
   reorderPhotoSkinPhoto,
+  selectCaptainExpressionStyle,
+  selectCaptainEyeStyle,
+  selectCaptainFaceMode,
   selectCompletePhotoSkinStyle,
   selectPhotoSkinFace,
   selectPhotoSkinTheme,
@@ -28,6 +31,12 @@ import {
   type PhotoSkinState,
   type PhotoSkinStorage,
 } from "../game/photoSkin";
+import {
+  CAPTAIN_EXPRESSION_STYLES,
+  CAPTAIN_EYE_STYLES,
+  type CaptainExpressionStyle,
+  type CaptainEyeStyle,
+} from "../game/captainFeatures";
 import { drawPhotoSkinCanvas } from "../game/photoSkinCanvas";
 import { drawContinuousPirateWorm } from "../game/treasureRender";
 import { cinematicHeadSource } from "../game/cinematicHeads";
@@ -66,6 +75,20 @@ const PREVIEW_MOTION_SCALE: Record<MaterialMotionLevel, number> = {
   full: 1,
   subtle: 0.45,
   off: 0,
+};
+
+const EYE_STYLE_COPY: Record<CaptainEyeStyle, { label: string; mark: string }> = {
+  round: { label: "BRIGHT ROUND", mark: "● ●" },
+  lookout: { label: "LOOKOUT", mark: "◉ ◉" },
+  sleepy: { label: "COOL LIDS", mark: "⌒ ⌒" },
+  jewel: { label: "JEWEL EYES", mark: "◆ ◆" },
+};
+
+const EXPRESSION_STYLE_COPY: Record<CaptainExpressionStyle, { label: string; mark: string }> = {
+  grin: { label: "GRIN", mark: "◡" },
+  determined: { label: "DETERMINED", mark: "›" },
+  surprised: { label: "SURPRISED", mark: "○" },
+  none: { label: "NO MOUTH", mark: "—" },
 };
 
 export interface SkinStudioProps {
@@ -203,6 +226,9 @@ export function SkinStudio({
         cinematicHeadPattern: previewFaceTheme.pattern,
         cinematicHeadPalette: previewFaceTheme.palette,
         cinematicHeadHue: cosmeticThemeHeadHue(previewFaceTheme),
+        faceMode: previewThemeId ? "captain" : renderPlan.faceMode,
+        eyeStyle: renderPlan.eyeStyle,
+        expressionStyle: renderPlan.expressionStyle,
       });
       drawPhotoSkinCanvas(context, {
         points: points.slice(1),
@@ -384,8 +410,32 @@ export function SkinStudio({
       </fieldset>}
 
       {customizationMode === "face" && <fieldset className="skin-studio-themes skin-studio-faces" data-testid="face-only-catalog">
-        <legend>FACE ONLY · PICK A CINEMATIC CAPTAIN</legend>
-        <div>
+        <legend>FACE ONLY · COMPLETE CAPTAIN OR MIX YOUR OWN FEATURES</legend>
+        <div className="captain-feature-modes" role="group" aria-label="Face construction mode">
+          {([
+            ["captain", "COMPLETE CAPTAIN", "An art-directed face."],
+            ["features", "FEATURE MIX", "Choose eyes + expression."],
+            ["eyes-only", "EYES ONLY", "Minimal. No complete face."],
+          ] as const).map(([faceMode, label, detail]) => (
+            <button
+              key={faceMode}
+              type="button"
+              className={state.faceMode === faceMode ? "selected" : ""}
+              aria-pressed={state.faceMode === faceMode}
+              data-testid={`captain-face-mode-${faceMode}`}
+              onClick={() => {
+                commit(
+                  selectCaptainFaceMode(state, faceMode),
+                  `${label.toLowerCase()} selected. Your body skin did not change.`,
+                );
+              }}
+            >
+              <strong>{label}</strong>
+              <small>{detail}</small>
+            </button>
+          ))}
+        </div>
+        {state.faceMode === "captain" && <div>
           {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => (
             <label key={theme.id} className={state.faceThemeId === theme.id ? "selected" : ""}>
               <input
@@ -410,8 +460,62 @@ export function SkinStudio({
               <small>FACE ONLY · body remains {getCosmeticTheme(state.themeId).label}</small>
             </label>
           ))}
-        </div>
-        {onOpenLegendVoyage && (
+        </div>}
+        {state.faceMode !== "captain" && (
+          <div className="captain-feature-builder" data-testid="captain-feature-builder">
+            <fieldset>
+              <legend>EYES</legend>
+              <div>
+                {CAPTAIN_EYE_STYLES.map((eyeStyle) => (
+                  <label key={eyeStyle} className={state.eyeStyle === eyeStyle ? "selected" : ""}>
+                    <input
+                      type="radio"
+                      name={`${titleId}-eye-style`}
+                      value={eyeStyle}
+                      checked={state.eyeStyle === eyeStyle}
+                      onChange={() => commit(
+                        selectCaptainEyeStyle(state, eyeStyle),
+                        `${EYE_STYLE_COPY[eyeStyle].label.toLowerCase()} equipped.`,
+                      )}
+                    />
+                    <span aria-hidden="true">{EYE_STYLE_COPY[eyeStyle].mark}</span>
+                    <strong>{EYE_STYLE_COPY[eyeStyle].label}</strong>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {state.faceMode === "features" && (
+              <fieldset>
+                <legend>EXPRESSION</legend>
+                <div>
+                  {CAPTAIN_EXPRESSION_STYLES.map((expressionStyle) => (
+                    <label
+                      key={expressionStyle}
+                      className={state.expressionStyle === expressionStyle ? "selected" : ""}
+                    >
+                      <input
+                        type="radio"
+                        name={`${titleId}-expression-style`}
+                        value={expressionStyle}
+                        checked={state.expressionStyle === expressionStyle}
+                        onChange={() => commit(
+                          selectCaptainExpressionStyle(state, expressionStyle),
+                          `${EXPRESSION_STYLE_COPY[expressionStyle].label.toLowerCase()} equipped.`,
+                        )}
+                      />
+                      <span aria-hidden="true">{EXPRESSION_STYLE_COPY[expressionStyle].mark}</span>
+                      <strong>{EXPRESSION_STYLE_COPY[expressionStyle].label}</strong>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <small className="captain-feature-boundary">
+              YOUR DEVICE PREVIEW · PUBLIC ROOMS STILL SHARE ONLY THE AUTHORED BODY THEME
+            </small>
+          </div>
+        )}
+        {state.faceMode === "captain" && onOpenLegendVoyage && (
           <button type="button" className="skin-studio-legend-card" onClick={onOpenLegendVoyage}>
             <strong>+ 3 LEGEND FACES</strong>
             <span>KRAKEN · PHOENIX · LEVIATHAN</span>

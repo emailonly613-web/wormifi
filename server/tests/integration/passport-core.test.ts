@@ -249,6 +249,101 @@ describe("Captain Passport local account core", () => {
     );
   });
 
+  it("derives monthly access and permanent ownership from an append-only entitlement log", async () => {
+    const result = await enroll(10_000);
+    const accountId = result.finish.accountId;
+    const firstPaidThrough = 10_000 + 30 * 24 * 60 * 60_000;
+    const first = result.service.recordEntitlementEvent({
+      accountId,
+      productId: "captain-club-monthly-v1",
+      action: "grant",
+      source: "local_test",
+      occurredAtMs: 10_010,
+      paidThroughMs: firstPaidThrough,
+      idempotencyKey: "club:grant:one",
+    });
+    const duplicate = result.service.recordEntitlementEvent({
+      accountId,
+      productId: "captain-club-monthly-v1",
+      action: "grant",
+      source: "local_test",
+      occurredAtMs: 10_011,
+      paidThroughMs: firstPaidThrough,
+      idempotencyKey: "club:grant:one",
+    });
+    assert.equal(first.recorded, true);
+    assert.equal(duplicate.recorded, false);
+
+    const renewedThrough = firstPaidThrough + 30 * 24 * 60 * 60_000;
+    result.service.recordEntitlementEvent({
+      accountId,
+      productId: "captain-club-monthly-v1",
+      action: "renew",
+      source: "local_test",
+      // Simulate delayed delivery of an event that occurred before cancellation.
+      occurredAtMs: 10_020,
+      paidThroughMs: renewedThrough,
+      idempotencyKey: "club:renew:two",
+    });
+    result.service.recordEntitlementEvent({
+      accountId,
+      productId: "captain-club-monthly-v1",
+      action: "cancel_at_period_end",
+      source: "local_test",
+      occurredAtMs: 10_030,
+      idempotencyKey: "club:cancel",
+    });
+    const club = result.service.sessionProfile(result.finish.sessionToken, 10_040)
+      .entitlements.find((entitlement) =>
+        entitlement.productId === "captain-club-monthly-v1"
+      );
+    assert.equal(club?.active, true);
+    assert.equal(club?.paidThroughMs, renewedThrough);
+    assert.equal(club?.cancelAtPeriodEnd, true);
+    assert.equal(club?.history.length, 3);
+
+    const lifetime = result.service.recordEntitlementEvent({
+      accountId,
+      productId: "legend-voyage-lifetime-v1",
+      action: "grant",
+      source: "operator_correction",
+      occurredAtMs: 10_050,
+      idempotencyKey: "voyage:grant",
+    });
+    assert.equal(lifetime.entitlements.find((entry) =>
+      entry.productId === "legend-voyage-lifetime-v1"
+    )?.permanent, true);
+    const reversed = result.service.recordEntitlementEvent({
+      accountId,
+      productId: "legend-voyage-lifetime-v1",
+      action: "reverse",
+      source: "operator_correction",
+      occurredAtMs: 10_060,
+      reversesEventId: lifetime.event.eventId,
+      idempotencyKey: "voyage:reverse",
+    });
+    const voyage = reversed.entitlements.find((entry) =>
+      entry.productId === "legend-voyage-lifetime-v1"
+    );
+    assert.equal(voyage?.active, false);
+    assert.equal(voyage?.history.length, 2);
+    assert.deepEqual(
+      result.store.events(accountId).filter((event) => event.type === "entitlement_recorded")
+        .map((event) => event.detail.action),
+      ["grant", "renew", "cancel_at_period_end", "grant", "reverse"],
+    );
+    assert.throws(() => result.service.recordEntitlementEvent({
+      accountId,
+      productId: "captain-club-monthly-v1",
+      action: "renew",
+      source: "payment_provider",
+      occurredAtMs: 10_070,
+      paidThroughMs: renewedThrough,
+      externalReferenceHash: "raw-provider-id",
+      idempotencyKey: "provider:bad",
+    }), /one-way external reference hash/u);
+  });
+
   it("pins production WebAuthn to exact HTTPS origin, RP ID, resident keys, and user verification", async () => {
     const adapter = new WormifiWebAuthn({ rpId: "wormifi.com", expectedOrigin: "https://wormifi.com" });
     const options = await adapter.createRegistrationOptions("00000000-0000-4000-8000-000000000000");
@@ -270,11 +365,13 @@ describe("Captain Passport local account core", () => {
       "passport_sessions",
       "passport_recovery_codes",
       "captain_log_events",
+      "captain_entitlement_events",
     ]) {
       assert.match(sql, new RegExp(`CREATE TABLE ${table}\\b`, "u"));
     }
     assert.doesNotMatch(executableSql, /\b(email|password|card_number|analytics_id)\b/iu);
     assert.match(sql, /UNIQUE INDEX passport_one_active_recovery_code/u);
     assert.match(sql, /token_hash text NOT NULL UNIQUE/u);
+    assert.match(sql, /idempotency_key text NOT NULL UNIQUE/u);
   });
 });

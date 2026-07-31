@@ -139,8 +139,45 @@ describe("owner-required pirate power parity", () => {
     expect(getCameraZoomMultiplier(spyglass, 100)).toBe(1);
   });
 
-  it("Treasure Multiplier applies 2x, 5x, and rare 10x to every positive-mass pickup", () => {
-    for (const tier of [2, 5, 10] as const) {
+  it("Twin Turbo Lightning never charges size during its seven-second authoritative window", () => {
+    const state = createGameState("storm-two-tanks", {
+      fixedStepSeconds: 0.1,
+      arenaRadius: 10_000,
+    });
+    const player = spawnPlayer(state, {
+      id: "storm-captain",
+      shieldSeconds: 60,
+    });
+    player.specialist = {
+      kind: "collector",
+      relicKind: "storm-battery",
+      activatedAtTick: 0,
+      expiresAtTick: 70,
+      durationTicks: 70,
+    };
+    const startingMass = player.mass;
+    for (let tick = 0; tick < 69; tick += 1) {
+      stepGame(state, {
+        [player.id]: {
+          sequence: tick + 1,
+          direction: { x: 1, y: 0 },
+          boost: true,
+        },
+      });
+    }
+    expect(player.mass).toBeCloseTo(startingMass, 8);
+    stepGame(state, {
+      [player.id]: {
+        sequence: 70,
+        direction: { x: 1, y: 0 },
+        boost: true,
+      },
+    });
+    expect(player.mass).toBeLessThan(startingMass);
+  });
+
+  it("Treasure Multiplier applies every 2x/3x/4x/5x/10x tier to positive-mass pickups", () => {
+    for (const tier of [2, 3, 4, 5, 10] as const) {
       const { state, player } = movementState(`ledger-${tier}`);
       state.config.baseSpeed = 0;
       state.config.boostSpeed = 0;
@@ -193,7 +230,7 @@ describe("owner-required pirate power parity", () => {
       position: { ...player.position },
       mass: 0,
       relicKind: "gilded-ledger",
-    })).toThrow(/2×, 5×, or rare 10×/u);
+    })).toThrow(/2×, 3×, 4×, 5×, or rare 10×/u);
     expect(() => spawnDrop(state, {
       id: "wrong-owner",
       position: { ...player.position },

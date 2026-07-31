@@ -12,7 +12,11 @@ const EPSILON = 1e-9;
 const MINIMUM_DIRECTION_CONSISTENCY = 0.82;
 const BOARD_ID_PATTERN = /^[a-z0-9-]{1,40}$/;
 
-/** Default arena: three progressively stronger hold-to-grow harbor pads. */
+/**
+ * Default arena: two physical orbit rings for escalating risk/reward, plus one
+ * large hold-to-grow harbor pad. The rings reuse the proven server-authority
+ * coil contract; changing their art never creates client-predicted rewards.
+ */
 export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
   id: "open-seas",
   name: "Open Seas",
@@ -20,7 +24,7 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
     Object.freeze({
       id: "coin-cay",
       name: "Coin Cay",
-      kind: "harbor",
+      kind: "capstan",
       position: Object.freeze({ x: -360, y: -210 }),
       coreRadius: 8,
       wrapRadius: 22,
@@ -29,7 +33,7 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
       dockRadius: 12,
       requiredWrapRadians: 5.3,
       minimumWrappedSegments: 6,
-      chargeDurationSeconds: 3,
+      chargeDurationSeconds: 1.5,
       massReward: 9,
       interruptionGraceSeconds: 0.25,
       interruptionDecayTicksPerTick: 4,
@@ -39,7 +43,7 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
     Object.freeze({
       id: "coral-key",
       name: "Coral Key",
-      kind: "harbor",
+      kind: "capstan",
       position: Object.freeze({ x: 360, y: 220 }),
       coreRadius: 14,
       wrapRadius: 42,
@@ -48,7 +52,7 @@ export const OPEN_SEAS_BOARD: Readonly<GameBoardConfig> = Object.freeze({
       dockRadius: 14,
       requiredWrapRadians: 5.45,
       minimumWrappedSegments: 10,
-      chargeDurationSeconds: 5,
+      chargeDurationSeconds: 2.25,
       massReward: 20,
       interruptionGraceSeconds: 0.25,
       interruptionDecayTicksPerTick: 4,

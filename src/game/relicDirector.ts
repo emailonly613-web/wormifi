@@ -18,6 +18,7 @@ export const SERVER_DIRECTED_RELIC_KINDS = Object.freeze([
   "pepper-cutlass",
   "gale-pennant",
   "maelstrom-wheel",
+  "storm-battery",
   "gilded-ledger",
 ] as const satisfies readonly PirateRelicKind[]);
 

@@ -28,9 +28,9 @@ function active(
 }
 
 describe("Relic presentation contract", () => {
-  it("maps absent protocol identity only to Loot Compass and keeps all six distinct", () => {
+  it("maps absent protocol identity only to Treasure Magnet and keeps all seven distinct", () => {
     expect(resolveRelicPresentation()).toBe(RELIC_PRESENTATIONS["loot-compass"]);
-    expect(getActiveRelicPresentation(active(undefined))?.label).toBe("Loot Compass");
+    expect(getActiveRelicPresentation(active(undefined))?.label).toBe("Treasure Magnet");
 
     const presentations = [
       RELIC_PRESENTATIONS["loot-compass"],
@@ -38,12 +38,14 @@ describe("Relic presentation contract", () => {
       RELIC_PRESENTATIONS["pepper-cutlass"],
       RELIC_PRESENTATIONS["gale-pennant"],
       RELIC_PRESENTATIONS["maelstrom-wheel"],
+      RELIC_PRESENTATIONS["storm-battery"],
       RELIC_PRESENTATIONS["gilded-ledger"],
     ];
-    expect(new Set(presentations.map((entry) => entry.label)).size).toBe(6);
-    expect(new Set(presentations.map((entry) => entry.ground.spriteName)).size).toBe(6);
-    expect(new Set(presentations.map((entry) => entry.ground.assetPath)).size).toBe(6);
-    expect(presentations.map((entry) => entry.publishedDurationSeconds)).toEqual([12, 10, 8, 8, 8, 8]);
+    expect(new Set(presentations.map((entry) => entry.label)).size).toBe(7);
+    expect(new Set(presentations.map((entry) => entry.ground.spriteName)).size).toBe(7);
+    expect(new Set(presentations.map((entry) => entry.ground.assetPath)).size).toBe(7);
+    expect(presentations.map((entry) => entry.publishedDurationSeconds))
+      .toEqual([12, 10, 8, 8, 8, 7, 8]);
     expect(RELIC_PRESENTATIONS["emerald-spyglass"]).toMatchObject({
       label: "Emerald Spyglass",
       effectText: "25% FARTHER VIEW + DANGER BEARINGS",
@@ -58,6 +60,12 @@ describe("Relic presentation contract", () => {
       shortLabel: "ZERO TURN",
       effectText: "ZERO-CLEARANCE TURNS · REPEAT FOR 8S",
       rivalDisclosure: "ZERO-TURN ACTIVE",
+    });
+    expect(RELIC_PRESENTATIONS["storm-battery"]).toMatchObject({
+      shortLabel: "2× TANKS",
+      publishedDurationSeconds: 7,
+      effectText: "7S ZERO-COST TURBO · TWO FULL STARTING TANKS",
+      ground: { spriteName: "storm-battery" },
     });
   });
 
@@ -117,6 +125,9 @@ describe("Relic presentation contract", () => {
     expect(markup).toContain('role="status"');
     expect(markup).toContain('aria-live="polite"');
     expect(markup).toContain('aria-live="off"');
+    expect(markup).toContain('class="relic-status__chest"');
+    expect(markup).toContain('class="relic-status__chest-lid"');
+    expect(markup).toContain('class="relic-status__chest-base"');
     expect(markup).toContain("<progress");
     expect(markup).not.toContain("LOOT COMPASS");
   });
@@ -136,6 +147,7 @@ describe("Relic presentation contract", () => {
     expect(markup).toContain("5×");
     expect(markup).toContain("5× ALL TREASURE");
     expect(markup).toContain('data-ground-sprite="treasure-multiplier"');
+    expect(markup).toContain('class="relic-status__chest"');
     expect(markup).not.toContain("doubloon-stack");
     expect(markup).not.toContain("doubloon-stack.png");
     expect(markup).not.toContain("<img");

@@ -5,6 +5,7 @@ import type WebSocket from "ws";
 import {
   calculateScore,
   createGameState,
+  getPlayerRank,
   isPlayerBoosting,
   isSpecialistActive,
   spawnDrop,
@@ -84,6 +85,8 @@ interface Session {
   lastAcceptedSequence: number;
   latestInput?: PlayerInput;
   disconnectedAtMs?: number;
+  accountId?: string;
+  lifeId: string;
 }
 
 interface BenchedBot {
@@ -111,6 +114,24 @@ export interface ArenaRoomOptions {
   paceId?: GamePaceId;
   heatRing?: false | Partial<HeatRingConfig>;
   now?: () => number;
+  onAuthoritativeLifeEnded?: (result: AuthoritativeLifeResult) => void;
+}
+
+export interface AuthenticatedArenaJoin {
+  accountId?: string;
+}
+
+export interface AuthoritativeLifeResult {
+  accountId: string;
+  idempotencyKey: string;
+  roomId: string;
+  lifeId: string;
+  finalScore: number;
+  kills: number;
+  rank: number;
+  peakMass: number;
+  rulesetVersion: string;
+  occurredAtMs: number;
 }
 
 export interface JoinResult {
@@ -262,6 +283,7 @@ export class ArenaRoom {
   private readonly collectorBeaconRespawnTicks: number;
   private readonly pirateRelics: PirateRelicDirector;
   private readonly now: () => number;
+  private readonly onAuthoritativeLifeEnded?: (result: AuthoritativeLifeResult) => void;
   private readonly sessionsByToken = new Map<string, Session>();
   private readonly sessionsByPlayer = new Map<string, Session>();
   private readonly botPool: BenchedBot[] = [];
@@ -309,6 +331,7 @@ export class ArenaRoom {
       Math.ceil(COLLECTOR_BEACON_RESPAWN_SECONDS * this.fixedStepHz),
     );
     this.now = options.now ?? Date.now;
+    this.onAuthoritativeLifeEnded = options.onAuthoritativeLifeEnded;
     this.paceId = options.paceId ?? DEFAULT_GAME_PACE_ID;
     const pace = getGamePaceProfile(this.paceId);
     this.state = createGameState(
@@ -362,7 +385,11 @@ export class ArenaRoom {
     return this.sessionsByToken.size < this.maxHumanPlayers;
   }
 
-  join(socket: WebSocket, message: JoinMessage): JoinResult {
+  join(
+    socket: WebSocket,
+    message: JoinMessage,
+    identity: AuthenticatedArenaJoin = {},
+  ): JoinResult {
     if (message.reconnectToken) {
       const existing = this.sessionsByToken.get(message.reconnectToken);
       if (!existing || this.isExpired(existing)) {
@@ -379,8 +406,18 @@ export class ArenaRoom {
           error: { type: "error", code: "TOKEN_IN_USE", message: "That player is already connected." },
         };
       }
+      if (existing.accountId && existing.accountId !== identity.accountId) {
+        return {
+          error: {
+            type: "error",
+            code: "INVALID_RECONNECT_TOKEN",
+            message: "That reconnect token is invalid or expired.",
+          },
+        };
+      }
 
       existing.socket = socket;
+      existing.accountId ??= identity.accountId;
       existing.disconnectedAtMs = undefined;
       const player = this.state.players[existing.playerId];
       existing.name = message.name || existing.name;
@@ -430,6 +467,8 @@ export class ArenaRoom {
       snapshotTupleV1: message.snapshotTupleV1 === true,
       socket,
       lastAcceptedSequence: -1,
+      accountId: identity.accountId,
+      lifeId: randomBytes(16).toString("base64url"),
     };
     this.sessionsByToken.set(token, session);
     this.sessionsByPlayer.set(playerId, session);
@@ -561,6 +600,7 @@ export class ArenaRoom {
       humanInputs as PlayerInputMap,
       this.botProviders,
     );
+    this.recordAuthoritativeLifeEnds(result.events);
     this.pendingEvents.push(...result.events);
     if (this.heatRing?.active) {
       this.pendingEvents.push(...this.heatRing.reconcileStep(result.events, previousDropIds));
@@ -879,6 +919,35 @@ export class ArenaRoom {
         kind,
         shieldSeconds: this.state.config.spawnShieldSeconds,
       });
+      if (session) session.lifeId = randomBytes(16).toString("base64url");
+    }
+  }
+
+  private recordAuthoritativeLifeEnds(events: readonly GameEvent[]) {
+    if (!this.onAuthoritativeLifeEnded) return;
+    for (const event of events) {
+      if (event.type !== "playerDied") continue;
+      const session = this.sessionsByPlayer.get(event.playerId);
+      const player = this.state.players[event.playerId];
+      if (!session?.accountId || !player || player.kind !== "human") continue;
+      const result: AuthoritativeLifeResult = {
+        accountId: session.accountId,
+        idempotencyKey: `passport-life:${this.id}:${session.lifeId}`,
+        roomId: this.id,
+        lifeId: session.lifeId,
+        finalScore: calculateScore(player, this.state.config),
+        kills: player.stats.kills,
+        rank: getPlayerRank(this.state, player.id, "score", true) ?? 1,
+        peakMass: player.stats.peakMass,
+        rulesetVersion: `protocol-${PROTOCOL_VERSION}`,
+        occurredAtMs: this.now(),
+      };
+      try {
+        this.onAuthoritativeLifeEnded(result);
+      } catch {
+        // Identity/progression storage must fail closed without stopping the
+        // public simulation. The idempotency key permits an operator retry.
+      }
     }
   }
 

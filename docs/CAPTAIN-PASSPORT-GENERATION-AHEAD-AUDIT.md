@@ -2,7 +2,10 @@
 
 **Audit date:** 2026-07-30
 
-**Status:** P0 contract active. The Phase 2 local security core passes automated tests; accounts and payments are not live.
+**Status:** Integrated local security/HTTP/SQLite candidate. Accounts, real
+email delivery, hosted persistence, external-player acceptance, and payments
+are not live. Optional email-link sign-in is governed by
+`CAPTAIN-PASSPORT-OPTIONAL-EMAIL-AMENDMENT.md`.
 
 **Fixed order:** account identity -> server-owned progression -> durable entitlements -> private payment proof -> limited live money.
 
@@ -17,10 +20,12 @@ evidence, approve its own work, grant progression, or make payment decisions.
 
 The proposed product advantage is a guest-first, passwordless account with
 server-verified progression and a customer-readable history of every earned
-reward and permanent cosmetic. It collects no email or password by default,
-sells no competitive power, uses no loot boxes, and lets a player inspect and
-revoke active sessions. That combination is the candidate generation-ahead
-system. It is not a public claim until all gates in this document pass.
+reward and permanent cosmetic. It collects no email or password by default;
+after the 2026-07-31 amendment, a player may explicitly add a one-time
+passwordless email-link route whose durable lookup is a keyed digest. It sells
+no competitive power, uses no loot boxes, and lets a player inspect and revoke
+active sessions. That combination is the candidate generation-ahead system. It
+is not a public claim until all gates in this document pass.
 
 ## Evidence standard
 
@@ -45,7 +50,7 @@ turning store claims, rating counts, or download counts into revenue claims.
 |---|---|---|
 | Ads interrupt death and retry | Never place an interstitial between death and Retry | Automated navigation audit plus observed sessions find zero retry interruption |
 | Coin packs, subscriptions, loot boxes, and paid boosters obscure value | One plainly compared choice between monthly cosmetic-catalog access and permanent fixed-collection ownership; no consumable currency or randomized reward | Players can explain access versus ownership and catalog audit finds zero paid stats, odds, lives, skips, multipliers, zoom, radar, or starting power |
-| Accounts commonly add email/password and tracking | Guest-first play; optional discoverable passkey; no password or email required | New-device restore succeeds without stored browser data or personal-data lookup |
+| Accounts commonly add email/password and tracking | Guest-first play; optional discoverable passkey; optional one-time email link; no password or email required | New-device restore succeeds without stored browser data; passkey restore requires no personal-data lookup |
 | Progression and purchases are hard to explain | Customer-visible append-only Captain Log | Every displayed XP and entitlement state traces to one immutable event |
 | Long runs can disappear on disconnect | Server-validated run completion, bounded reconnect, and explicit failure result | Duplicate/reconnect/failure tests never double-award or invent a verified run |
 | Refund and device-loss restoration are often opaque | Provider-neutral entitlement state with reversal history and cross-device restore | Sandbox refund/dispute and fresh-device restoration reconcile automatically |
@@ -58,11 +63,11 @@ review reproduces the required evidence.
 
 | Area | Current evidence | Risk | Required disposition |
 |---|---|---|---|
-| Captain progression | `src/game/captainProgression.ts` calculates awards and writes `localStorage` | A player can edit or lose XP; it is not account truth | Keep clearly labeled preview only until live-run XP is awarded server-side and stored durably |
-| Premium ownership | `src/game/premiumSkins.ts` stores a Stripe-session HMAC on one device | No account binding, cross-device restore, refund state, or durable ownership record | Historic test grants remain development-only; all future support uses the entitlement ledger |
+| Captain progression | Guest practice remains a labeled browser preview; authenticated live deaths now write idempotent server-calculated XP into Passport SQLite | Hosted durability, backup/restore, and external comprehension remain unproved | Keep preview and verified XP visibly distinct; deploy only after the no-payment database gate |
+| Premium ownership | Historic device-local test grants remain isolated; Passport now has a provider-neutral append-only entitlement ledger and effective projection | No provider events, hosted database, refund/dispute adapter, or reconciliation drill | All future fulfillment must use the ledger; browser storage and redirects never grant |
 | Store fulfillment | `store/src/server.mjs` re-reads a Checkout Session but stores nothing | No webhook idempotency, refund/dispute reconciliation, purchaser binding, or audit trail | Public checkout fails closed now; rebuild only after identity and entitlements pass |
-| Live persistence | The arena service owns rooms, sessions, and reconnect tokens in memory | A replacement loses active state; local filesystem is ephemeral | Add PostgreSQL for account records only after the explicit infrastructure-cost approval |
-| Game authority | The live server accepts steering/boost input and owns simulation truth | Good authority base, but no account binding or idempotent life record | Bind an authenticated session to a player and award from authoritative life events only |
+| Live persistence | The arena service owns rooms and reconnect in memory; Passport identity, progression and entitlements survive local SQLite restart | Local filesystem remains ephemeral when hosted; room state is still in memory | Add PostgreSQL for account records only after explicit infrastructure-cost approval |
+| Game authority | Authenticated sockets bind a Passport account and one authoritative life ID; death writes one idempotent server-owned award | No deployed or long-soak authenticated proof | Preserve account binding and reproduce it on the exact hosted candidate |
 | Analytics | `src/analytics.ts` is consent-gated and intentionally minimal | Useful for aggregate interest, not an account or financial ledger | Keep optional analytics separate from essential account/security records |
 | Privacy copy | `privacy.html` truthfully says the preview collects no account or purchase history | It becomes false the moment accounts launch | Update, review, and deploy disclosure before the first account is created |
 | Operations | Existing load/network/performance suites cover the arena | No database backup/restore, session-revocation, or entitlement reconciliation drill | Add failure injection and operator runbooks before money |
@@ -96,7 +101,9 @@ and does not authorize checkout.
 1. Guest play remains immediate and never requires an account, store visit, ad,
    or consent to optional analytics.
 2. A Captain Passport is optional and passkey-first. Wormifi does not create a
-   password database or require email merely to preserve cosmetics.
+   password database or require email merely to preserve cosmetics. A player
+   may explicitly add passwordless email-link sign-in under the optional-email
+   amendment; sign-in is never marketing consent.
 3. Payment never grants XP, score, size, speed, boost, collision tolerance,
    multiplier odds, radar/zoom intelligence, Relic power, lives, rank, or skips.
 4. Every existing free theme remains free. The player can try the complete paid
@@ -117,8 +124,9 @@ and does not authorize checkout.
 
 ### Captain account
 
-- Opaque random `account_id`; no email, password, legal name, or birth date in
-  the minimum account record.
+- Opaque random `account_id`; no raw email, password, legal name, or birth date
+  in the minimum account record. An optional email identity stores only a keyed
+  lookup digest after explicit player choice.
 - One or more WebAuthn credentials, each with credential ID, public key,
   signature counter/device metadata, creation time, last-use time, and revocation
   state. Private keys never reach Wormifi.

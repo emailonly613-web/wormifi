@@ -200,8 +200,8 @@ test("an ordinary room publishes and authoritatively pays all Open Seas growth p
     assert.deepEqual(
       world.board?.chargingStations.map((station) => [station.id, station.kind, station.massReward]),
       [
-        ["coin-cay", "harbor", 9],
-        ["coral-key", "harbor", 20],
+        ["coin-cay", "capstan", 9],
+        ["coral-key", "capstan", 20],
         ["kraken-atoll", "harbor", 42],
       ],
     );
@@ -210,15 +210,17 @@ test("an ordinary room publishes and authoritatively pays all Open Seas growth p
 
     const welcome = capture.latest("welcome") as WelcomeMessage;
     const captain = room.state.players[welcome.playerId];
-    const coinCay = room.state.board.chargingStations[0];
+    const krakenAtoll = room.state.board.chargingStations.find(
+      (station) => station.id === "kraken-atoll",
+    );
     assert.ok(captain);
-    assert.ok(coinCay);
+    assert.ok(krakenAtoll);
     room.state.config.baseSpeed = 0;
     room.state.config.boostSpeed = 0;
     const startingMass = captain.mass;
-    captain.position = { ...coinCay.position };
+    captain.position = { ...krakenAtoll.position };
     captain.previousPosition = { ...captain.position };
-    const requiredTicks = room.state.chargingStations[coinCay.id].requiredTicks;
+    const requiredTicks = room.state.chargingStations[krakenAtoll.id].requiredTicks;
     surface.simulationStep();
     assert.ok(captain.mass > startingMass, "the first authoritative pad tick grows immediately");
     for (let tick = 1; tick < requiredTicks; tick += 1) {
@@ -229,12 +231,12 @@ test("an ordinary room publishes and authoritatively pays all Open Seas growth p
     const completed = capture.latest("snapshot") as SnapshotMessage;
     assert.ok(completed.events.some((event) =>
       event.type === "chargingCompleted" &&
-      event.stationId === coinCay.id &&
+      event.stationId === krakenAtoll.id &&
       event.playerId === captain.id &&
-      event.massAwarded === coinCay.massReward
+      event.massAwarded === krakenAtoll.massReward
     ));
-    assert.equal(room.state.chargingStations[coinCay.id].phase, "cooldown");
-    assert.ok(Math.abs(captain.mass - (startingMass + coinCay.massReward)) <= 1e-8);
+    assert.equal(room.state.chargingStations[krakenAtoll.id].phase, "cooldown");
+    assert.ok(Math.abs(captain.mass - (startingMass + krakenAtoll.massReward)) <= 1e-8);
   } finally {
     room.stop();
   }

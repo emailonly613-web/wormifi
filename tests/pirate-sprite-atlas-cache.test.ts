@@ -296,6 +296,45 @@ describe("bounded static pirate treasure rotation atlases", () => {
       .toBe(true);
   });
 
+  it("keeps common loot shadows but reserves the extra live glint for one in three items", async () => {
+    vi.stubGlobal("Image", ReadyImage);
+    const { drawGroundTreasureSpriteField } = await import(
+      "../src/game/pirateSpriteAtlas"
+    );
+    const items = [0, 1, 2].map((seed, index) => ({
+      ...ITEM,
+      id: `glint-${seed}`,
+      seed,
+      screenX: 60 + index * 70,
+    }));
+    const context = canvasContext(1);
+    drawGroundTreasureSpriteField(
+      context as unknown as CanvasRenderingContext2D,
+      items,
+      () => ITEM.position,
+      1,
+      320,
+      180,
+      0,
+    );
+    await flushMicrotasks();
+    context.drawImage.mockClear();
+
+    drawGroundTreasureSpriteField(
+      context as unknown as CanvasRenderingContext2D,
+      items,
+      () => ITEM.position,
+      1,
+      320,
+      180,
+      100,
+    );
+
+    expect(imageDrawCalls(context, "ground-treasure-v3-rotations")).toHaveLength(3);
+    expect(imageDrawCalls(context, "treasure-float-shadow-v1.svg")).toHaveLength(3);
+    expect(imageDrawCalls(context, "treasure-glint-v1.svg")).toHaveLength(1);
+  });
+
   it("preserves exact pulse sizing at source scales one and two", async () => {
     vi.stubGlobal("Image", ReadyImage);
     const { drawGroundTreasureSpriteField } = await import(

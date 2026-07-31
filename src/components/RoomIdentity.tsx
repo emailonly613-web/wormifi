@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { captainRoomTierFromRoomId } from "../game/captainRooms";
 import { roomIdentityLabel } from "../game/roomIdentity";
 
 export type RoomIdentityScope = "live" | "practice" | "solo" | "challenge";
@@ -73,6 +74,7 @@ export function RoomInviteDialog({
   }, [onClose, open]);
 
   if (!open) return null;
+  const freeCaptainRoom = captainRoomTierFromRoomId(roomId);
 
   return (
     <div className="room-invite-backdrop" data-testid="room-invite-backdrop">
@@ -83,17 +85,25 @@ export function RoomInviteDialog({
         aria-modal="true"
         aria-labelledby="room-invite-title"
       >
-        <span className="room-invite-kicker">FRIEND ROOM READY</span>
-        <h2 id="room-invite-title">INVITE CREW TO {roomIdentityLabel(roomId)}</h2>
-        <p>Anyone opening this link enters with the same room code ready. Press Play Live to meet here.</p>
+        <span className="room-invite-kicker">
+          {freeCaptainRoom ? "FREE CAPTAIN ROOM READY" : "FRIEND ROOM READY"}
+        </span>
+        <h2 id="room-invite-title">
+          {freeCaptainRoom
+            ? `INVITE CREW TO YOUR ${freeCaptainRoom.humanSeats}-PLAYER ROOM`
+            : `INVITE CREW TO ${roomIdentityLabel(roomId)}`}
+        </h2>
+        <p>{freeCaptainRoom
+          ? "Anyone opening this free link enters this exact live arena immediately as a guest."
+          : "Anyone opening this link enters with the same room code ready. Press Play Live to meet here."}</p>
         <label>
           <span>CREW LINK</span>
           <input data-testid="room-invite-url" readOnly value={inviteUrl} onFocus={(event) => event.currentTarget.select()} />
         </label>
         <div className="room-invite-actions">
-          <button type="button" className="room-copy-button" onClick={onCopy}>COPY LINK</button>
+          <button type="button" className="room-copy-button" data-testid="room-invite-copy" onClick={onCopy}>COPY LINK</button>
           {typeof navigator.share === "function" && (
-            <button type="button" onClick={onNativeShare}>SHARE</button>
+            <button type="button" data-testid="room-invite-native-share" onClick={onNativeShare}>SHARE</button>
           )}
           <button ref={closeRef} type="button" onClick={onClose}>CLOSE</button>
         </div>

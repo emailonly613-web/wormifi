@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const RECOVERY_CODE_BYTES = 16;
 const SESSION_TOKEN_BYTES = 32;
+const EMAIL_LINK_TOKEN_BYTES = 32;
 
 function hmac(value: string, pepper: string) {
   return createHmac("sha256", pepper).update(value, "utf8").digest("base64url");
@@ -55,6 +56,31 @@ export function createSessionToken(pepper: string) {
 
 export function sessionTokenHash(token: string, pepper: string) {
   return hmac(`session:v1:${token}`, pepper);
+}
+
+export function normalizeEmailAddress(value: string) {
+  const normalized = value.trim().toLocaleLowerCase("en-US");
+  if (
+    normalized.length < 3 ||
+    normalized.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalized)
+  ) {
+    throw new Error("INVALID_EMAIL");
+  }
+  return normalized;
+}
+
+export function emailAddressKey(email: string, pepper: string) {
+  return hmac(`email-identity:v1:${normalizeEmailAddress(email)}`, pepper);
+}
+
+export function createEmailLinkToken(pepper: string) {
+  const token = randomBytes(EMAIL_LINK_TOKEN_BYTES).toString("base64url");
+  return { token, tokenHash: emailLinkTokenHash(token, pepper) };
+}
+
+export function emailLinkTokenHash(token: string, pepper: string) {
+  return hmac(`email-link:v1:${token}`, pepper);
 }
 
 export function constantTimeFakeRecoveryCheck(code: string, pepper: string) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArenaCanvas } from "./components/ArenaCanvas";
 import { LiveArenaCanvas } from "./components/LiveArenaCanvas";
 import { PwaStatus } from "./components/PwaStatus";
@@ -34,6 +34,12 @@ import {
   writePublicMatchmakingToLocation,
 } from "./game/roomIdentity";
 import {
+  buildCaptainRoomInviteUrl,
+  captainRoomTierFromRoomId,
+  createCaptainRoomId,
+  type CaptainRoomTierId,
+} from "./game/captainRooms";
+import {
   BOARD_OPTIONS,
   boardIdForJoin,
   buildBoardAwareInviteUrl,
@@ -67,10 +73,17 @@ import {
 import { captainPortraitSource } from "./game/cinematicHeads";
 import {
   awardCaptainRun,
+  calculateCaptainRunXp,
   captainLevelProgress,
   readCaptainProgression,
+  type CaptainProgression,
   type CaptainRunSummary,
 } from "./game/captainProgression";
+import {
+  captainPassportClient,
+  emailLinkTokenFromLocation,
+  type PassportProfile,
+} from "./passport/client";
 import type { PhotoSkinCanvasAppearance } from "./game/photoSkinCanvas";
 import {
   readDoubloons,
@@ -86,6 +99,16 @@ import {
   isCrazyGamesDistribution,
   reportPlatformError,
 } from "./platform/runtime";
+
+const CaptainPassport = lazy(async () => {
+  const module = await import("./components/CaptainPassport");
+  return { default: module.CaptainPassport };
+});
+
+const CaptainRooms = lazy(async () => {
+  const module = await import("./components/CaptainRooms");
+  return { default: module.CaptainRooms };
+});
 
 export type GameMode = "rush" | "endless" | "practice";
 type LaunchMode = GameMode | "live";
@@ -125,6 +148,17 @@ function rivalLabel(challenge: ChallengePayload) {
     .replaceAll("-", " ")
     .replaceAll("_", " ")
     .toUpperCase();
+}
+
+function progressionFromPassport(profile: PassportProfile): CaptainProgression {
+  return {
+    version: 1,
+    xp: profile.progression.xp,
+    completedRuns: profile.progression.completedRuns,
+    totalScore: profile.progression.totalScore,
+    lastAwardXp: profile.progression.lastAwardXp,
+    updatedAtMs: profile.progression.updatedAtMs,
+  };
 }
 
 function isPortraitTouchViewport(): boolean {
@@ -199,10 +233,16 @@ export function App() {
   const buildRevision = useMemo(readBuildRevision, []);
   const initialName = useMemo(makeGuestName, []);
   const initialChallenge = useMemo(readChallenge, []);
+  const initialCaptainRoomInvite = useMemo(
+    () => captainRoomTierFromRoomId(readRoomId()),
+    [],
+  );
   const [name, setName] = useState(initialName);
-  const [mode, setMode] = useState<LaunchMode>(() => modeForChallenge(initialChallenge));
+  const [mode, setMode] = useState<LaunchMode>(() =>
+    initialCaptainRoomInvite ? "live" : modeForChallenge(initialChallenge)
+  );
   const [challenge, setChallenge] = useState<ChallengePayload | null>(initialChallenge);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(Boolean(initialCaptainRoomInvite));
   const [session, setSession] = useState(1);
   const [controlScheme, setControlScheme] = useState<ControlScheme>(readControlScheme);
   const [roomId, setRoomId] = useState(readRoomId);
@@ -219,6 +259,10 @@ export function App() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [skinStudioOpen, setSkinStudioOpen] = useState(false);
   const [legendVoyageOpen, setLegendVoyageOpen] = useState(false);
+  const [captainRoomsOpen, setCaptainRoomsOpen] = useState(false);
+  const [passportOpen, setPassportOpen] = useState(() => Boolean(emailLinkTokenFromLocation()));
+  const [passportProfile, setPassportProfile] = useState<PassportProfile | null>(null);
+  const [passportNudgePending, setPassportNudgePending] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captainProgression, setCaptainProgression] = useState(readCaptainProgression);
   const [photoSkinState, setPhotoSkinState] = useState<PhotoSkinState>(() => readPhotoSkinState().state);
@@ -234,6 +278,7 @@ export function App() {
   const [pendingLandscapeLaunch, setPendingLandscapeLaunch] = useState<{
     mode: LaunchMode;
     publicMatchmaking: boolean;
+    roomId?: string;
   } | null>(null);
   const [publicMatchmaking, setPublicMatchmaking] = useState(readPublicMatchmaking);
   const [immersiveState, setImmersiveState] = useState<ImmersiveState>(browserImmersiveState);
@@ -241,6 +286,7 @@ export function App() {
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const skinStudioReturnToSettingsRef = useRef(true);
+  const passportReturnToSettingsRef = useRef(false);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
   const gameOwnsFullscreenRef = useRef(false);
@@ -284,6 +330,13 @@ export function App() {
     }
     wasPlayingRef.current = playing;
   }, [playing]);
+
+  useEffect(() => {
+    if (playing || !passportNudgePending || passportProfile) return;
+    passportReturnToSettingsRef.current = false;
+    setPassportNudgePending(false);
+    setPassportOpen(true);
+  }, [passportNudgePending, passportProfile, playing]);
 
   useEffect(() => {
     writeControlScheme(controlScheme);
@@ -404,18 +457,26 @@ export function App() {
     window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
   }, []);
 
-  const beginStart = useCallback((nextMode: LaunchMode, usePublicMatchmaking = false) => {
+  const beginStart = useCallback((
+    nextMode: LaunchMode,
+    usePublicMatchmaking = false,
+    requestedPrivateRoomId?: string,
+  ) => {
     if (nextMode === "live") {
-      setResolvedLiveRoomId(roomId);
+      const launchRoomId = requestedPrivateRoomId
+        ? normalizeRoomId(requestedPrivateRoomId)
+        : roomId;
+      setResolvedLiveRoomId(launchRoomId);
       if (usePublicMatchmaking) {
         setPublicMatchmaking(true);
-        writePublicMatchmakingToLocation(roomId);
+        writePublicMatchmakingToLocation(launchRoomId);
       } else {
-        prepareRoom();
+        prepareRoom(launchRoomId);
       }
     }
     setCurrencyStoreOpen(false);
     setLegendVoyageOpen(false);
+    setCaptainRoomsOpen(false);
     setSettingsOpen(false);
     setMode(nextMode);
     setSession((value) => value + 1);
@@ -502,31 +563,80 @@ export function App() {
     }
   }, []);
 
-  const recordCaptainRun = useCallback((summary: CaptainRunSummary) => {
-    setCaptainProgression((current) => awardCaptainRun(summary, current));
+  const handlePassportProfileChange = useCallback((profile: PassportProfile | null) => {
+    setPassportProfile(profile);
+    setCaptainProgression(profile ? progressionFromPassport(profile) : readCaptainProgression());
   }, []);
 
-  const start = useCallback((nextMode: LaunchMode = mode, usePublicMatchmaking = false) => {
+  useEffect(() => {
+    let active = true;
+    void captainPassportClient.session()
+      .then((profile) => {
+        if (active) handlePassportProfileChange(profile);
+      })
+      .catch(() => {
+        // Guest play and local preview remain available when the optional
+        // Passport service is absent or the cookie is no longer valid.
+      });
+    return () => {
+      active = false;
+    };
+  }, [handlePassportProfileChange]);
+
+  const closePassport = useCallback(() => {
+    setPassportOpen(false);
+    if (passportReturnToSettingsRef.current) setSettingsOpen(true);
+    passportReturnToSettingsRef.current = false;
+  }, []);
+
+  const recordCaptainRun = useCallback((summary: CaptainRunSummary) => {
+    if (passportProfile && summary.source === "live") {
+      // The server writes the authoritative life before broadcasting the death
+      // event. Re-read the cookie-bound profile instead of trusting the client
+      // summary or adding editable browser XP.
+      void captainPassportClient.session()
+        .then(handlePassportProfileChange)
+        .catch(() => {
+          // A temporary account read failure never blocks the end-of-run UI.
+          // The next launcher/session hydration retries automatically.
+        });
+      return;
+    }
+    const award = calculateCaptainRunXp(summary);
+    setCaptainProgression((current) => awardCaptainRun(summary, current));
+    if (!passportProfile && award > 0) setPassportNudgePending(true);
+  }, [handlePassportProfileChange, passportProfile]);
+
+  const start = useCallback((
+    nextMode: LaunchMode = mode,
+    usePublicMatchmaking = false,
+    requestedPrivateRoomId?: string,
+  ) => {
     if (isPortraitTouchViewport()) {
       // Do not trap a portrait phone in a fullscreen window that cannot resize
       // into the landscape gate. Landscape/desktop launches still use the Play
       // gesture for fullscreen; portrait users rotate before gameplay begins.
       void requestLandscapeOrientation();
       setPortraitTouchViewport(true);
-      setPendingLandscapeLaunch({ mode: nextMode, publicMatchmaking: usePublicMatchmaking });
+      setPendingLandscapeLaunch({
+        mode: nextMode,
+        publicMatchmaking: usePublicMatchmaking,
+        roomId: requestedPrivateRoomId,
+      });
       return;
     }
     requestImmersiveGameplay();
     setPendingLandscapeLaunch(null);
-    beginStart(nextMode, usePublicMatchmaking);
+    beginStart(nextMode, usePublicMatchmaking, requestedPrivateRoomId);
   }, [beginStart, mode, requestImmersiveGameplay]);
 
   useEffect(() => {
     if (!pendingLandscapeLaunch || portraitTouchViewport) return;
     const nextMode = pendingLandscapeLaunch.mode;
     const usePublicMatchmaking = pendingLandscapeLaunch.publicMatchmaking;
+    const requestedPrivateRoomId = pendingLandscapeLaunch.roomId;
     setPendingLandscapeLaunch(null);
-    beginStart(nextMode, usePublicMatchmaking);
+    beginStart(nextMode, usePublicMatchmaking, requestedPrivateRoomId);
   }, [beginStart, pendingLandscapeLaunch, portraitTouchViewport]);
 
   const platformAdHooks = (grantReward?: () => void) => ({
@@ -598,15 +708,30 @@ export function App() {
 
   const closeInvite = useCallback(() => setInviteOpen(false), []);
   const effectiveLiveRoomId = playing && mode === "live" ? resolvedLiveRoomId : roomId;
-  const inviteUrl = buildPaceAwareInviteUrl(
-    buildBoardAwareInviteUrl(
-      buildRoomInviteUrl(effectiveLiveRoomId),
-      requestedBoardId,
-      authoritativeBoardId,
-    ),
-    requestedPaceId,
-    authoritativePaceId,
-  );
+  const inviteUrl = captainRoomTierFromRoomId(effectiveLiveRoomId)
+    ? buildCaptainRoomInviteUrl(effectiveLiveRoomId, window.location.href)
+    : buildPaceAwareInviteUrl(
+        buildBoardAwareInviteUrl(
+          buildRoomInviteUrl(effectiveLiveRoomId),
+          requestedBoardId,
+          authoritativeBoardId,
+        ),
+        requestedPaceId,
+        authoritativePaceId,
+      );
+  const createFreeCaptainRoom = (tierId: CaptainRoomTierId) => {
+    const nextRoomId = createCaptainRoomId(tierId);
+    const nextInviteUrl = buildCaptainRoomInviteUrl(nextRoomId, window.location.href);
+    setChallenge(null);
+    setCaptainRoomsOpen(false);
+    setSettingsOpen(false);
+    setCopyStatus("FREE CAPTAIN ROOM LINK COPIED");
+    setInviteOpen(true);
+    void navigator.clipboard.writeText(nextInviteUrl).catch(() => {
+      setCopyStatus("TAP COPY LINK TO SEND THIS FREE ROOM");
+    });
+    start("live", false, nextRoomId);
+  };
   const copyInvite = async () => {
     try {
       await navigator.clipboard.writeText(inviteUrl);
@@ -736,7 +861,17 @@ export function App() {
       )}
 
       {!playing && (
-        legendVoyageOpen && !isCrazyGamesDistribution ? (
+        captainRoomsOpen && !isCrazyGamesDistribution ? (
+          <Suspense fallback={<p className="passport-status" role="status">CHARTING CAPTAIN ROOMS…</p>}>
+            <CaptainRooms
+              onCreateRoom={createFreeCaptainRoom}
+              onClose={() => {
+                setCaptainRoomsOpen(false);
+                setSettingsOpen(true);
+              }}
+            />
+          </Suspense>
+        ) : legendVoyageOpen && !isCrazyGamesDistribution ? (
           <LegendVoyage
             progression={captainProgression}
             onClose={() => {
@@ -792,6 +927,47 @@ export function App() {
                   <small>LOOK & CONTROLS</small>
                   <h3 id="captain-settings-title">YOUR CAPTAIN</h3>
                 </header>
+
+                {!isCrazyGamesDistribution && <button
+                  type="button"
+                  className="captain-progress-launch captain-passport-launch"
+                  data-testid="captain-passport-settings"
+                  onClick={() => {
+                    passportReturnToSettingsRef.current = true;
+                    setSettingsOpen(false);
+                    setPassportOpen(true);
+                  }}
+                >
+                  <span className="captain-progress-launch__level">
+                    <small>{passportProfile ? "PASSPORT" : "SAVE"}</small>
+                    <strong>{passportProfile ? "✓" : "↗"}</strong>
+                  </span>
+                  <span className="captain-progress-launch__copy">
+                    <b>{passportProfile ? "CAPTAIN PASSPORT CONNECTED" : "SAVE YOUR CAPTAIN"}</b>
+                    <small>{passportProfile
+                      ? `${passportProfile.progression.xp.toLocaleString()} verified XP · manage devices`
+                      : "Optional passkey or email link · never required to play"}</small>
+                  </span>
+                </button>}
+
+                {!isCrazyGamesDistribution && <button
+                  type="button"
+                  className="captain-progress-launch captain-rooms-launch"
+                  data-testid="captain-rooms-settings"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    setCaptainRoomsOpen(true);
+                  }}
+                >
+                  <span className="captain-progress-launch__level">
+                    <small>PRIVATE</small>
+                    <strong>30</strong>
+                  </span>
+                  <span className="captain-progress-launch__copy">
+                    <b>HOST A CAPTAIN ROOM</b>
+                    <small>FREE LINK · 10 · 20 · 30 REAL PLAYERS</small>
+                  </span>
+                </button>}
 
                 {!isCrazyGamesDistribution && <button
                   type="button"
@@ -1075,6 +1251,36 @@ export function App() {
                     aria-label="Your arena name"
                   />
                 </label>
+                {!isCrazyGamesDistribution && (
+                  <button
+                    type="button"
+                    className="launcher-passport-button"
+                    data-testid="launcher-passport"
+                    data-saved={passportProfile ? "true" : "false"}
+                    onClick={() => {
+                      passportReturnToSettingsRef.current = false;
+                      setPassportOpen(true);
+                    }}
+                  >
+                    <b>{passportProfile ? "PASSPORT SAVED" : captainProgression.completedRuns > 0 ? "SAVE YOUR CAPTAIN" : "CAPTAIN PASSPORT"}</b>
+                    <span>{passportProfile
+                      ? `${passportProfile.progression.xp.toLocaleString()} verified XP · returns across devices`
+                      : captainProgression.completedRuns > 0
+                        ? "Keep future verified live progress on every device"
+                        : "Optional after you play · passkey or email link"}</span>
+                  </button>
+                )}
+                {!isCrazyGamesDistribution && (
+                  <button
+                    type="button"
+                    className="launcher-passport-button launcher-captain-rooms"
+                    data-testid="launcher-captain-rooms"
+                    onClick={() => setCaptainRoomsOpen(true)}
+                  >
+                    <b>HOST A PRIVATE ROOM</b>
+                    <span>Free instant link · 10 · 20 · 30 invited players</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1137,7 +1343,7 @@ export function App() {
             </section>}
 
             <div className="trust-row" aria-label="Game promises">
-              <span>NO SIGN-UP</span>
+              <span>NO SIGN-UP TO PLAY</span>
               <span>NO AD BEFORE PLAY</span>
               <span>NO PAY-TO-WIN</span>
             </div>
@@ -1145,7 +1351,7 @@ export function App() {
         </section>
       ))}
 
-      {!playing && !settingsOpen && !legendVoyageOpen && !skinStudioOpen && !currencyStoreOpen && !isCrazyGamesDistribution && (
+      {!playing && !settingsOpen && !captainRoomsOpen && !legendVoyageOpen && !skinStudioOpen && !currencyStoreOpen && !passportOpen && !isCrazyGamesDistribution && (
         <nav className="site-guide-links" aria-label="Wormifi guides and policies">
           <a href="/how-to-play.html">How to play</a>
           <a href="/guides.html">Guides</a>
@@ -1164,6 +1370,17 @@ export function App() {
           ? "WORMIFI · CRAZYGAMES HTML5 BUILD"
           : `WORMIFI.COM · ${buildVersionLabel(buildRevision)} · AUTO-UPDATES`}
       </footer>
+      {!isCrazyGamesDistribution && passportOpen && (
+        <Suspense fallback={<p className="passport-status" role="status">OPENING CAPTAIN PASSPORT…</p>}>
+          <CaptainPassport
+            open
+            localProgression={readCaptainProgression()}
+            profile={passportProfile}
+            onProfileChange={handlePassportProfileChange}
+            onClose={closePassport}
+          />
+        </Suspense>
+      )}
       {!isCrazyGamesDistribution && <PwaStatus activeMatch={playing} />}
       {!isCrazyGamesDistribution && <RoomInviteDialog
         open={inviteOpen}

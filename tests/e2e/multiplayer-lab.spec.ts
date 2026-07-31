@@ -482,7 +482,7 @@ test("Heat Ring UI clears an authoritative abort without inventing treasure", as
   expect(pageErrors).toEqual([]);
 });
 
-test("Loot Compass is visible and active while Rival Remains stay outside its pull", async ({ page }) => {
+test("Treasure Magnet is visible and active while Rival Remains stay outside its pull", async ({ page }) => {
   expect(PROTOCOL_VERSION).toBe(5);
   const roomId = "collector-client-proof";
   const playerId = "human-collector-proof";
@@ -664,14 +664,14 @@ test("Loot Compass is visible and active while Rival Remains stay outside its pu
   const bodyRadiusBefore = await arena.getAttribute("data-collision-body-radius");
   await page.keyboard.down("Space");
   await expect(arena).toHaveAttribute("data-collector-active", "true");
-  await expect(page.getByTestId("live-action-callout")).toContainText("LOOT COMPASS ON");
+  await expect(page.getByTestId("live-action-callout")).toContainText("MAGNET ON");
   await expect.poll(
     async () => Number(await arena.getAttribute("data-live-particle-count")),
   ).toBeGreaterThan(0);
   await page.screenshot({ path: "proof/browser/multiplayer/07-live-collector-celebration.png", fullPage: true });
   await page.keyboard.up("Space");
   await expect(collector).toHaveAttribute("data-relic-kind", "loot-compass");
-  await expect(collector).toHaveAccessibleName("Loot Compass Relic status");
+  await expect(collector).toHaveAccessibleName("Treasure Magnet Relic status");
   await expect(collector.getByRole("status")).toHaveAccessibleName(/PULLS GEMS \+ YOUR WAKE LOOT/u);
   await expect(arena).toHaveAttribute("data-neutral-spark-count", "1");
   await expect.poll(
@@ -803,15 +803,15 @@ test("a server-confirmed chain cut produces bounded live celebration feedback", 
   const cutCallout = page.getByTestId("live-action-callout");
   await expect(cutCallout).toContainText("CHAIN CUT · Drama Llama RELEASED");
   await expect(cutCallout).toHaveCSS("opacity", "1", { timeout: 1_000 });
-  await expect.poll(
-    async () => Number(await arena.getAttribute("data-live-particle-count")),
-  ).toBeGreaterThan(20);
+  const emittedParticles = Number(await arena.getAttribute("data-live-particle-emissions"));
+  expect(emittedParticles).toBeGreaterThan(0);
+  expect(emittedParticles).toBeLessThanOrEqual(20);
   await page.screenshot({ path: "proof/browser/multiplayer/08-live-chain-cut-celebration.png", fullPage: true });
 });
 
 test("live lesson uses touch anchor, score rank, real Sprint spend, and honest respawn copy", async ({ page }) => {
   test.setTimeout(25_000);
-  await page.setViewportSize({ width: 412, height: 915 });
+  await page.setViewportSize({ width: 915, height: 412 });
   const roomId = "live-lesson-proof";
   const playerId = "human-live-lesson";
   const rivalId = "bot-live-rival";
@@ -994,9 +994,11 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
   await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Turn your moving worm.");
-  await expect(page.getByTestId("live-hud-rank")).toContainText("SCORE RANK");
-  await expect(page.getByTestId("live-hud-rank")).toContainText("#2 / 2");
-  await expect(page.getByLabel("Live score leaderboard")).toContainText("RESETS ON CRASH");
+  await expect(page.getByTestId("live-hud-rank")).toContainText("PLACE");
+  await expect(page.getByTestId("live-hud-rank")).toHaveAccessibleName("Rank 2 of 2");
+  await expect(page.getByLabel("Live score leaderboard")).toContainText(
+    "NAMES · SCORE · YOUR PLACE IN THE FIELD",
+  );
   await expect(page.getByLabel("Live score leaderboard")).toContainText("Touch Proof · YOU");
   await expect(page.getByTestId("live-next-rank-gap")).toContainText("NEXT RANK +150");
   await expect(page.getByTestId("live-hud-length")).toContainText("SIZE");
@@ -1006,13 +1008,13 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   const session = await page.context().newCDPSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",
-    touchPoints: [{ x: 90, y: 480, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
+    touchPoints: [{ x: 90, y: 250, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
   });
   await expect(page.getByTestId("live-touch-guide")).toBeVisible();
   await page.screenshot({ path: "proof/browser/multiplayer/05-live-mobile-touch.png", fullPage: true });
   await session.send("Input.dispatchTouchEvent", {
     type: "touchMove",
-    touchPoints: [{ x: 90, y: 570, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
+    touchPoints: [{ x: 90, y: 330, radiusX: 4, radiusY: 4, force: 1, id: 1 }],
   });
   await expect(arena).toHaveAttribute("data-tutorial-stage", "sprint");
   await expect(arena).toHaveAttribute("data-tutorial-retarget-reason", "behind");

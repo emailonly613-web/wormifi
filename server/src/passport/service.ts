@@ -2,28 +2,54 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   assertPassportPepper,
   constantTimeFakeRecoveryCheck,
+  createEmailLinkToken,
   createRecoverySecret,
   createSessionToken,
+  emailAddressKey,
+  emailLinkTokenHash,
+  normalizeEmailAddress,
   sessionTokenHash,
   verifyRecoveryCode,
 } from "./crypto";
 import { PassportRateLimiter } from "./rate-limit";
-import { InMemoryPassportStore } from "./store";
+import type { PassportStore } from "./store";
+import {
+  CAPTAIN_ENTITLEMENT_PRODUCTS,
+  deriveCaptainEntitlements,
+} from "./entitlements";
 import type {
   AuthenticationResponseJSON,
+  AuthoritativeLifeAward,
+  CaptainEntitlementEventAction,
+  CaptainEntitlementEventSource,
+  CaptainEntitlementProductId,
   CaptainLogEventRecord,
+  EmailLinkDelivery,
   PassportChallengePurpose,
   PassportCredentialRecord,
+  PassportEmailIdentityRecord,
   PassportSessionRecord,
   PassportWebAuthnAdapter,
   RegistrationResponseJSON,
 } from "./types";
+import {
+  calculateCaptainRunXp,
+  MAX_CAPTAIN_XP,
+} from "../../../src/game/captainProgression.ts";
 
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60_000;
+const EMAIL_LINK_TTL_MS = 15 * 60_000;
 
 export class PassportError extends Error {
-  constructor(readonly code: "INVALID_CEREMONY" | "AUTHENTICATION_FAILED" | "RATE_LIMITED" | "INVALID_SESSION") {
+  constructor(readonly code:
+    | "INVALID_CEREMONY"
+    | "AUTHENTICATION_FAILED"
+    | "EMAIL_UNAVAILABLE"
+    | "INVALID_EMAIL"
+    | "RATE_LIMITED"
+    | "INVALID_SESSION"
+  ) {
     super(code);
   }
 }
@@ -35,15 +61,26 @@ function cleanDeviceLabel(value: string) {
 
 export class CaptainPassportService {
   readonly #recoveryLimiter: PassportRateLimiter;
+  readonly #emailLimiter: PassportRateLimiter;
+  readonly #emailDelivery?: EmailLinkDelivery;
+  readonly #emailCompletionUrl: string;
 
   constructor(
-    private readonly store: InMemoryPassportStore,
+    private readonly store: PassportStore,
     private readonly webAuthn: PassportWebAuthnAdapter,
     private readonly pepper: string,
-    recoveryLimiter = new PassportRateLimiter(),
+    options: {
+      recoveryLimiter?: PassportRateLimiter;
+      emailLimiter?: PassportRateLimiter;
+      emailDelivery?: EmailLinkDelivery;
+      emailCompletionUrl?: string;
+    } = {},
   ) {
     assertPassportPepper(pepper);
-    this.#recoveryLimiter = recoveryLimiter;
+    this.#recoveryLimiter = options.recoveryLimiter ?? new PassportRateLimiter();
+    this.#emailLimiter = options.emailLimiter ?? new PassportRateLimiter(4, 15 * 60_000, 15 * 60_000);
+    this.#emailDelivery = options.emailDelivery;
+    this.#emailCompletionUrl = options.emailCompletionUrl ?? "https://wormifi.com/";
   }
 
   async startEnrollment(nowMs = Date.now()) {
@@ -185,6 +222,132 @@ export class CaptainPassportService {
     };
   }
 
+  async startEmailAuthentication(input: {
+    email: string;
+    ipKey: string;
+    authToken?: string;
+    nowMs?: number;
+  }) {
+    if (!this.#emailDelivery) throw new PassportError("EMAIL_UNAVAILABLE");
+    const nowMs = input.nowMs ?? Date.now();
+    let normalizedEmail: string;
+    try {
+      normalizedEmail = normalizeEmailAddress(input.email);
+    } catch {
+      throw new PassportError("INVALID_EMAIL");
+    }
+    const emailKey = emailAddressKey(normalizedEmail, this.pepper);
+    const rateKeys = [`email:${emailKey}`, `ip:${input.ipKey}`];
+    if (rateKeys.some((key) => !this.#emailLimiter.isAllowed(key, nowMs))) {
+      throw new PassportError("RATE_LIMITED");
+    }
+    for (const key of rateKeys) this.#emailLimiter.recordFailure(key, nowMs);
+
+    const actor = input.authToken
+      ? this.authenticateSession(input.authToken, nowMs)
+      : undefined;
+    const existing = this.store.emailIdentity(emailKey);
+    if (actor && existing && existing.accountId !== actor.accountId) {
+      // The HTTP layer intentionally turns this into the same generic response
+      // as every other request so an address cannot be used for enumeration.
+      throw new PassportError("AUTHENTICATION_FAILED");
+    }
+    const accountId = actor?.accountId ?? existing?.accountId ?? null;
+    const secret = createEmailLinkToken(this.pepper);
+    const linkId = randomUUID();
+    const expiresAtMs = nowMs + EMAIL_LINK_TTL_MS;
+    this.store.saveEmailLink({
+      linkId,
+      emailKey,
+      accountId,
+      tokenHash: secret.tokenHash,
+      createdAtMs: nowMs,
+      expiresAtMs,
+      consumedAtMs: null,
+    });
+    const completionUrl = new URL(this.#emailCompletionUrl);
+    completionUrl.hash = `passport-email=${encodeURIComponent(secret.token)}`;
+    try {
+      await this.#emailDelivery.sendSignInLink({
+        email: normalizedEmail,
+        completionUrl: completionUrl.toString(),
+        expiresAtMs,
+      });
+    } catch {
+      throw new PassportError("EMAIL_UNAVAILABLE");
+    }
+    return { accepted: true as const, expiresAtMs };
+  }
+
+  completeEmailAuthentication(input: {
+    token: string;
+    deviceLabel: string;
+    nowMs?: number;
+  }) {
+    const nowMs = input.nowMs ?? Date.now();
+    const tokenHash = emailLinkTokenHash(input.token, this.pepper);
+    const link = this.store.claimEmailLink(tokenHash, nowMs);
+    if (!link) throw new PassportError("AUTHENTICATION_FAILED");
+
+    let accountId = link.accountId;
+    let recoveryCode: string | undefined;
+    let created = false;
+    if (!accountId) {
+      accountId = randomUUID();
+      const recovery = createRecoverySecret(accountId, 1, nowMs, this.pepper);
+      const session = this.#newSession(accountId, input.deviceLabel, nowMs);
+      const identity: PassportEmailIdentityRecord = {
+        emailKey: link.emailKey,
+        accountId,
+        createdAtMs: nowMs,
+        verifiedAtMs: nowMs,
+      };
+      const saved = this.store.createEmailAccount(
+        { accountId, createdAtMs: nowMs },
+        identity,
+        recovery.record,
+        session.record,
+        this.#event(accountId, "account_created", nowMs, { method: "email_link" }),
+      );
+      if (!saved) throw new PassportError("AUTHENTICATION_FAILED");
+      created = true;
+      recoveryCode = recovery.code;
+      return {
+        accountId,
+        sessionId: session.record.sessionId,
+        sessionToken: session.token,
+        created,
+        recoveryCode,
+      };
+    }
+
+    const identity = this.store.emailIdentity(link.emailKey);
+    if (identity && identity.accountId !== accountId) {
+      throw new PassportError("AUTHENTICATION_FAILED");
+    }
+    if (!identity) {
+      const added = this.store.addEmailIdentity({
+        emailKey: link.emailKey,
+        accountId,
+        createdAtMs: nowMs,
+        verifiedAtMs: nowMs,
+      });
+      if (!added) throw new PassportError("AUTHENTICATION_FAILED");
+    }
+    const session = this.#newSession(accountId, input.deviceLabel, nowMs);
+    this.store.saveSession(session.record);
+    this.store.appendEvent(this.#event(accountId, "email_authenticated", nowMs, {
+      sessionId: session.record.sessionId,
+    }));
+    return {
+      accountId,
+      sessionId: session.record.sessionId,
+      sessionToken: session.token,
+      created,
+      recoveryCode,
+    };
+  }
+
   recover(input: {
     accountId: string;
     recoveryCode: string;
@@ -264,6 +427,143 @@ export class CaptainPassportService {
       revokedAtMs: session.revokedAtMs,
       current: session.sessionId === actor.sessionId,
     }));
+  }
+
+  sessionProfile(authToken: string, nowMs = Date.now()) {
+    const actor = this.authenticateSession(authToken, nowMs);
+    return {
+      accountId: actor.accountId,
+      sessionId: actor.sessionId,
+      progression: this.store.progression(actor.accountId),
+      entitlements: deriveCaptainEntitlements(
+        this.store.entitlementEvents(actor.accountId),
+        nowMs,
+      ),
+      passkeyCount: this.store.credentials(actor.accountId)
+        .filter((credential) => credential.revokedAtMs === null)
+        .length,
+    };
+  }
+
+  /**
+   * Internal fulfillment seam. The public HTTP router deliberately exposes no
+   * route to this method; a later verified provider adapter or reviewed
+   * operator correction must call it from trusted server code.
+   */
+  recordEntitlementEvent(input: {
+    accountId: string;
+    productId: CaptainEntitlementProductId;
+    action: CaptainEntitlementEventAction;
+    source: CaptainEntitlementEventSource;
+    occurredAtMs: number;
+    paidThroughMs?: number | null;
+    reversesEventId?: string | null;
+    externalReferenceHash?: string | null;
+    idempotencyKey: string;
+  }) {
+    if (!this.store.account(input.accountId)) {
+      throw new Error("Cannot record an entitlement for an unknown account.");
+    }
+    const product = CAPTAIN_ENTITLEMENT_PRODUCTS[input.productId];
+    if (!product) throw new Error("Unknown Captain entitlement product.");
+    const paidThroughMs = input.paidThroughMs ?? null;
+    const reversesEventId = input.reversesEventId ?? null;
+    if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 160) {
+      throw new Error("Entitlement idempotency key is invalid.");
+    }
+    if (!Number.isSafeInteger(input.occurredAtMs) || input.occurredAtMs < 0) {
+      throw new Error("Entitlement occurrence time is invalid.");
+    }
+    if (input.action === "reverse") {
+      if (!reversesEventId || paidThroughMs !== null) {
+        throw new Error("A reversal must name exactly one event and no paid-through time.");
+      }
+    } else if (reversesEventId) {
+      throw new Error("Only a reversal may name a prior entitlement event.");
+    }
+    if (product.relationship === "permanent_ownership") {
+      if (paidThroughMs !== null || input.action === "renew" || input.action === "cancel_at_period_end") {
+        throw new Error("Permanent ownership cannot renew, cancel at period end, or expire.");
+      }
+    } else if (
+      (input.action === "grant" || input.action === "renew" || input.action === "correct") &&
+      (typeof paidThroughMs !== "number" ||
+        !Number.isSafeInteger(paidThroughMs) ||
+        paidThroughMs <= 0)
+    ) {
+      throw new Error("Monthly access events require a valid paid-through time.");
+    }
+    const externalReferenceHash = input.externalReferenceHash ?? null;
+    if (
+      input.source === "payment_provider" &&
+      !/^[a-f0-9]{64}$/u.test(externalReferenceHash ?? "")
+    ) {
+      throw new Error("Provider events require a one-way external reference hash.");
+    }
+
+    const record = {
+      eventId: randomUUID(),
+      accountId: input.accountId,
+      productId: input.productId,
+      action: input.action,
+      source: input.source,
+      occurredAtMs: input.occurredAtMs,
+      paidThroughMs,
+      reversesEventId,
+      externalReferenceHash,
+      idempotencyKey: input.idempotencyKey,
+    };
+    const event = this.#event(input.accountId, "entitlement_recorded", input.occurredAtMs, {
+      entitlementEventId: record.eventId,
+      productId: input.productId,
+      action: input.action,
+      source: input.source,
+    });
+    event.idempotencyKey = `entitlement:${input.idempotencyKey}`;
+    const recorded = this.store.appendEntitlementEvent(record, event);
+    return {
+      recorded,
+      event: record,
+      entitlements: deriveCaptainEntitlements(
+        this.store.entitlementEvents(input.accountId),
+        input.occurredAtMs,
+      ),
+    };
+  }
+
+  awardAuthoritativeLife(input: Omit<AuthoritativeLifeAward, "xpDelta" | "formulaVersion">) {
+    const current = this.store.progression(input.accountId);
+    const calculatedXp = calculateCaptainRunXp({
+      source: "live",
+      score: input.finalScore,
+      kills: input.kills,
+      rank: input.rank,
+      peakMass: input.peakMass,
+    });
+    const xpDelta = Math.max(0, Math.min(calculatedXp, MAX_CAPTAIN_XP - current.xp));
+    const award: AuthoritativeLifeAward = {
+      ...input,
+      formulaVersion: "captain-xp-v1",
+      xpDelta,
+    };
+    const event = this.#event(input.accountId, "progress_awarded", input.occurredAtMs, {
+      roomId: input.roomId,
+      lifeId: input.lifeId,
+      finalScore: input.finalScore,
+      kills: input.kills,
+      rank: input.rank,
+      peakMass: input.peakMass,
+      rulesetVersion: input.rulesetVersion,
+      formulaVersion: award.formulaVersion,
+      xpDelta,
+    });
+    event.idempotencyKey = input.idempotencyKey;
+    return this.store.awardAuthoritativeLife(award, event);
+  }
+
+  listCaptainLog(authToken: string, nowMs = Date.now()) {
+    const actor = this.authenticateSession(authToken, nowMs);
+    return this.store.events(actor.accountId);
   }
 
   #saveChallenge(

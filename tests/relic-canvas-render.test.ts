@@ -42,8 +42,8 @@ describe("Relic canvas presentation", () => {
     expect(cutlass?.label).not.toContain("COMPASS");
   });
 
-  it("publishes only 2x, 5x, and rare 10x multiplier tiers", () => {
-    for (const tier of [2, 5, 10] as const) {
+  it("publishes the five visible 2x/3x/4x/5x/10x multiplier tiers", () => {
+    for (const tier of [2, 3, 4, 5, 10] as const) {
       expect(createGroundRelicCanvasModel({
         relicKind: "gilded-ledger",
         relicTier: tier,
@@ -86,12 +86,12 @@ describe("Relic canvas presentation", () => {
     expect(imageDraws).toBe(0);
   });
 
-  it("maps only the legacy Collector ground envelope to Loot Compass", () => {
+  it("maps only the legacy Collector ground envelope to Treasure Magnet", () => {
     expect(createGroundRelicCanvasModel({
       specialist: "collector",
       specialistDurationTicks: 120,
     }, 0.1, 0)).toMatchObject({
-      label: "LOOT COMPASS · 12S",
+      label: "TREASURE MAGNET · 12S",
       spriteRotation: 0,
       orbitRotation: 0,
       presentation: {

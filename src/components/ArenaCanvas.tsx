@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { GameMode } from "../App";
 import {
   ArenaTutorial,
@@ -173,6 +173,7 @@ interface HudState {
   mass: number;
   length: number;
   rank: number;
+  rankTotal: number;
   remaining: number;
   leaderboard: ReturnType<typeof getRankings>;
   position: Vec2;
@@ -181,6 +182,44 @@ interface HudState {
   fixedStepSeconds: number;
   chargingStation?: ChargingStationPresentation;
 }
+
+interface ArenaLeaderboardProps {
+  entries: ReturnType<typeof getRankings>;
+  rank: number;
+  rankTotal: number;
+}
+
+const ArenaLeaderboard = memo(function ArenaLeaderboard({
+  entries,
+  rank,
+  rankTotal,
+}: ArenaLeaderboardProps) {
+  return (
+    <aside className="leaderboard" aria-label="AI size leaderboard">
+      <h2>TOP 10 · SIZE</h2>
+      <ol>
+        {entries.map((entry, index) => (
+          <li
+            key={entry.playerId}
+            className={entry.playerId === PLAYER_ID ? "player" : ""}
+            data-rank={index + 1}
+          >
+            <span className="name">
+              {entry.name}
+              {entry.playerId !== PLAYER_ID && <em className="ai-tag">AI</em>}
+            </span>
+            <span>{Math.round(entry.mass)}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="leaderboard-rankline" data-testid="player-rank">
+        <span>YOU</span>
+        <strong>#{rank}</strong>
+        <span>/ {rankTotal}</span>
+      </p>
+    </aside>
+  );
+});
 
 interface ResultState {
   heading: string;
@@ -224,6 +263,7 @@ interface ArenaRuntime extends ArenaRenderRuntime {
   providers: BotInputProviderMap;
   startTick: number;
   lastHudTick: number;
+  lastLeaderboardTick: number;
   lastFrame: number;
   accumulatorSeconds: number;
   resultCommitted: boolean;
@@ -411,6 +451,7 @@ function getInitialHud(): HudState {
     mass: DEFAULT_GAME_CONFIG.startMass,
     length: DEFAULT_GAME_CONFIG.startingBodySegments,
     rank: BOT_COUNT + 1,
+    rankTotal: BOT_COUNT + 1,
     remaining: RUSH_SECONDS,
     leaderboard: [],
     position: { x: 0, y: 0 },
@@ -594,6 +635,7 @@ export function ArenaCanvas({
       ...built,
       startTick: built.state.tick,
       lastHudTick: -1,
+      lastLeaderboardTick: -1,
       lastFrame: performance.now(),
       accumulatorSeconds: 0,
       camera: createCameraMotionState(),
@@ -733,6 +775,7 @@ export function ArenaCanvas({
           player
         ) {
           tutorial.collectedSpark(event.dropId, runtime.tutorialSparkId ?? null);
+          window.dispatchEvent(new Event("wormifi:treasure-collected"));
           runtime.pickupCombo = runtime.state.tick - runtime.lastPickupTick < 21
             ? Math.min(8, runtime.pickupCombo + 1)
             : 1;
@@ -766,7 +809,7 @@ export function ArenaCanvas({
             radius: collectedPopCluster ? 34 : 26,
             color: collectedPopCluster ? "#fff1a1" : "#eafffb",
             // dropCollected.mass is the final authoritative award, including
-            // an active 2x, 5x, or rare 10x Treasure Multiplier.
+            // an active 2x, 3x, 4x, 5x, or rare 10x Treasure Multiplier.
             rewardPoints: treasurePointValue(event.mass),
           });
           if (runtime.pickupCombo <= 5 || runtime.pickupCombo === 8) {
@@ -1088,13 +1131,20 @@ export function ArenaCanvas({
           station,
           state: runtime.state.chargingStations[station.id],
         }));
-        setHud({
+        const refreshLeaderboard =
+          runtime.state.tick % 12 === 0 &&
+          runtime.state.tick !== runtime.lastLeaderboardTick;
+        if (refreshLeaderboard) runtime.lastLeaderboardTick = runtime.state.tick;
+        setHud((current) => ({
           score: calculateScore(currentPlayer, runtime.state.config),
           mass: Math.round(currentPlayer.mass),
           length: currentPlayer.body.length,
           rank: getPlayerRank(runtime.state, PLAYER_ID) ?? BOT_COUNT + 1,
+          rankTotal: Object.values(runtime.state.players).filter((player) => player.alive).length,
           remaining,
-          leaderboard: getRankings(runtime.state).slice(0, 6),
+          leaderboard: refreshLeaderboard
+            ? getRankings(runtime.state).slice(0, 10)
+            : current.leaderboard,
           position: { ...currentPlayer.position },
           activeRelic: currentPlayer.specialist
             ? { ...currentPlayer.specialist }
@@ -1107,7 +1157,7 @@ export function ArenaCanvas({
             PLAYER_ID,
             currentPlayer.position,
           ),
-        });
+        }));
       }
 
       animationFrame = requestAnimationFrame(frame);
@@ -1435,8 +1485,17 @@ export function ArenaCanvas({
   const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
   const turboPlayer = runtimeRef.current?.state.players[PLAYER_ID] ?? { mass: hud.mass };
   const turboConfig = runtimeRef.current?.state.config ?? DEFAULT_GAME_CONFIG;
-  const turboReserveRatio = getPlayerTurboReserveRatio(turboPlayer, turboConfig);
-  const turboSecondsRemaining = getPlayerTurboSecondsRemaining(turboPlayer, turboConfig);
+  const stormBatteryActive = relicStatus?.presentation.relicKind === "storm-battery";
+  const turboReserveRatio = stormBatteryActive
+    ? 1
+    : getPlayerTurboReserveRatio(turboPlayer, turboConfig);
+  const turboSecondsRemaining = Math.max(
+    getPlayerTurboSecondsRemaining(turboPlayer, turboConfig),
+    stormBatteryActive ? relicStatus.remainingSeconds : 0,
+  );
+  const turboCostLabel = stormBatteryActive
+    ? "costs no size while Twin Turbo Lightning is active"
+    : `costs ${SPRINT_SIZE_COST_PER_SECOND} size per second`;
 
   return (
     <div
@@ -1534,20 +1593,11 @@ export function ArenaCanvas({
               </div>
             )}
 
-            <aside className="leaderboard" aria-label="AI size leaderboard">
-              <h2>SIZE RANK · AI</h2>
-              <ol>
-                {hud.leaderboard.map((entry) => {
-                  const bot = runtimeRef.current?.state.players[entry.playerId]?.kind === "bot";
-                  return (
-                    <li key={entry.playerId} className={entry.playerId === PLAYER_ID ? "player" : ""}>
-                      <span className="name">{entry.name}{bot && <em className="ai-tag">AI</em>}</span>
-                      <span>{Math.round(entry.mass)}</span>
-                    </li>
-                  );
-                })}
-              </ol>
-            </aside>
+            <ArenaLeaderboard
+              entries={hud.leaderboard}
+              rank={hud.rank}
+              rankTotal={hud.rankTotal}
+            />
 
             <RelicStatus
               active={hud.activeRelic}
@@ -1617,7 +1667,7 @@ export function ArenaCanvas({
               releaseSprint();
             }}
             onPointerCancel={releaseSprint}
-            aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, costs ${SPRINT_SIZE_COST_PER_SECOND} size per second, ${turboSecondsRemaining.toFixed(1)} seconds available`}
+            aria-label={`Turbo sprint — ${sprintMultiplierLabel} speed, ${turboCostLabel}, ${turboSecondsRemaining.toFixed(1)} seconds available`}
           >
             <span aria-hidden="true">⚡</span>
             <small aria-hidden="true">{sprintMultiplierLabel}</small>
@@ -2221,6 +2271,10 @@ function drawLivingChain(
       : undefined,
     cinematicHeadPalette: photoSkin?.renderPlan.faceTheme.palette,
     cinematicHeadHue: photoSkin?.renderPlan.faceTheme.headHue ?? 0,
+    faceMode: photoSkin?.renderPlan.faceMode,
+    eyeStyle: photoSkin?.renderPlan.eyeStyle,
+    expressionStyle: photoSkin?.renderPlan.expressionStyle,
+    magnetized: activeRelic?.presentation.relicKind === "loot-compass",
     materialMotion,
     // Preserve authored patterns on every visible crew, but spend expensive
     // bloom only on this device's captain. Rival skin remains fully readable.

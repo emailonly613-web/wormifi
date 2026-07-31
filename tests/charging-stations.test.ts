@@ -261,7 +261,7 @@ describe("authoritative body-wrap charging", () => {
     expect(state.chargingStations[station.id].playerId).toBe("admiral");
   });
 
-  it("grows in real time through x1, x2 and x3 stages on Open Seas pads", () => {
+  it("ships two orbit rings plus one staged x1/x2/x3 Open Seas harbor", () => {
     const state = createGameState(
       "open-seas-harbors",
       { baseSpeed: 0, fixedStepSeconds: 1 / 30 },
@@ -276,39 +276,39 @@ describe("authoritative body-wrap charging", () => {
       seconds: station.chargeDurationSeconds,
       reward: station.massReward,
     }))).toEqual([
-      { id: "coin-cay", kind: "harbor", seconds: 3, reward: 9 },
-      { id: "coral-key", kind: "harbor", seconds: 5, reward: 20 },
+      { id: "coin-cay", kind: "capstan", seconds: 1.5, reward: 9 },
+      { id: "coral-key", kind: "capstan", seconds: 2.25, reward: 20 },
       { id: "kraken-atoll", kind: "harbor", seconds: 7, reward: 42 },
     ]);
 
-    const coinCay = state.board.chargingStations[0];
+    const krakenAtoll = state.board.chargingStations[2];
     const startingMass = player.mass;
-    const chargingState = state.chargingStations[coinCay.id];
+    const chargingState = state.chargingStations[krakenAtoll.id];
     const stageTicks = chargingState.requiredTicks / 3;
-    const firstStageEvents = holdHarborPad(state, player, coinCay, stageTicks);
+    const firstStageEvents = holdHarborPad(state, player, krakenAtoll, stageTicks);
     const afterX1 = player.mass;
     expect(afterX1).toBeGreaterThan(startingMass);
-    holdHarborPad(state, player, coinCay, stageTicks);
+    holdHarborPad(state, player, krakenAtoll, stageTicks);
     const afterX2 = player.mass;
-    const finalStageEvents = holdHarborPad(state, player, coinCay, stageTicks);
+    const finalStageEvents = holdHarborPad(state, player, krakenAtoll, stageTicks);
 
-    expect(afterX1 - startingMass).toBeCloseTo(1.5, 8);
-    expect(afterX2 - afterX1).toBeCloseTo(3, 8);
-    expect(player.mass - afterX2).toBeCloseTo(4.5, 8);
+    expect(afterX1 - startingMass).toBeCloseTo(7, 8);
+    expect(afterX2 - afterX1).toBeCloseTo(14, 8);
+    expect(player.mass - afterX2).toBeCloseTo(21, 8);
     expect([...firstStageEvents, ...finalStageEvents]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: "chargingStarted",
-        stationId: coinCay.id,
+        stationId: krakenAtoll.id,
         playerId: player.id,
       }),
       expect.objectContaining({
         type: "chargingCompleted",
-        stationId: coinCay.id,
+        stationId: krakenAtoll.id,
         playerId: player.id,
-        massAwarded: 9,
+        massAwarded: 42,
       }),
     ]));
-    expect(player.mass).toBeCloseTo(startingMass + 9, 8);
+    expect(player.mass).toBeCloseTo(startingMass + 42, 8);
     expect(chargingState.phase).toBe("cooldown");
   });
 
@@ -318,18 +318,22 @@ describe("authoritative body-wrap charging", () => {
       { baseSpeed: 0, fixedStepSeconds: 1 / 30 },
       OPEN_SEAS_BOARD,
     );
-    const coinCay = state.board.chargingStations[0];
+    const krakenAtoll = state.board.chargingStations[2];
     const player = spawnPlayer(state, { id: "captain", shieldSeconds: 60 });
-    const chargingState = state.chargingStations[coinCay.id];
-    holdHarborPad(state, player, coinCay, chargingState.requiredTicks / 3);
+    const chargingState = state.chargingStations[krakenAtoll.id];
+    holdHarborPad(state, player, krakenAtoll, chargingState.requiredTicks / 3);
     const partialMass = player.mass;
-    expect(chargingState.massAwarded).toBeCloseTo(1.5, 8);
+    expect(chargingState.massAwarded).toBeCloseTo(7, 8);
 
-    placeOnHarborPad(player, coinCay, coinCay.wrapRadius + coinCay.wrapTolerance + 5);
+    placeOnHarborPad(
+      player,
+      krakenAtoll,
+      krakenAtoll.wrapRadius + krakenAtoll.wrapTolerance + 5,
+    );
     const interrupted = stepGame(state);
     expect(interrupted.events).toContainEqual(expect.objectContaining({
       type: "chargingInterrupted",
-      stationId: coinCay.id,
+      stationId: krakenAtoll.id,
       playerId: player.id,
     }));
 
@@ -340,21 +344,21 @@ describe("authoritative body-wrap charging", () => {
     }
     expect(resetEvents).toContainEqual(expect.objectContaining({
       type: "chargingReset",
-      stationId: coinCay.id,
+      stationId: krakenAtoll.id,
       playerId: player.id,
-      massAwarded: expect.closeTo(1.5, 8),
+      massAwarded: expect.closeTo(7, 8),
     }));
     expect(player.mass).toBeCloseTo(partialMass, 8);
 
     while (chargingState.phase !== "ready") stepGame(state);
-    const secondChargeEvents = holdHarborPad(state, player, coinCay);
+    const secondChargeEvents = holdHarborPad(state, player, krakenAtoll);
     expect(secondChargeEvents).toContainEqual(expect.objectContaining({
       type: "chargingCompleted",
-      stationId: coinCay.id,
+      stationId: krakenAtoll.id,
       playerId: player.id,
-      massAwarded: coinCay.massReward,
+      massAwarded: krakenAtoll.massReward,
     }));
-    expect(player.mass).toBeCloseTo(partialMass + coinCay.massReward, 8);
+    expect(player.mass).toBeCloseTo(partialMass + krakenAtoll.massReward, 8);
   });
 
   it("resolves simultaneous harbor-pad contenders by stable player id", () => {
@@ -363,7 +367,7 @@ describe("authoritative body-wrap charging", () => {
       { baseSpeed: 0, fixedStepSeconds: 1 / 30 },
       OPEN_SEAS_BOARD,
     );
-    const coinCay = state.board.chargingStations[0];
+    const krakenAtoll = state.board.chargingStations[2];
     const scriptedBot = spawnPlayer(state, {
       id: "aardvark-bot",
       kind: "bot",
@@ -371,14 +375,38 @@ describe("authoritative body-wrap charging", () => {
     });
     const zulu = spawnPlayer(state, { id: "zulu", shieldSeconds: 60 });
     const alpha = spawnPlayer(state, { id: "alpha", shieldSeconds: 60 });
-    placeOnHarborPad(scriptedBot, coinCay);
-    placeOnHarborPad(zulu, coinCay);
-    placeOnHarborPad(alpha, coinCay);
+    placeOnHarborPad(scriptedBot, krakenAtoll);
+    placeOnHarborPad(zulu, krakenAtoll);
+    placeOnHarborPad(alpha, krakenAtoll);
 
     const result = stepGame(state);
     expect(result.events.filter((event) => event.type === "chargingStarted")).toEqual([
-      expect.objectContaining({ stationId: coinCay.id, playerId: "alpha" }),
+      expect.objectContaining({ stationId: krakenAtoll.id, playerId: "alpha" }),
     ]);
-    expect(state.chargingStations[coinCay.id].playerId).toBe("alpha");
+    expect(state.chargingStations[krakenAtoll.id].playerId).toBe("alpha");
+  });
+
+  it("requires a real body orbit before either small Open Seas ring can pay", () => {
+    const state = createGameState(
+      "open-seas-orbit-rings",
+      { baseSpeed: 0, fixedStepSeconds: 0.1 },
+      OPEN_SEAS_BOARD,
+    );
+    for (const [index, station] of state.board.chargingStations.slice(0, 2).entries()) {
+      const player = spawnPlayer(state, {
+        id: `ring-captain-${index}`,
+        mass: index === 0 ? 210 : 420,
+        shieldSeconds: 60,
+      });
+      placeValidCoil(state, player, station);
+      const geometry = evaluateChargingWrap(player, station);
+      expect(geometry.valid, station.id).toBe(true);
+      const result = stepGame(state);
+      expect(result.events).toContainEqual(expect.objectContaining({
+        type: "chargingStarted",
+        stationId: station.id,
+        playerId: player.id,
+      }));
+    }
   });
 });

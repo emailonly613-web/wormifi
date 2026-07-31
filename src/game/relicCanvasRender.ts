@@ -5,7 +5,6 @@ import {
   getRelicEffectText,
   type RelicPresentation,
 } from "./relicPresentation";
-import { drawLootCompass } from "./treasureRender";
 import type {
   ActiveSpecialist,
   PirateRelicKind,
@@ -181,7 +180,24 @@ function drawRelicFallback(
   timerRatio = 1,
 ) {
   if (presentation.relicKind === "loot-compass") {
-    drawLootCompass(context, 0, 0, radius, timerRatio);
+    const pulse = 0.9 + Math.sin(timerRatio * Math.PI * 2) * 0.06;
+    const size = radius * pulse;
+    context.save();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = "#c92f58";
+    context.lineWidth = Math.max(3, size * 0.42);
+    context.shadowColor = presentation.carrierHalo;
+    context.shadowBlur = Math.max(6, size * 0.72);
+    context.beginPath();
+    context.arc(0, 0, size * 0.58, 0, Math.PI);
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = "#ffe680";
+    for (const x of [-size * 0.58, size * 0.58]) {
+      context.fillRect(x - size * 0.18, -size * 0.08, size * 0.36, size * 0.42);
+    }
+    context.restore();
     return;
   }
 
@@ -335,14 +351,20 @@ export function drawGroundRelicPickup(
   context.restore();
 
   const spriteSize = beaconRadius * 2 * relic.ground.scale;
-  if (
-    relic.ground.spriteName === "treasure-multiplier" ||
-    !drawPirateAtlasSprite(context, relic.ground.spriteName, {
+  const groundSprite = relic.ground.spriteName;
+  const drewGroundAtlas = relic.relicKind !== "loot-compass" &&
+    groundSprite !== "treasure-multiplier" &&
+    groundSprite !== "storm-battery" &&
+    drawPirateAtlasSprite(context, groundSprite, {
       x: 0,
       y: 0,
       size: spriteSize,
       rotation: model.spriteRotation,
-    })
+    });
+  if (
+    relic.relicKind === "loot-compass" ||
+    relic.relicKind === "storm-battery" ||
+    !drewGroundAtlas
   ) {
     drawRelicFallback(context, relic, beaconRadius * 0.78);
   }
@@ -386,6 +408,23 @@ export function drawRelicCarrierEffect(
         Math.cos(angle) * effectRadius * 0.82,
         Math.sin(angle) * effectRadius * 0.82,
       );
+    }
+  } else if (relic.relicKind === "storm-battery") {
+    context.globalAlpha = 0.72;
+    context.lineWidth = Math.max(1.5, headRadius * 0.1);
+    context.rotate(safeNow * 0.0004);
+    for (let bolt = 0; bolt < 4; bolt += 1) {
+      const angle = bolt * Math.PI / 2;
+      const inner = effectRadius * 0.58;
+      const outer = effectRadius * (0.94 + Math.sin(safeNow * 0.008 + bolt) * 0.08);
+      context.beginPath();
+      context.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      context.lineTo(
+        Math.cos(angle + 0.14) * (inner + outer) * 0.52,
+        Math.sin(angle + 0.14) * (inner + outer) * 0.52,
+      );
+      context.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+      context.stroke();
     }
   } else if (relic.relicKind === "emerald-spyglass") {
     context.rotate(safeNow * 0.00032);
@@ -482,14 +521,20 @@ export function drawRelicCarrierBadge(
     context.fillText(glyph, 0, 0.5);
   } else {
     const rotation = spriteRotation(relic.relicKind, safeNow) * 0.48;
-    if (
-      relic.ground.spriteName === "treasure-multiplier" ||
-      !drawPirateAtlasSprite(context, relic.ground.spriteName, {
+    const carrierSprite = relic.ground.spriteName;
+    const drewCarrierAtlas = relic.relicKind !== "loot-compass" &&
+      carrierSprite !== "treasure-multiplier" &&
+      carrierSprite !== "storm-battery" &&
+      drawPirateAtlasSprite(context, carrierSprite, {
         x: 0,
         y: 0,
         size: radius * 2.15,
         rotation,
-      })
+      });
+    if (
+      relic.relicKind === "loot-compass" ||
+      relic.relicKind === "storm-battery" ||
+      !drewCarrierAtlas
     ) {
       drawRelicFallback(context, relic, radius * 0.74, model.timerRatio);
     }

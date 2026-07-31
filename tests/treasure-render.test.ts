@@ -11,6 +11,7 @@ import {
   drawTreasureChest,
   drawTreasureShard,
   drawTurboReserveGauge,
+  uprightHeadPose,
 } from "../src/game/treasureRender";
 
 function recordingContext() {
@@ -148,9 +149,9 @@ describe("pirate treasure visual contract", () => {
     });
 
     expect(Math.max(...strokeWidths)).toBe(24);
-    expect(strokeWidths).toContain(12 * 1.86);
-    expect(strokeWidths).toContain(12 * 1.42);
-    expect(strokeBeginPathCounts.slice(0, 4)).toEqual([1, 1, 1, 1]);
+    expect(strokeWidths).toContain(12 * 1.92);
+    expect(strokeWidths).toContain(12 * 1.72);
+    expect(strokeBeginPathCounts.slice(0, 3)).toEqual([1, 1, 1]);
   });
 
   it("batches every scale chevron into one unchanged styled stroke", () => {
@@ -175,13 +176,13 @@ describe("pirate treasure visual contract", () => {
     expect(chevronStrokes).toHaveLength(1);
     expect(chevronStrokes[0]).toMatchObject({
       lineWidth: 12 * 0.07,
-      globalAlpha: 0.34,
+      globalAlpha: 0.2,
       moveToCount: 4,
       quadraticCurveToCount: 4,
     });
   });
 
-  it("adds two inset volume rails without changing the collider-width silhouette", () => {
+  it("adds two broad inset volume bands without changing the collider-width silhouette", () => {
     const { context, strokeRecords, strokeWidths } = recordingContext();
     drawContinuousPirateWorm(context, {
       points: [
@@ -200,15 +201,26 @@ describe("pirate treasure visual contract", () => {
     });
 
     const shadowRail = strokeRecords.filter(
-      (record) => record.strokeStyle === "rgba(2,19,29,0.9)",
+      (record) => record.strokeStyle === "rgba(2,19,29,0.88)",
     );
     const highlightRails = strokeRecords.filter(
-      (record) => record.strokeStyle === "#a0fff0" && record.lineWidth === 12 * 0.11,
+      (record) => record.strokeStyle === "#a0fff0" && record.lineWidth === 12 * 0.27,
     );
     expect(shadowRail).toHaveLength(1);
-    expect(shadowRail[0]).toMatchObject({ lineWidth: 12 * 0.24, lineToCount: 3 });
+    expect(shadowRail[0]).toMatchObject({ lineWidth: 12 * 0.42, lineToCount: 3 });
     expect(highlightRails).toHaveLength(1);
     expect(Math.max(...strokeWidths)).toBe(24);
+  });
+
+  it("keeps faces upright in every travel quadrant while preserving heading", () => {
+    expect(uprightHeadPose({ x: 1, y: 0 })).toEqual({ angle: 0, scaleX: 1 });
+    expect(uprightHeadPose({ x: -1, y: 0 })).toEqual({ angle: 0, scaleX: -1 });
+    const downLeft = uprightHeadPose({ x: -1, y: 1 });
+    const upLeft = uprightHeadPose({ x: -1, y: -1 });
+    expect(downLeft.scaleX).toBe(-1);
+    expect(upLeft.scaleX).toBe(-1);
+    expect(Math.abs(downLeft.angle)).toBeLessThanOrEqual(Math.PI / 2);
+    expect(Math.abs(upLeft.angle)).toBeLessThanOrEqual(Math.PI / 2);
   });
 
   it("signals active sprint with moving inset skin rails and a head highlight only", () => {

@@ -828,6 +828,7 @@ export function LiveArenaCanvas({
   const nextHudRefreshAtRef = useRef(0);
   const cameraRef = useRef<CameraMotionState>(createCameraMotionState());
   const particlesRef = useRef<LiveParticle[]>([]);
+  const particleEmissionsRef = useRef(0);
   const previousFrameAtRef = useRef<number | undefined>(undefined);
   const pickupComboRef = useRef({ count: 0, lastTick: Number.NEGATIVE_INFINITY });
   const lastAwardedDeathTickRef = useRef(-1);
@@ -942,6 +943,7 @@ export function LiveArenaCanvas({
     tutorialRetargetRef.current = { count: 0 };
     tutorialTargetTrackingRef.current = {};
     particlesRef.current = [];
+    particleEmissionsRef.current = 0;
     pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
     collectorPullEventsRef.current = 0;
     heatRingUiRef.current = {
@@ -1044,17 +1046,9 @@ export function LiveArenaCanvas({
           )
           .findIndex((player) => player.id === playerId) + 1
         : Math.max(1, snapshot.players.length);
-    const leaderboardRanks = new Set<number>();
-    for (let index = 0; index < Math.min(4, rankedPlayers.length); index += 1) {
-      leaderboardRanks.add(index);
-    }
-    if (aliveRank > 0) leaderboardRanks.add(aliveRank - 1);
-    if (aliveRank >= 0) leaderboardRanks.add(aliveRank);
-    const leaderboard = [...leaderboardRanks]
-      .sort((first, second) => first - second)
-      .slice(0, 6)
-      .map((index) => ({ player: rankedPlayers[index], rank: index + 1 }))
-      .filter((entry): entry is LiveLeaderboardEntry => Boolean(entry.player));
+    const leaderboard = rankedPlayers
+      .slice(0, 10)
+      .map((player, index) => ({ player, rank: index + 1 }));
     const nextRankGap = ownPlayer && aliveRank > 0
       ? Math.max(0, rankedPlayers[aliveRank - 1].score - ownPlayer.score)
       : undefined;
@@ -1360,6 +1354,9 @@ export function LiveArenaCanvas({
             }
             if (gameEvent.type === "dropCollected" && gameEvent.playerId === handshake.playerId) {
               tutorial.collectedSpark(gameEvent.dropId, tutorialSparkIdRef.current);
+              if (gameEvent.mass > 0) {
+                window.dispatchEvent(new Event("wormifi:treasure-collected"));
+              }
               const ownPlayer = competitiveSnapshot.players.find((player) => player.id === handshake.playerId);
               const collectedDrop = removedDrops.get(gameEvent.dropId);
               const collectedPopCluster = collectedDrop?.source === "arena" &&
@@ -1470,12 +1467,17 @@ export function LiveArenaCanvas({
             if (gameEvent.type === "playerDied") {
               const victim = competitiveSnapshot.players.find((player) => player.id === gameEvent.playerId) ??
                 snapshotRef.current?.players.find((player) => player.id === gameEvent.playerId);
-              if (victim) {
+              if (victim && !reducedMotionRef.current) {
+                const particleCountBeforeRelease = particlesRef.current.length;
                 appendDeathReleaseParticles(
                   particlesRef.current,
                   victim,
                   palettes[stableNumber(victim.id) % palettes.length],
                   message.tick,
+                );
+                particleEmissionsRef.current += Math.max(
+                  0,
+                  particlesRef.current.length - particleCountBeforeRelease,
                 );
               }
               if (gameEvent.killerId === handshake.playerId && gameEvent.playerId !== handshake.playerId) {
@@ -1690,6 +1692,7 @@ export function LiveArenaCanvas({
     if (actionCalloutTimerRef.current !== undefined) window.clearTimeout(actionCalloutTimerRef.current);
     if (sprintReleaseTimerRef.current !== undefined) window.clearTimeout(sprintReleaseTimerRef.current);
     particlesRef.current = [];
+    particleEmissionsRef.current = 0;
     previousFrameAtRef.current = undefined;
     pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
     collectorPullEventsRef.current = 0;
@@ -1867,14 +1870,22 @@ export function LiveArenaCanvas({
   const authoritative = ui.phase === "authoritative";
   const activePace = worldRef.current?.pace ?? getGamePaceProfile(paceId);
   const sprintMultiplierLabel = `${(activePace.boostSpeed / activePace.baseSpeed).toFixed(1)}×`;
-  const turboReserveRatio = getPlayerTurboReserveRatio(
-    { mass: ui.exactMass },
-    DEFAULT_GAME_CONFIG,
+  const relicStatus = createRelicStatusModel(
+    ui.activeRelic,
+    ui.tick,
+    ui.fixedStepSeconds,
   );
-  const turboSecondsRemaining = getPlayerTurboSecondsRemaining(
-    { mass: ui.exactMass },
-    DEFAULT_GAME_CONFIG,
+  const stormBatteryActive = relicStatus?.presentation.relicKind === "storm-battery";
+  const turboReserveRatio = stormBatteryActive
+    ? 1
+    : getPlayerTurboReserveRatio({ mass: ui.exactMass }, DEFAULT_GAME_CONFIG);
+  const turboSecondsRemaining = Math.max(
+    getPlayerTurboSecondsRemaining({ mass: ui.exactMass }, DEFAULT_GAME_CONFIG),
+    stormBatteryActive ? relicStatus.remainingSeconds : 0,
   );
+  const turboCostLabel = stormBatteryActive
+    ? "costs no size while Twin Turbo Lightning is active"
+    : `burns ${SPRINT_SIZE_COST_PER_SECOND} size per second`;
   const radarWorld = worldRef.current;
   const radarLandmarks: RadarLandmark[] = radarWorld
     ? [
@@ -1916,11 +1927,6 @@ export function LiveArenaCanvas({
         };
       })
     : [];
-  const relicStatus = createRelicStatusModel(
-    ui.activeRelic,
-    ui.tick,
-    ui.fixedStepSeconds,
-  );
   return (
     <div
       ref={stageRef}
@@ -1979,6 +1985,7 @@ export function LiveArenaCanvas({
       data-tutorial-retarget-count={tutorialRetargetRef.current.count}
       data-tutorial-retarget-reason={tutorialRetargetRef.current.reason ?? ""}
       data-live-particle-count={particlesRef.current.length}
+      data-live-particle-emissions={particleEmissionsRef.current}
       data-collector-pull-events={collectorPullEventsRef.current}
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-sensory-motion={reducedMotion ? "essential-only" : "full"}
@@ -2037,8 +2044,8 @@ export function LiveArenaCanvas({
 
       <div className="game-hud live-game-hud">
         <aside className="leaderboard live-leaderboard" aria-label="Live score leaderboard">
-          <h2>RUN SCORE · RESETS ON CRASH</h2>
-          <p className="leaderboard-rule">SURVIVE +3/S · GROW · CUT RIVALS</p>
+          <h2>TOP 10 · LIVE RUN SCORE</h2>
+          <p className="leaderboard-rule">NAMES · SCORE · YOUR PLACE IN THE FIELD</p>
           <ol>
             {ui.leaderboard.map(({ player, rank }) => (
               <li
@@ -2056,6 +2063,11 @@ export function LiveArenaCanvas({
               </li>
             ))}
           </ol>
+          <p className="leaderboard-rankline" data-testid="live-player-rank">
+            <span>YOU</span>
+            <strong>#{ui.rank}</strong>
+            <span>/ {ui.rankTotal}</span>
+          </p>
           {ui.nextRankGap !== undefined && (
             <p className="leaderboard-chase" data-testid="live-next-rank-gap">
               {ui.nextRankGap === 0
@@ -2139,7 +2151,7 @@ export function LiveArenaCanvas({
         className={`boost-control ${boosting ? "active" : ""}`}
         data-testid="live-boost-control"
         disabled={!authoritative || ui.mass <= DEFAULT_GAME_CONFIG.minimumBoostMass}
-        aria-label={`Turbo sprint, ${sprintMultiplierLabel} speed, burns ${SPRINT_SIZE_COST_PER_SECOND} size per second, ${turboSecondsRemaining.toFixed(1)} seconds available`}
+        aria-label={`Turbo sprint, ${sprintMultiplierLabel} speed, ${turboCostLabel}, ${turboSecondsRemaining.toFixed(1)} seconds available`}
         onPointerDown={(event) => {
           event.stopPropagation();
           pressSprint();
@@ -2713,6 +2725,10 @@ function drawNetworkChain(
       : undefined,
     cinematicHeadPalette: isLocal ? photoSkin?.renderPlan.faceTheme.palette : undefined,
     cinematicHeadHue: isLocal ? photoSkin?.renderPlan.faceTheme.headHue ?? 0 : 0,
+    faceMode: isLocal ? photoSkin?.renderPlan.faceMode : undefined,
+    eyeStyle: isLocal ? photoSkin?.renderPlan.eyeStyle : undefined,
+    expressionStyle: isLocal ? photoSkin?.renderPlan.expressionStyle : undefined,
+    magnetized: activeRelic?.presentation.relicKind === "loot-compass",
     materialMotion,
     // Every crew keeps its authored material; only the local captain spends
     // this device's shadow-blur budget on bloom in a crowded room.

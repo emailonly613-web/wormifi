@@ -159,24 +159,21 @@ describe("charging station client presentation", () => {
     expect(arcs).toContain(station.wrapRadius - station.wrapTolerance);
     expect(arcs).toContain(station.wrapRadius + station.wrapTolerance);
     expect(arcs).toContain(station.dockRadius);
-    expect(text).toContain("⚓");
-    expect(text).toContain("↻");
-    expect(text.some((entry) => entry.includes("YOUR CHARGE"))).toBe(true);
-    expect(text.some((entry) => entry.includes("CLOCKWISE"))).toBe(true);
+    expect(text).toEqual([]);
   });
 
   it("renders a raised harbor pad with staged growth and exact reward truth", () => {
     const prepared = cloneAndValidateBoard(OPEN_SEAS_BOARD, 1 / 30, 1_450);
-    const station = { ...prepared.board.chargingStations[0], position: { x: 0, y: 0 } };
+    const station = { ...prepared.board.chargingStations[2], position: { x: 0, y: 0 } };
     const ready = prepared.states[station.id];
     const presentation = describeChargingStation(station, ready, 1 / 30, "captain");
     expect(presentation).toMatchObject({
-      stationId: "coin-cay",
-      heading: "Coin Cay · PAD READY",
+      stationId: "kraken-atoll",
+      heading: "Kraken Atoll · PAD READY",
       icon: "⚡",
     });
-    expect(presentation.detail).toBe("STAY INSIDE 3.0S · GROWTH ×1 → ×2 → ×3 · UP TO +9 SIZE");
-    expect(presentation.visualValue).toBe("+9");
+    expect(presentation.detail).toBe("STAY INSIDE 7.0S · GROWTH ×1 → ×2 → ×3 · UP TO +42 SIZE");
+    expect(presentation.visualValue).toBe("+42");
 
     const looping: ChargingStationState = {
       ...ready,
@@ -208,7 +205,7 @@ describe("charging station client presentation", () => {
     expect(arcs).not.toContain(station.dockRadius * 2);
     expect(gradientCount()).toBeGreaterThanOrEqual(3);
     expect(text).toContain("×2");
-    expect(text.some((entry) => entry.includes("COIN CAY"))).toBe(false);
+    expect(text.some((entry) => entry.includes("KRAKEN ATOLL"))).toBe(false);
     expect(text.some((entry) => entry.includes("BUOY"))).toBe(false);
   });
 });

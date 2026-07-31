@@ -30,6 +30,7 @@
     "og:verify": "node scripts/verify-og-card.mjs",
     "seo:verify": "node scripts/verify-seo.mjs",
     "verify:revenue-readiness": "node scripts/verify-revenue-readiness.mjs",
+    "verify:retention-viral-experiment": "node scripts/verify-retention-viral-experiment.mjs",
     "verify:deployment-identity": "node scripts/verify-deployment-identity.mjs"
   },
   "dependencies": {

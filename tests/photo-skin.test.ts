@@ -20,6 +20,9 @@ import {
   readPhotoSkinState,
   removePhotoSkinPhoto,
   reorderPhotoSkinPhoto,
+  selectCaptainExpressionStyle,
+  selectCaptainEyeStyle,
+  selectCaptainFaceMode,
   selectCompletePhotoSkinStyle,
   selectPhotoSkinFace,
   selectPhotoSkinTheme,
@@ -124,6 +127,36 @@ describe("privacy-first Photo Skin state", () => {
     expect(normalizePhotoSkinState(legacy, 2)).toMatchObject({
       themeId: "ruby-raider",
       faceThemeId: "ruby-raider",
+    });
+  });
+
+  it("persists modular face modes while repairing unknown legacy feature values", () => {
+    let state = createDefaultPhotoSkinState(1);
+    state = selectCaptainFaceMode(state, "features", 2);
+    state = selectCaptainEyeStyle(state, "jewel", 3);
+    state = selectCaptainExpressionStyle(state, "determined", 4);
+    expect(state).toMatchObject({
+      faceMode: "features",
+      eyeStyle: "jewel",
+      expressionStyle: "determined",
+      updatedAtMs: 4,
+    });
+    expect(createPhotoSkinRenderPlan(state)).toMatchObject({
+      faceMode: "features",
+      eyeStyle: "jewel",
+      expressionStyle: "determined",
+      multiplayerAppearance: { includesPhotos: false },
+    });
+
+    expect(normalizePhotoSkinState({
+      ...state,
+      faceMode: "unknown-face",
+      eyeStyle: "unknown-eyes",
+      expressionStyle: "unknown-expression",
+    }, 5)).toMatchObject({
+      faceMode: "captain",
+      eyeStyle: "round",
+      expressionStyle: "grin",
     });
   });
 

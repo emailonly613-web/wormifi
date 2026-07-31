@@ -1,4 +1,9 @@
-import { createServer, type Server as HttpServer } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server as HttpServer,
+  type ServerResponse,
+} from "node:http";
 import { performance } from "node:perf_hooks";
 import { WebSocketServer, type WebSocket } from "ws";
 
@@ -8,6 +13,7 @@ import {
   isGamePaceId,
 } from "../../src/game/gamePace.ts";
 import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel.ts";
+import { captainRoomTierFromRoomId } from "../../src/game/captainRooms.ts";
 
 import {
   PROTOCOL_VERSION,
@@ -19,6 +25,8 @@ import {
 } from "./protocol.ts";
 import { SERVER_BUILD_REVISION } from "./build-info.ts";
 import { ArenaRoom, type ArenaRoomOptions } from "./room.ts";
+import { captainRoomOptionsForTier } from "./captain-rooms.ts";
+import type { PassportHttpApi } from "./passport/http.ts";
 
 const DEFAULT_MAX_CONNECTIONS = 256;
 const DEFAULT_MESSAGES_PER_SECOND = 60;
@@ -52,6 +60,7 @@ interface ConnectionState {
   closing: boolean;
   joinTimer?: NodeJS.Timeout;
   closeTimer?: NodeJS.Timeout;
+  passportAccountId?: string;
 }
 
 export interface AuthoritativeServerOptions extends ArenaRoomOptions {
@@ -64,6 +73,7 @@ export interface AuthoritativeServerOptions extends ArenaRoomOptions {
   joinTimeoutMs?: number;
   heartbeatIntervalMs?: number;
   idleTimeoutMs?: number;
+  passport?: PassportHttpApi;
 }
 
 export interface StartedServer {
@@ -90,6 +100,7 @@ export class AuthoritativeArenaServer {
     arenaRadius: number;
   };
   private readonly roomOptions: ArenaRoomOptions;
+  private readonly passport?: PassportHttpApi;
   private readonly rooms = new Map<string, ArenaRoom>();
   private readonly bindings = new Map<WebSocket, ConnectionBinding>();
   private readonly connections = new Map<WebSocket, ConnectionState>();
@@ -114,6 +125,7 @@ export class AuthoritativeArenaServer {
       this.heartbeatIntervalMs * 2,
       positiveInteger(options.idleTimeoutMs, DEFAULT_IDLE_TIMEOUT_MS, 50),
     );
+    this.passport = options.passport;
     this.roomProfile = {
       targetPopulation: Math.max(
         0,
@@ -144,6 +156,12 @@ export class AuthoritativeArenaServer {
       paceId: options.paceId,
       heatRing: options.heatRing,
       now: options.now,
+      onAuthoritativeLifeEnded: options.onAuthoritativeLifeEnded ??
+        (this.passport
+          ? (result) => {
+              this.passport?.awardAuthoritativeLife(result);
+            }
+          : undefined),
     };
   }
 
@@ -151,22 +169,7 @@ export class AuthoritativeArenaServer {
     if (this.httpServer) throw new Error("Server has already started.");
 
     this.httpServer = createServer((request, response) => {
-      if (request.url === "/healthz") {
-        response.writeHead(200, { "content-type": "application/json" });
-        response.end(JSON.stringify({
-          ok: true,
-          authority: "server",
-          protocolVersion: PROTOCOL_VERSION,
-          buildRevision: SERVER_BUILD_REVISION,
-          rooms: this.rooms.size,
-          connections: this.connections.size,
-          maxConnections: this.maxConnections,
-          roomProfile: this.roomProfile,
-        }));
-        return;
-      }
-      response.writeHead(404, { "content-type": "application/json" });
-      response.end(JSON.stringify({ ok: false }));
+      void this.handleHttpRequest(request, response);
     });
     this.httpServer.on("clientError", (_error, socket) => {
       if (socket.writable) {
@@ -176,7 +179,7 @@ export class AuthoritativeArenaServer {
       }
     });
     this.websocketServer = new WebSocketServer({ server: this.httpServer, maxPayload: 8 * 1024 });
-    this.websocketServer.on("connection", (socket) => this.handleConnection(socket));
+    this.websocketServer.on("connection", (socket, request) => this.handleConnection(socket, request));
     // A listener is required because transport-level server errors are otherwise
     // emitted as uncaught EventEmitter errors. Per-socket failures are handled
     // separately and never stop the process.
@@ -235,7 +238,35 @@ export class AuthoritativeArenaServer {
     this.httpServer = undefined;
   }
 
-  private handleConnection(socket: WebSocket): void {
+  private async handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
+    try {
+      if (request.url === "/healthz") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({
+          ok: true,
+          authority: "server",
+          protocolVersion: PROTOCOL_VERSION,
+          buildRevision: SERVER_BUILD_REVISION,
+          rooms: this.rooms.size,
+          connections: this.connections.size,
+          maxConnections: this.maxConnections,
+          roomProfile: this.roomProfile,
+          passport: this.passport ? "local-beta-enabled" : "disabled",
+        }));
+        return;
+      }
+      if (this.passport && await this.passport.handle(request, response)) return;
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ ok: false }));
+    } catch {
+      if (!response.headersSent) {
+        response.writeHead(500, { "content-type": "application/json" });
+      }
+      if (!response.writableEnded) response.end(JSON.stringify({ ok: false }));
+    }
+  }
+
+  private handleConnection(socket: WebSocket, request: IncomingMessage): void {
     socket.on("error", () => this.handleSocketError(socket));
 
     if (this.connections.size >= this.maxConnections) {
@@ -255,6 +286,7 @@ export class AuthoritativeArenaServer {
       messageBudgetUpdatedAtMs: connectedAtMs,
       heartbeatAlive: true,
       closing: false,
+      passportAccountId: this.passport?.authenticateRequest(request)?.accountId,
     };
     this.connections.set(socket, state);
     state.joinTimer = setTimeout(() => {
@@ -328,6 +360,7 @@ export class AuthoritativeArenaServer {
       }
       let room = this.rooms.get(roomId);
       let createdRoom = false;
+      const captainRoomTier = captainRoomTierFromRoomId(roomId);
       const requestedBoard = join.value.boardId
         ? getGameBoardProfile(join.value.boardId)
         : undefined;
@@ -347,6 +380,14 @@ export class AuthoritativeArenaServer {
           type: "error",
           code: "UNKNOWN_PACE",
           message: `Unknown pace: ${join.value.paceId}.`,
+        });
+        return;
+      }
+      if (captainRoomTier && (join.value.boardId || join.value.paceId)) {
+        this.send(socket, {
+          type: "error",
+          code: "ROOM_BOARD_MISMATCH",
+          message: "Free Captain Room links use their server-owned board and pace.",
         });
         return;
       }
@@ -373,17 +414,27 @@ export class AuthoritativeArenaServer {
         }
         room = new ArenaRoom(
           roomId,
-          {
-            ...this.roomOptions,
-            board: requestedBoard ?? this.roomOptions.board,
-            paceId: requestedPace?.id ?? this.roomOptions.paceId,
-          },
+          captainRoomTier
+            ? {
+                ...this.roomOptions,
+                ...captainRoomOptionsForTier(captainRoomTier.id),
+              }
+            : {
+                ...this.roomOptions,
+                board: requestedBoard ?? this.roomOptions.board,
+                paceId: requestedPace?.id ?? this.roomOptions.paceId,
+              },
           (idleRoom) => this.retireIdleRoom(idleRoom),
         );
         createdRoom = true;
       }
 
-      const result = room.join(socket, { ...join.value, roomId });
+      const connectionState = this.connections.get(socket);
+      const result = room.join(
+        socket,
+        { ...join.value, roomId },
+        { accountId: connectionState?.passportAccountId },
+      );
       if (result.error || !result.session) {
         this.send(socket, result.error ?? {
           type: "error", code: "INVALID_JOIN", message: "Unable to join the room.",

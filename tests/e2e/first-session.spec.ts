@@ -320,8 +320,10 @@ test.describe("first Wormifi session", () => {
 
     await expectActiveArena(page);
     const leaderboard = page.getByLabel("AI size leaderboard");
-    await expect(leaderboard).toBeHidden();
-    await expect(page.getByRole("heading", { name: "SIZE RANK · AI", includeHidden: true })).toHaveCount(1);
+    await expect(leaderboard).toBeVisible();
+    await expect(leaderboard.getByRole("heading", { name: "TOP 10 · SIZE" })).toBeVisible();
+    await expect(leaderboard.locator("li")).not.toHaveCount(0);
+    await expect(leaderboard.getByTestId("player-rank")).toContainText("YOU");
     await expect(page.getByText("LIVE ARENA")).toHaveCount(0);
     await expect(page.getByTestId("room-identity")).toHaveText(/PRACTICE — NO LIVE ROOM/u);
     await expect(page.getByTestId("room-identity")).toHaveAttribute("data-scope", "practice");

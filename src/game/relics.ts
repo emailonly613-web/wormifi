@@ -15,7 +15,7 @@ export interface PirateRelicSpec {
 /**
  * `collector` shipped before named pirate Relics. On protocol v5 it remains
  * the compatibility envelope for an active slot; an absent `relicKind` means
- * Loot Compass exactly, so recorded replays and older clients keep working.
+ * Treasure Magnet exactly, so recorded replays and older clients keep working.
  */
 export const LEGACY_COLLECTOR_RELIC: PirateRelicKind = "loot-compass";
 
@@ -23,7 +23,7 @@ export const PIRATE_RELIC_SPECS: Readonly<Record<PirateRelicKind, PirateRelicSpe
   Object.freeze({
     "loot-compass": Object.freeze({
       kind: "loot-compass",
-      name: "Loot Compass",
+      name: "Treasure Magnet",
       durationSeconds: 12,
     }),
     "emerald-spyglass": Object.freeze({
@@ -46,6 +46,13 @@ export const PIRATE_RELIC_SPECS: Readonly<Record<PirateRelicKind, PirateRelicSpe
       name: "Maelstrom Wheel",
       durationSeconds: 8,
     }),
+    "storm-battery": Object.freeze({
+      kind: "storm-battery",
+      name: "Twin Turbo Lightning",
+      // One launch-size Turbo tank is 3.5 seconds. Seven seconds is exactly
+      // two full tanks of authoritative zero-cost sprint at launch tuning.
+      durationSeconds: 7,
+    }),
     "gilded-ledger": Object.freeze({
       kind: "gilded-ledger",
       name: "Treasure Multiplier",
@@ -58,21 +65,21 @@ export const GALE_PENNANT_SPEED_MULTIPLIER = 1.18;
 export const SPYGLASS_CAMERA_ZOOM_MULTIPLIER = 0.8;
 export const GILDED_LEDGER_TIERS = Object.freeze([
   2,
-  2,
-  2,
+  3,
+  4,
   5,
   10,
   2,
+  3,
   2,
-  2,
-  5,
+  4,
   2,
 ] as const satisfies readonly TreasureMultiplierTier[]);
 
 export function isTreasureMultiplierTier(
   value: unknown,
 ): value is TreasureMultiplierTier {
-  return value === 2 || value === 5 || value === 10;
+  return value === 2 || value === 3 || value === 4 || value === 5 || value === 10;
 }
 
 export function getPirateRelicSpec(kind: PirateRelicKind): PirateRelicSpec {
@@ -109,6 +116,7 @@ export function getBoostMassCostMultiplier(
   active: Readonly<ActiveSpecialist> | undefined,
   tick: number,
 ): number {
+  if (isRelicActiveAtTick(active, tick, "storm-battery")) return 0;
   return isRelicActiveAtTick(active, tick, "pepper-cutlass")
     ? PEPPER_CUTLASS_BOOST_COST_MULTIPLIER
     : 1;

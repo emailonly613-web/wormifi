@@ -81,8 +81,8 @@ describe("local pirate Relic parity", () => {
       );
     }
     expect(groundRelics(first.state, "gilded-ledger").map((drop) => drop.relicTier))
-      .toEqual([2, 2, 2, 5, 10]);
-    expect(GILDED_LEDGER_TIERS).toEqual([2, 2, 2, 5, 10, 2, 2, 2, 5, 2]);
+      .toEqual([2, 3, 4, 5, 10]);
+    expect(GILDED_LEDGER_TIERS).toEqual([2, 3, 4, 5, 10, 2, 3, 2, 4, 2]);
     expect(GILDED_LEDGER_TIERS.filter((tier) => tier === 10)).toHaveLength(1);
     expect(groundRelic(first.state, "loot-compass")).toMatchObject({
       id: "collector-beacon-launch",
@@ -98,6 +98,10 @@ describe("local pirate Relic parity", () => {
       id: "pepper-cutlass-relic-1",
       specialist: undefined,
       relicKind: "pepper-cutlass",
+    });
+    expect(groundRelic(first.state, "storm-battery")).toMatchObject({
+      id: "storm-battery-relic-1",
+      relicKind: "storm-battery",
     });
   });
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "auditedAt": "2026-07-30",
+  "auditedAt": "2026-07-31",
   "passingScore": 8,
   "rule": "Stripe account details may be requested only when every non-payment gate scores at least 8 out of 10.",
   "checkoutEnabled": false,
@@ -20,38 +20,38 @@
     },
     {
       "id": "identity",
-      "score": 4,
-      "status": "local_core_only",
-      "evidence": "Passkey primitives and adversarial tests exist locally; account routes, browser UI, durable storage, and real-device proof do not.",
+      "score": 6,
+      "status": "integrated_local_beta",
+      "evidence": "Guest-first passkey and optional email-link routes, browser UI, hashed sessions, SQLite restart persistence, and HTTP tests exist locally; hosted persistence and real-device proof do not.",
       "nextProof": "Deploy a no-payment durable Captain Passport beta and pass the supported device matrix."
     },
     {
       "id": "recovery",
-      "score": 4,
-      "status": "local_core_only",
-      "evidence": "Hashed single-use recovery primitives and tests exist; no real-device recovery or observed human comprehension evidence exists.",
+      "score": 5,
+      "status": "integrated_local_beta",
+      "evidence": "Hashed single-use recovery, rotation, old-session/passkey revocation, and replacement-device tests exist; no real-device or observed human comprehension evidence exists.",
       "nextProof": "Complete concurrent redemption, lost-device, replacement-passkey, and human recovery drills."
     },
     {
       "id": "sessions",
-      "score": 4,
-      "status": "local_core_only",
-      "evidence": "Hashed session and revocation primitives exist; no player-facing session list or authenticated live socket binding exists.",
+      "score": 6,
+      "status": "integrated_local_beta",
+      "evidence": "Hashed sessions, player-facing device revocation, cookie-bound HTTP identity, and authenticated live-socket account binding pass local tests; deployed multi-device proof is absent.",
       "nextProof": "Prove single-session and revoke-all behavior against deployed HTTP and WebSocket sessions."
     },
     {
       "id": "progression",
-      "score": 3,
-      "status": "preview_only",
-      "evidence": "The live arena owns simulation, but Captain XP remains a browser-local preview and is not bound to durable accounts.",
+      "score": 6,
+      "status": "server_owned_local_beta",
+      "evidence": "Authenticated live deaths write one server-calculated XP award per life idempotency key into SQLite and restore into the Passport UI; hosted durability and operational recovery are absent.",
       "nextProof": "Award each eligible authoritative life exactly once into the durable Captain Log."
     },
     {
       "id": "entitlements",
-      "score": 2,
-      "status": "contract_only",
-      "evidence": "Provider-neutral event requirements are documented; no durable grant, renewal, expiration, refund, dispute, or restoration ledger is integrated.",
-      "nextProof": "Implement immutable access and ownership projections before connecting any payment provider."
+      "score": 5,
+      "status": "append_only_local_beta",
+      "evidence": "Provider-neutral monthly and permanent products now derive access from an append-only SQLite log with duplicate protection, paid-through monotonicity, cancellation state, named reversals, Captain Log history, and cross-restart restoration. No provider, refund/dispute adapter, hosted database, or reconciliation drill exists.",
+      "nextProof": "Prove expiration, refund/dispute, backup/restore, reconciliation, and fresh-device display before connecting any payment provider."
     },
     {
       "id": "fairness",
@@ -69,16 +69,16 @@
     },
     {
       "id": "accessibility",
-      "score": 5,
+      "score": 6,
       "status": "partial_surface_proof",
-      "evidence": "The visual preview has keyboard semantics, reduced motion, responsive layout, and automated coverage; missing Passport, recovery, sessions, account log, and purchase flows cannot be audited yet.",
+      "evidence": "The game, Passport, session manager, entitlement summary, and free Captain Rooms launch UI have keyboard semantics, responsive layouts, reduced-motion coverage where applicable, and automated desktop/mobile checks; independent screen-reader and zoom/reflow audits remain.",
       "nextProof": "Pass the complete keyboard, screen-reader, zoom/reflow, contrast, and error-recovery matrix."
     },
     {
       "id": "reliability",
-      "score": 4,
-      "status": "arena_only",
-      "evidence": "Arena tests exist, but no durable account API, database failure injection, or entitlement reconciliation service exists.",
+      "score": 5,
+      "status": "local_restart_proof",
+      "evidence": "Arena authority plus Passport HTTP, SQLite restart, account-bound progression, entitlement idempotency, and 10/20/30 room-capacity tests exist; database failure injection, backup/restore, and reconciliation services do not.",
       "nextProof": "Meet predeclared account latency and error targets under burst, restart, and dependency failure."
     },
     {

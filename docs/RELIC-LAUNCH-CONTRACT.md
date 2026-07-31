@@ -24,7 +24,7 @@ Relic slot prevents hidden stacks and unreadable outcomes.
 
 | Relic | Duration | Effect | What it deliberately does not do |
 | --- | ---: | --- | --- |
-| **Loot Compass** | 12 s | +35% pickup reach for neutral treasure and the carrier's own wake loot | Never pulls rival hoards, objectives, other-player wake loot or Relics; no score/mass multiplier |
+| **Treasure Magnet** | 12 s | +35% pickup reach for neutral treasure and the carrier's own wake loot | Never pulls rival hoards, objectives, other-player wake loot or Relics; no score/mass multiplier |
 | **Emerald Spyglass** | 10 s | Original candidate added coarse off-screen danger bearings; amended launch behavior also pulls the camera back | No exact remote positions, hidden-room data, speed or collision change |
 | **Pepper Cutlass** | 8 s | Reduces boost mass cost by 25% while preserving normal maximum speed and lethal collision | Never makes boost free, blinds rivals, raises top speed or grants invulnerability |
 
@@ -34,7 +34,7 @@ color is not the only teaching channel.
 
 Current implementation: all three Relics have an integrated local gameplay and
 presentation path. The shared deterministic `PirateRelicDirector` preserves the
-server's separately owned legacy Collector/Loot Compass beacon while scheduling
+server's separately owned legacy Collector/Treasure Magnet beacon while scheduling
 the named Relics. Solo/practice opts into all three named Relics, retains its
 fixed legacy Compass beacon with absent `relicKind`, reconciles the director on
 every local step, respawns eligible named Relics after exactly 5 seconds and
@@ -59,7 +59,7 @@ fairness or deployment proof.
 ## Protocol-v5 compatibility
 
 - The existing `collector` active-slot envelope remains the wire identity for
-  protocol v5. An absent `relicKind` means Loot Compass exactly, preserving
+  protocol v5. An absent `relicKind` means Treasure Magnet exactly, preserving
   old Collector replays, tests and clients.
 - Emerald Spyglass and Pepper Cutlass add `relicKind` and duration metadata.
   Current v5 clients safely ignore those additive fields; Relic-aware clients
@@ -71,15 +71,15 @@ fairness or deployment proof.
 ## Integrated local presentation
 
 - Named ground Relics use `relicKind` and `relicDurationTicks`; they are excluded
-  from ordinary treasure rendering and never fall through as Loot Compass.
+  from ordinary treasure rendering and never fall through as Treasure Magnet.
 - Legacy ground Collector state and an active slot with absent `relicKind` map
-  to Loot Compass exactly.
+  to Treasure Magnet exactly.
 - Local and live carriers use the matching atlas badge, disclosed visual effect
-  and authoritative timer ring. Only Loot Compass retains the pickup vortex.
+  and authoritative timer ring. Only Treasure Magnet retains the pickup vortex.
 - Local and live HUDs use the accessible `RelicStatus` identity, effect copy,
   non-spamming timer/progress and explicit reduced-motion static mode.
 - The live client validates named ground envelopes and optional event/active
-  identity. Compass pull accounting is restricted to Loot Compass, so Spyglass
+  identity. Magnet pull accounting is restricted to Treasure Magnet, so Spyglass
   and Cutlass cannot fake Compass presentation or pull feedback.
 - Arena and LiveArena keep ordinary rival radar visibility camera-scale. While
   Spyglass is active they add only coarse fixed-sector, near/far and count edge

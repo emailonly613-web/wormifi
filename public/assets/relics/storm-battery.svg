@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Wormifi Twin Turbo Lightning</title>
+  <desc id="desc">A bright lightning bolt charging two glowing turbo casks.</desc>
+  <defs>
+    <linearGradient id="bolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffbd0"/>
+      <stop offset=".45" stop-color="#ffe35b"/>
+      <stop offset="1" stop-color="#ff8b24"/>
+    </linearGradient>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g fill="#143d63" stroke="#73e7ff" stroke-width="5">
+    <rect x="13" y="75" width="42" height="34" rx="11"/>
+    <rect x="73" y="75" width="42" height="34" rx="11"/>
+  </g>
+  <path d="M70 6 34 61h24L46 96l48-59H70Z" fill="url(#bolt)"
+        stroke="#fff6a5" stroke-width="4" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M24 86h20m40 0h20" stroke="#b9fbff" stroke-width="5" stroke-linecap="round"/>
+</svg>

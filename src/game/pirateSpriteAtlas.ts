@@ -552,7 +552,12 @@ export function drawGroundTreasureSpriteField(
         const spriteName = commonTreasureSprite(item.seed);
         drawPirateAtlasSprite(context, spriteName, spriteOptions);
       }
-      if (glint) {
+      // One-third of common loot carries a live glint. Giving every one of
+      // 1,050 ground objects its own extra composited image made the whole
+      // field equally noisy and spent a large part of the crowded-frame
+      // budget. Sparse deterministic glints create visual rarity without
+      // flicker and keep the semantic treasure sprites themselves untouched.
+      if (glint && safeSeed % 3 === 0) {
         const twinkle = Math.max(
           0,
           Math.sin(now * 0.0042 + safeSeed * 0.73),

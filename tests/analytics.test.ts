@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ensureGtagQueue,
+  inviteEntryType,
   isValidGa4MeasurementId,
   readSafeCampaignParameters,
+  retentionMilestonesDue,
   sanitizePageLocation,
   sanitizeReferrer,
 } from "../src/analytics";
@@ -20,6 +22,24 @@ describe("privacy-conscious analytics helpers", () => {
       origin: "https://wormifi.com",
       pathname: "/",
     } as Location)).toBe("https://wormifi.com/");
+  });
+
+  it("classifies invite entry without exposing room or challenge values", () => {
+    expect(inviteEntryType("?c=PRIVATE-TOKEN")).toBe("challenge");
+    expect(inviteEntryType("?room=PRIVATE-ROOM")).toBe("room");
+    expect(inviteEntryType("?room=public&match=public")).toBeNull();
+    expect(inviteEntryType("?utm_source=reddit")).toBeNull();
+  });
+
+  it("emits D1 and D7 only inside their honest return-day windows", () => {
+    const hour = 60 * 60 * 1_000;
+    expect(retentionMilestonesDue(0, { d1: false, d7: false }, 19 * hour)).toEqual([]);
+    expect(retentionMilestonesDue(0, { d1: false, d7: false }, 24 * hour)).toEqual(["return_d1"]);
+    expect(retentionMilestonesDue(0, { d1: true, d7: false }, 24 * hour)).toEqual([]);
+    expect(retentionMilestonesDue(0, { d1: false, d7: false }, 72 * hour)).toEqual([]);
+    expect(retentionMilestonesDue(0, { d1: false, d7: false }, 168 * hour)).toEqual(["return_d7"]);
+    expect(retentionMilestonesDue(0, { d1: false, d7: true }, 168 * hour)).toEqual([]);
+    expect(retentionMilestonesDue(0, { d1: false, d7: false }, 200 * hour)).toEqual([]);
   });
 
   it("keeps only an internal path or an external origin in referrers", () => {

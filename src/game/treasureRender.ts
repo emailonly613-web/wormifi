@@ -3,6 +3,11 @@ import { drawPirateAtlasSprite, pirateSpritePath } from "./pirateSpriteAtlas";
 import { drawWormMaterial, type WormMaterialPattern } from "./wormMaterials";
 import { drawWormHeadFace } from "./wormHeads";
 import { cinematicHeadSource } from "./cinematicHeads";
+import type {
+  CaptainExpressionStyle,
+  CaptainEyeStyle,
+  CaptainFaceMode,
+} from "./captainFeatures";
 
 const TAU = Math.PI * 2;
 const gemSpriteCache = new Map<string, HTMLCanvasElement>();
@@ -840,6 +845,33 @@ export interface ContinuousPirateWormOptions {
   cinematicHeadPalette?: readonly string[];
   /** Art-directed hue rotation for recolorable cinematic head cutouts. */
   cinematicHeadHue?: number;
+  /** Full authored captain, mixed feature kit, or deliberately minimal eyes. */
+  faceMode?: CaptainFaceMode;
+  eyeStyle?: CaptainEyeStyle;
+  expressionStyle?: CaptainExpressionStyle;
+  /** True only while the authoritative Treasure Magnet attraction is active. */
+  magnetized?: boolean;
+}
+
+export interface UprightHeadPose {
+  /** A restrained roll that never turns the captain's face upside down. */
+  angle: number;
+  /** Mirrors the authored face when the captain is travelling to port. */
+  scaleX: 1 | -1;
+}
+
+/**
+ * Keeps an authored face readable while preserving the exact travel heading.
+ * A face travelling left is mirrored before a limited ±90° roll, so its nose
+ * still points into motion but its eyes and expression never hang upside down.
+ */
+export function uprightHeadPose(direction: Readonly<Vec2>): UprightHeadPose {
+  const length = Math.hypot(direction.x, direction.y);
+  const x = length > 0.0001 ? direction.x / length : 1;
+  const y = length > 0.0001 ? direction.y / length : 0;
+  if (x >= 0) return { angle: Math.atan2(y, x), scaleX: 1 };
+  const angle = Math.atan2(-y, -x);
+  return { angle: Object.is(angle, -0) ? 0 : angle, scaleX: -1 };
 }
 
 function drawFloatingCinematicHead(
@@ -847,7 +879,7 @@ function drawFloatingCinematicHead(
   image: HTMLImageElement,
   point: Vec2,
   radius: number,
-  angle: number,
+  pose: Readonly<UprightHeadPose>,
   highlight: string,
   hue: number,
   identity: number,
@@ -864,7 +896,8 @@ function drawFloatingCinematicHead(
 
   context.save();
   context.translate(point.x, point.y);
-  context.rotate(angle + floatRoll);
+  context.rotate(pose.angle + floatRoll);
+  context.scale(pose.scaleX, 1);
   context.translate(radius * 0.12, floatY);
   // The generated heads include a sculpted lower neck. Mask only that rear,
   // downward overhang so the transparent cutout joins the continuous body
@@ -1008,12 +1041,13 @@ function drawClippedAtlasHead(
   image: HTMLImageElement,
   point: Vec2,
   radius: number,
-  angle: number,
+  pose: Readonly<UprightHeadPose>,
   tint: string,
 ) {
   context.save();
   context.translate(point.x, point.y);
-  context.rotate(angle);
+  context.rotate(pose.angle);
+  context.scale(pose.scaleX, 1);
   // The forward oval breaks the portrait-medallion read while staying wholly
   // inside the authoritative circular head collider.
   context.beginPath();
@@ -1028,13 +1062,14 @@ function drawProceduralWormHead(
   context: CanvasRenderingContext2D,
   point: Vec2,
   radius: number,
-  angle: number,
+  pose: Readonly<UprightHeadPose>,
   palette: readonly string[],
   shielded: boolean,
 ) {
   context.save();
   context.translate(point.x, point.y);
-  context.rotate(angle);
+  context.rotate(pose.angle);
+  context.scale(pose.scaleX, 1);
 
   // One expressive lead head is allowed; the body behind it remains one skin,
   // rather than a row of repeated portrait tokens.
@@ -1067,6 +1102,119 @@ function drawProceduralWormHead(
   context.closePath();
   context.fill();
   context.stroke();
+
+  if (shielded) {
+    context.strokeStyle = "rgba(225,255,252,0.8)";
+    context.lineWidth = Math.max(1, radius * 0.07);
+    context.beginPath();
+    context.arc(0, 0, radius * 0.79, 0, TAU);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawModularCaptainFeatures(
+  context: CanvasRenderingContext2D,
+  radius: number,
+  palette: readonly string[],
+  faceMode: Exclude<CaptainFaceMode, "captain">,
+  eyeStyle: CaptainEyeStyle,
+  expressionStyle: CaptainExpressionStyle,
+  shielded: boolean,
+) {
+  const highlight = palette[2] ?? "#effff8";
+  const ink = "#071326";
+  const eyeX = radius * 0.22;
+  const eyeGap = radius * 0.24;
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = ink;
+  context.fillStyle = highlight;
+
+  for (const side of [-1, 1]) {
+    const y = side * eyeGap;
+    if (eyeStyle === "jewel") {
+      const size = radius * 0.2;
+      context.fillStyle = side < 0 ? highlight : (palette[0] ?? highlight);
+      context.beginPath();
+      context.moveTo(eyeX, y - size);
+      context.lineTo(eyeX + size * 0.8, y);
+      context.lineTo(eyeX, y + size);
+      context.lineTo(eyeX - size * 0.8, y);
+      context.closePath();
+      context.fill();
+      context.strokeStyle = ink;
+      context.lineWidth = Math.max(1, radius * 0.055);
+      context.stroke();
+      context.fillStyle = ink;
+      context.beginPath();
+      context.arc(eyeX + radius * 0.04, y, radius * 0.055, 0, TAU);
+      context.fill();
+      continue;
+    }
+
+    if (eyeStyle === "sleepy") {
+      context.strokeStyle = highlight;
+      context.lineWidth = Math.max(2, radius * 0.12);
+      context.beginPath();
+      context.arc(eyeX, y, radius * 0.19, -0.18 * Math.PI, 0.68 * Math.PI);
+      context.stroke();
+      context.strokeStyle = ink;
+      context.lineWidth = Math.max(1, radius * 0.055);
+      context.beginPath();
+      context.moveTo(eyeX - radius * 0.16, y - radius * 0.08);
+      context.lineTo(eyeX + radius * 0.16, y + radius * 0.02);
+      context.stroke();
+      continue;
+    }
+
+    const wide = eyeStyle === "lookout";
+    context.fillStyle = highlight;
+    context.beginPath();
+    context.ellipse(
+      eyeX,
+      y,
+      radius * (wide ? 0.24 : 0.19),
+      radius * (wide ? 0.16 : 0.22),
+      0,
+      0,
+      TAU,
+    );
+    context.fill();
+    context.fillStyle = ink;
+    context.beginPath();
+    context.arc(
+      eyeX + radius * (wide ? 0.1 : 0.055),
+      y,
+      radius * (wide ? 0.07 : 0.075),
+      0,
+      TAU,
+    );
+    context.fill();
+  }
+
+  if (faceMode === "features" && expressionStyle !== "none") {
+    context.strokeStyle = ink;
+    context.fillStyle = ink;
+    context.lineWidth = Math.max(1.2, radius * 0.075);
+    if (expressionStyle === "grin") {
+      context.beginPath();
+      context.arc(radius * 0.24, 0, radius * 0.34, -0.3 * Math.PI, 0.3 * Math.PI);
+      context.stroke();
+    } else if (expressionStyle === "determined") {
+      context.beginPath();
+      context.moveTo(radius * 0.24, -radius * 0.12);
+      context.lineTo(radius * 0.52, 0);
+      context.lineTo(radius * 0.24, radius * 0.12);
+      context.stroke();
+    } else {
+      context.beginPath();
+      context.ellipse(radius * 0.48, 0, radius * 0.11, radius * 0.16, 0, 0, TAU);
+      context.fill();
+    }
+  }
 
   if (shielded) {
     context.strokeStyle = "rgba(225,255,252,0.8)";
@@ -1260,6 +1408,10 @@ export function drawContinuousPirateWorm(
     cinematicHeadPattern,
     cinematicHeadPalette,
     cinematicHeadHue = 0,
+    faceMode = "captain",
+    eyeStyle = "round",
+    expressionStyle = "grin",
+    magnetized = false,
   } = options;
   if (points.length < 2 || headRadius <= 0 || bodyRadius <= 0) return;
 
@@ -1274,8 +1426,10 @@ export function drawContinuousPirateWorm(
   context.lineJoin = "round";
   context.shadowBlur = 0;
 
-  // The dark keel, skin, and highlight are nested. Only the first stroke
-  // reaches the exact collider edge; every detail remains inside it.
+  // A hairline collision-faithful keel frames one broad, polished hide. Older
+  // builds stacked several narrow center strokes here, which made large worms
+  // look like outlined roads. Only the first stroke reaches the exact collider
+  // edge; the soft volume passes remain inset.
   // Trace the moving centerline once, then repaint that same path at each
   // nested width. Rebuilding an identical path four times per player was a
   // large avoidable command stream in crowded 29-chain scenes.
@@ -1285,32 +1439,29 @@ export function drawContinuousPirateWorm(
   context.lineWidth = bodyRadius * 2;
   context.stroke();
   context.strokeStyle = outer;
-  context.lineWidth = bodyRadius * 1.86;
+  context.lineWidth = bodyRadius * 1.92;
   context.stroke();
   context.strokeStyle = skin;
-  context.lineWidth = bodyRadius * 1.42;
-  context.stroke();
-  context.globalAlpha = 0.46 + Math.sin(now * 0.0015 + identity) * 0.05 +
-    (boosting ? 0.16 : 0);
-  context.strokeStyle = highlight;
-  context.lineWidth = Math.max(1.2, bodyRadius * 0.2);
+  context.lineWidth = bodyRadius * 1.72;
   context.stroke();
 
-  // Offset light and shadow rails give the hull a rounded living volume. Both
-  // stay well inside the skin stroke, so richness never invents collision.
-  traceOffsetWormCenterline(context, points, bodyRadius * 0.38, direction);
-  context.globalAlpha = 0.24;
-  context.strokeStyle = "rgba(2,19,29,0.9)";
-  context.lineWidth = Math.max(1, bodyRadius * 0.24);
+  // Broad, low-contrast bands model a rounded surface without introducing the
+  // parallel "lane markings" that made the prior body look flat and synthetic.
+  traceOffsetWormCenterline(context, points, bodyRadius * 0.44, direction);
+  context.globalAlpha = 0.17;
+  context.strokeStyle = "rgba(2,19,29,0.88)";
+  context.lineWidth = Math.max(1.4, bodyRadius * 0.42);
   context.stroke();
-  traceOffsetWormCenterline(context, points, -bodyRadius * 0.34, direction);
-  context.globalAlpha = 0.38;
+  traceOffsetWormCenterline(context, points, -bodyRadius * 0.46, direction);
+  context.globalAlpha = 0.28 + Math.sin(now * 0.0015 + identity) * 0.035 +
+    (boosting ? 0.08 : 0);
   context.strokeStyle = highlight;
-  context.lineWidth = Math.max(1, bodyRadius * 0.11);
+  context.lineWidth = Math.max(1.3, bodyRadius * 0.27);
   context.stroke();
 
-  // Sparse scale chevrons read as one flowing hide, not one token per sample.
-  context.globalAlpha = 0.34;
+  // Sparse embossed seams keep the surface tactile at giant sizes while the
+  // subdued contrast preserves a sleek basic skin at normal play scale.
+  context.globalAlpha = 0.2;
   context.strokeStyle = "rgba(4,31,41,0.92)";
   context.lineWidth = Math.max(0.7, bodyRadius * 0.07);
   let hasChevronPath = false;
@@ -1402,15 +1553,17 @@ export function drawContinuousPirateWorm(
   }
 
   const headPoint = points[0];
-  drawPirateBowWave(
-    context,
-    headPoint,
-    headRadius,
-    direction,
-    palette,
-    identity,
-    now,
-  );
+  if (magnetized) {
+    drawPirateBowWave(
+      context,
+      headPoint,
+      headRadius,
+      direction,
+      palette,
+      identity,
+      now,
+    );
+  }
   context.save();
   context.fillStyle = outer;
   context.beginPath();
@@ -1422,12 +1575,29 @@ export function drawContinuousPirateWorm(
   context.fill();
   context.restore();
 
-  const headAngle = Math.atan2(direction.y, direction.x);
+  const headPose = uprightHeadPose(direction);
   // A themed captain wears its material's own living face; only unthemed
   // crews (and image-less first frames) fall back to the shared authored head.
   let themedFaceDrawn = false;
   const facePattern = cinematicHeadPattern ?? pattern;
-  if (facePattern && cinematicHead) {
+  if (faceMode !== "captain") {
+    context.save();
+    context.translate(headPoint.x, headPoint.y);
+    context.rotate(headPose.angle);
+    context.scale(headPose.scaleX, 1);
+    drawModularCaptainFeatures(
+      context,
+      headRadius,
+      facePalette,
+      faceMode,
+      eyeStyle,
+      expressionStyle,
+      shielded,
+    );
+    context.restore();
+    themedFaceDrawn = true;
+  }
+  if (faceMode === "captain" && facePattern && cinematicHead) {
     const cinematicImage = readyRenderImage(cinematicHeadSource(facePattern));
     if (cinematicImage) {
       drawFloatingCinematicHead(
@@ -1435,7 +1605,7 @@ export function drawContinuousPirateWorm(
         cinematicImage,
         headPoint,
         headRadius,
-        headAngle,
+        headPose,
         faceHighlight,
         cinematicHeadHue,
         identity,
@@ -1445,11 +1615,12 @@ export function drawContinuousPirateWorm(
       themedFaceDrawn = true;
     }
   }
-  if (facePattern) {
+  if (faceMode === "captain" && facePattern) {
     if (!themedFaceDrawn) {
       context.save();
       context.translate(headPoint.x, headPoint.y);
-      context.rotate(headAngle);
+      context.rotate(headPose.angle);
+      context.scale(headPose.scaleX, 1);
       themedFaceDrawn = drawWormHeadFace(context, facePattern, {
         radius: headRadius,
         palette: facePalette,
@@ -1465,9 +1636,9 @@ export function drawContinuousPirateWorm(
   if (!themedFaceDrawn) {
     const headImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormHead);
     if (headImage) {
-      drawClippedAtlasHead(context, headImage, headPoint, headRadius, headAngle, skin);
+      drawClippedAtlasHead(context, headImage, headPoint, headRadius, headPose, skin);
     } else {
-      drawProceduralWormHead(context, headPoint, headRadius, headAngle, palette, shielded);
+      drawProceduralWormHead(context, headPoint, headRadius, headPose, palette, shielded);
     }
   }
 
@@ -1475,7 +1646,8 @@ export function drawContinuousPirateWorm(
   if (boosting) {
     context.save();
     context.translate(headPoint.x, headPoint.y);
-    context.rotate(headAngle);
+    context.rotate(headPose.angle);
+    context.scale(headPose.scaleX, 1);
     context.globalAlpha = materialMotion === 0
       ? 0.7
       : 0.64 + Math.sin(now * 0.021 + identity * 0.73) * 0.12;

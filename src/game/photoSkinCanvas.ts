@@ -44,6 +44,9 @@ export interface PhotoSkinCanvasRenderPlan {
     pattern?: string;
     headHue?: number;
   };
+  faceMode?: "captain" | "features" | "eyes-only";
+  eyeStyle?: "round" | "lookout" | "sleepy" | "jewel";
+  expressionStyle?: "grin" | "determined" | "surprised" | "none";
   localPhotosEnabled: boolean;
   localPhotos: readonly PhotoSkinCanvasPhoto[];
 }

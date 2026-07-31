@@ -1,6 +1,6 @@
 # Wormifi ground treasure and power system
 
-**Status:** Pirate treasure renderer, Loot Compass launch subset, and live sensory layer implemented in the release candidate; still awaiting smoothness and external-human acceptance
+**Status:** Pirate treasure renderer, Treasure Magnet launch subset, and live sensory layer implemented in the local candidate; still awaiting external-human acceptance
 
 **Research date:** 2026-07-29
 
@@ -42,7 +42,7 @@ advantage obeys the same server-authoritative rules for everyone.
 | Volcanic defeated-loot fountain | **Transform and launch** | Rival Hoard jewels erupt visually, then settle; total collectible mass is conserved exactly | Preserves the jackpot feeling while preventing duplication, runaway snowballing, and fake currency |
 | Dual match/permanent currency | **Defer** | If repeat play is proven, explicit Story Marks unlock identity-only cosmetics | A second economy adds first-minute load and can turn play into extraction; no ground item may buy match power |
 | Golden Honeycomb hold-to-eat | **Transform and defer** | Announced Rush-only Party Platter with readable wedges and no stationary hold | A continuously moving chain should not be forced to anchor; the event needs proximity/farming tests first |
-| Black Hole Magnet | **Transform and launch narrowly** | Loot Compass gives +35% range for 12s only for neutral gems and the carrier's own wake loot | Delivers the satisfying pull without stealing rival jackpots, objectives, or another player's resources |
+| Black Hole Magnet | **Transform and launch narrowly** | Treasure Magnet gives +35% range for 12s only for neutral gems and the carrier's own wake loot | Delivers the satisfying pull without stealing rival jackpots, objectives, or another player's resources |
 | Ghost Pepper unlimited dash/blinding trail | **Reject** | Later Coach test may reduce sprint cost by at most 25% for up to 8s; maximum speed and opponent vision never change | Unlimited speed and screen impairment create unfair, unexplained deaths and accessibility problems |
 | Aegis reflector/invincibility | **Reject** | No collectible or paid shield; only the universal, visibly ringed four-second spawn grace | Reversing a normal collision result breaks the single lethal law and makes a visually identical hit resolve differently |
 | EMP input freeze | **Reject** | No hostile input manipulation | Taking control away from another player converts skill loss into frustration and is especially hostile under network delay |
@@ -59,7 +59,7 @@ advantage obeys the same server-authoritative rules for everyone.
 | **Little Big Snake** | Nectar, bubbles, slugs, bugs, eggs, crowns, bounty targets, and defeated-player energy | Skills, abilities, Green Bubbles, pets, missions, events, seasons, and progression systems; official support says currencies earned or bought can improve speed, nectar consumption, and Green Bubble rewards | The richest world ecology: food has roles, a food chain, public bounties, and long-term identity | Too many systems for Wormifi's first minute; the documented bought-currency path into movement/collection upgrades is a concrete competitive-trust warning |
 | **Snake Rivals** | Ground food plus randomized arena power orbs; community references include magnets, ghost/invincibility, and projectiles | Chests, trophies, characters, battle pass, and VIP | High content variety and visible toy-like powers | Current review themes warn that abundant powers dilute skill, effects can feel unreliable, and reward rarity feels monetized; its individual power details remain secondary-source observations |
 | **Agar.io** | Symmetric pellets, viruses, mass shooting, and splitting; most economy objects live after the match | Mystery/Premium Potions, coins, DNA, skins, quests, seasonal tokens, and passes | The arena law itself stays legible and highly expressive | Post-match currencies, timers, ads, and passes demonstrate how a clean arena can become buried under extraction and lost-progress complaints |
-| **Wormifi launch candidate** | Faceted Cut Gems, Treasure Chests, the carrier's own wake loot, identity-bearing Rival Hoards, and one visible Loot Compass | Loot Compass only: +35% range for neutral gems and the carrier's own wake loot for 12 seconds; never rival hoards, objectives, or another player's drops | Adds readable pirate identity and one fair route choice without changing speed, collision, score, or mass value | Must be proven with first-time comprehension, pickup-line-of-sight rules, balance telemetry, accessibility, server cadence, and external human play before it is called better |
+| **Wormifi launch candidate** | Faceted Cut Gems, Treasure Chests, the carrier's own wake loot, identity-bearing Rival Hoards, and one visible Treasure Magnet | Treasure Magnet only: +35% range for neutral gems and the carrier's own wake loot for 12 seconds; never rival hoards, objectives, or another player's drops | Adds readable pirate identity and one fair route choice without changing speed, collision, score, or mass value | Must be proven with first-time comprehension, pickup-line-of-sight rules, balance telemetry, accessibility, server cadence, and external human play before it is called better |
 
 Sources: [Wormate official product page](https://wormate.io/),
 [Wormate App Store reviews](https://apps.apple.com/nz/app/wormate-io/id1135523852?see-all=reviews&platform=iphone),
@@ -100,7 +100,7 @@ player's head and never requires per-frame position updates.
   with visible milestones; combo never changes mass, score, speed, or collision.
 - **Reason:** constant competence feedback without random economic rewards.
 
-Treasure Chests remain the high-value neutral tier, and the Loot Compass remains
+Treasure Chests remain the high-value neutral tier, and the Treasure Magnet remains
 the only high-attention launch relic. If everything moves or
 glows loudly, nothing is legible.
 
@@ -120,7 +120,7 @@ settles into marked jewels carrying that rival's palette.
 This preserves the category's best risk-reward moment while making it visually and
 socially specific to Wormifi.
 
-### 3. Relics — Loot Compass first, one visible power slot
+### 3. Relics — Treasure Magnet first, one visible power slot
 
 A Specialist is a rare living character with an icon and effect label visible
 before contact. On collection it moves into a highlighted follower position so
@@ -130,7 +130,7 @@ buff tower.
 
 | Recruit | Exact launch effect | Duration | Player decision | Counterplay and guardrail |
 |---|---|---:|---|---|
-| **Loot Compass — launch candidate** | +35% pickup radius for neutral Cut Gems and the carrier's own wake loot | 12 s | Route through dense treasure lanes or recover part of your own sprint trail | Does not pull Rival Hoards, another player's wake loot, Relics, or objectives; no mass or score multiplier; line-of-sight/body barriers and per-tick pickup caps must be tested before scale |
+| **Treasure Magnet — launch candidate** | +35% pickup radius for neutral Cut Gems and the carrier's own wake loot | 12 s | Route through dense treasure lanes or recover part of your own sprint trail | Does not pull Rival Hoards, another player's wake loot, Relics, or objectives; no mass or score multiplier; line-of-sight/body barriers and per-tick pickup caps must be tested before scale |
 | **Scout — later experiment** | Coarse directional danger pulses only; no camera zoom | Up to 10 s | Plan a dodge or safer route from an approximate warning | Gives information, not immunity; no exact player reveal; rivals see the antenna pulse; no viewport or steering-sensitivity change |
 | **Coach — later experiment** | Boost consumes at most 25% less mass; top speed is unchanged | Up to 8 s | Attempt one longer chase or escape without making sprint free | Same maximum speed, turn law, and lethal collision; rival-readable trail; ship only if measured win/survival lift stays inside a declared balance band |
 | **Wildcard — later noncompetitive experiment** | Three consecutive Rival Hoard jewels from one defeat mark a replay/style combo only | Up to 8 s | Hunt a contested story beat without receiving match power | Adds no mass, score, speed, collision privilege, or leaderboard value; other players can interrupt the combo |
@@ -205,7 +205,7 @@ retention.
 | Human need | Wormifi mechanism | Measurement |
 |---|---|---|
 | **Competence** | Immediate steering, readable combo growth, exact death cause, personal best, and skill feats | First-session completion, unexplained-death rate, retry rate, score improvement |
-| **Autonomy** | Route choice, take/deny/avoid the visible Loot Compass, choose a handed helm, and optionally share a challenge with no unique reward | Loot Compass route diversity, control-choice persistence, and share opt-in without reward pressure |
+| **Autonomy** | Route choice, take/deny/avoid the visible Treasure Magnet, choose a handed helm, and optionally share a challenge with no unique reward | Treasure Magnet route diversity, control-choice persistence, and share opt-in without reward pressure |
 | **Relatedness** | Real human labels, rival identity in remains/replay, exact challenge links, spectatable story beats | Human-room return, challenge acceptance, voluntary replay shares, friend-room completion |
 | **Flow** | Constant low-friction gems plus intermittent contested hoards; difficulty comes from people and readable risk | Session length distribution, boredom/frustration survey, deaths/minute by skill cohort |
 | **Curiosity** | Living character performances, rotating cosmetic food families, predictable rare-event cadence | Discovery completion and return without paid/random reward exposure |
@@ -227,7 +227,7 @@ actual retention.
 
 1. Faceted Cut Gems and Treasure Chests with capped audiovisual combo feedback.
 2. Mass-conserving, identity-bearing Rival Hoards.
-3. Loot Compass only; Scout remains a later experiment.
+3. Treasure Magnet only; Scout remains a later experiment.
 4. Exact replay/challenge sharing with no reward for sharing.
 
 ### Add only after comprehension and balance pass
@@ -251,7 +251,7 @@ actual retention.
 ## Acceptance gates before implementation is called better
 
 - At least 90% of first-time adults and 80% of guardian-supervised children can
-  identify Cut Gems, Treasure Chests, Rival Hoards, and the Loot Compass without spoken coaching.
+  identify Cut Gems, Treasure Chests, Rival Hoards, and the Treasure Magnet without spoken coaching.
 - At least 80% can explain what killed them and whether a rival had an active
   Specialist.
 - No launch Specialist changes the head/body collision result, top speed, or mass

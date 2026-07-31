@@ -345,6 +345,23 @@ function drawHarborChargingPad(
   context.setLineDash([]);
   context.lineDashOffset = 0;
 
+  // Three upward energy crests communicate "this makes you larger" without
+  // covering the arena with instructions. Only the currently reached tier is
+  // allowed the brightest flare, so this never suggests fake progress.
+  for (let tier = 1; tier <= 3; tier += 1) {
+    const reached = active ? tier <= multiplier : false;
+    const crestY = center.y - padRadius * (0.28 + tier * 0.18);
+    const halfWidth = padRadius * (0.1 + tier * 0.035);
+    context.globalAlpha = reached ? 0.92 : 0.2;
+    context.strokeStyle = reached ? "#ffffff" : tierPalette.bright;
+    context.lineWidth = Math.max(1.2, padRadius * 0.035);
+    context.beginPath();
+    context.moveTo(center.x - halfWidth, crestY + halfWidth * 0.42);
+    context.lineTo(center.x, crestY);
+    context.lineTo(center.x + halfWidth, crestY + halfWidth * 0.42);
+    context.stroke();
+  }
+
   if (state && progress > 0) {
     context.globalAlpha = 0.98;
     context.strokeStyle = "#ffffff";
@@ -406,6 +423,40 @@ function drawHarborChargingPad(
   context.textBaseline = "middle";
   context.font = `950 ${clamp(hubRadius * 0.9, 9, 24)}px "Baloo 2", Inter, sans-serif`;
   context.fillText(active ? `×${multiplier}` : "⚡", center.x, center.y + 1);
+}
+
+function drawOrbitPrizeBurst(
+  context: CanvasRenderingContext2D,
+  center: Readonly<Vec2>,
+  radius: number,
+  color: string,
+  now: number,
+  seed: number,
+) {
+  context.save();
+  context.fillStyle = "#fff4b0";
+  context.strokeStyle = color;
+  context.lineWidth = Math.max(1, radius * 0.045);
+  context.shadowColor = color;
+  context.shadowBlur = Math.min(16, radius * 0.48);
+  for (let shard = 0; shard < 7; shard += 1) {
+    const phase = (now * 0.00072 + shard / 7 + seed * 0.019) % 1;
+    const angle = shard * TAU / 7 + seed * 0.07;
+    const spread = radius * (0.16 + phase * 0.7);
+    const x = center.x + Math.cos(angle) * spread;
+    const y = center.y + Math.sin(angle) * spread - phase * radius * 0.66;
+    const size = clamp(radius * (0.12 - phase * 0.045), 2.2, 7);
+    context.globalAlpha = 1 - phase;
+    context.beginPath();
+    context.moveTo(x, y - size);
+    context.lineTo(x + size * 0.72, y);
+    context.lineTo(x, y + size);
+    context.lineTo(x - size * 0.72, y);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
+  context.restore();
 }
 
 /**
@@ -502,7 +553,30 @@ export function drawChargingStationField(
       continue;
     }
 
+    const orbitSeed = [...station.id].reduce(
+      (sum, character) => sum + character.charCodeAt(0),
+      0,
+    );
+    const orbitSpin = now * 0.0015 + orbitSeed * 0.11;
+    const completedPrize = Boolean(
+      presentation.phase === "cooldown" &&
+      state &&
+      state.massAwarded + 1e-6 >= station.massReward
+    );
+
     // The translucent band is exactly the configured valid wrap tolerance.
+    // A soft outer aura and orbiting gems make the small objective visible
+    // across open water without pretending the accepted gameplay lane is wider.
+    context.globalAlpha = presentation.phase === "cooldown" ? 0.08 : 0.2;
+    context.strokeStyle = color;
+    context.shadowColor = color;
+    context.shadowBlur = presentation.active ? 18 : 10;
+    context.lineWidth = Math.max(2, station.wrapTolerance * 0.58 * zoom);
+    context.beginPath();
+    context.arc(center.x, center.y, outerRadius + Math.max(3, 5 * zoom), 0, TAU);
+    context.stroke();
+    context.shadowBlur = 0;
+
     context.globalAlpha = presentation.phase === "cooldown" ? 0.12 : 0.18;
     context.strokeStyle = color;
     context.lineWidth = station.wrapTolerance * 2 * zoom;
@@ -522,6 +596,53 @@ export function drawChargingStationField(
     }
     context.setLineDash([]);
 
+    // Moving beads plus tangent arrowheads make "circle this ring" legible
+    // without a sentence. Their motion is decorative; the progress arc below
+    // remains the only authoritative completion signal.
+    const orbitBeads = station.massReward >= 20 ? 8 : 6;
+    for (let bead = 0; bead < orbitBeads; bead += 1) {
+      const angle = orbitSpin + bead * TAU / orbitBeads;
+      const beadX = center.x + Math.cos(angle) * wrapRadius;
+      const beadY = center.y + Math.sin(angle) * wrapRadius;
+      const beadRadius = clamp(
+        (bead % 2 === 0 ? 2.8 : 1.8) * zoom,
+        1.7,
+        4.2,
+      );
+      context.globalAlpha = presentation.phase === "cooldown" ? 0.22 : 0.76;
+      context.fillStyle = bead % 2 === 0 ? "#fff4ae" : color;
+      context.shadowColor = color;
+      context.shadowBlur = presentation.active ? 9 : 4;
+      context.beginPath();
+      context.arc(beadX, beadY, beadRadius, 0, TAU);
+      context.fill();
+    }
+    context.shadowBlur = 0;
+    for (let arrow = 0; arrow < 3; arrow += 1) {
+      const angle = orbitSpin + arrow * TAU / 3;
+      const x = center.x + Math.cos(angle) * outerRadius;
+      const y = center.y + Math.sin(angle) * outerRadius;
+      const tangentX = -Math.sin(angle);
+      const tangentY = Math.cos(angle);
+      const normalX = Math.cos(angle);
+      const normalY = Math.sin(angle);
+      const size = clamp(5 * zoom, 4, 9);
+      context.globalAlpha = 0.72;
+      context.fillStyle = color;
+      context.beginPath();
+      context.moveTo(x + tangentX * size, y + tangentY * size);
+      context.lineTo(
+        x - tangentX * size * 0.72 + normalX * size * 0.55,
+        y - tangentY * size * 0.72 + normalY * size * 0.55,
+      );
+      context.lineTo(
+        x - tangentX * size * 0.72 - normalX * size * 0.55,
+        y - tangentY * size * 0.72 - normalY * size * 0.55,
+      );
+      context.closePath();
+      context.fill();
+    }
+
     if (state && presentation.progressRatio > 0) {
       const direction = state.windingDirection === 0 ? 1 : state.windingDirection;
       const arcLength = presentation.phase === "cooldown"
@@ -537,8 +658,8 @@ export function drawChargingStationField(
       context.stroke();
     }
 
-    // Exact dock circle and a textual anchor mark: the head, not the body,
-    // must occupy this configured disk.
+    // Exact dock circle: the bright eye-shaped target communicates that the
+    // head, not the middle of the body, must occupy this configured disk.
     context.globalAlpha = 0.94;
     context.fillStyle = "rgba(4, 22, 35, 0.9)";
     context.strokeStyle = color;
@@ -547,11 +668,14 @@ export function drawChargingStationField(
     context.arc(dock.x, dock.y, dockRadius, 0, TAU);
     context.fill();
     context.stroke();
+    context.fillStyle = "#effff9";
+    context.beginPath();
+    context.ellipse(dock.x, dock.y, dockRadius * 0.48, dockRadius * 0.32, 0, 0, TAU);
+    context.fill();
     context.fillStyle = color;
-    context.font = `900 ${clamp(dockRadius * 0.86, 8, 19)}px Inter, sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("⚓", dock.x, dock.y + 1);
+    context.beginPath();
+    context.arc(dock.x, dock.y, dockRadius * 0.14, 0, TAU);
+    context.fill();
 
     // Capstan core uses the configured core radius. Spokes are decorative and
     // remain inside that circle.
@@ -562,35 +686,35 @@ export function drawChargingStationField(
     context.arc(center.x, center.y, coreRadius, 0, TAU);
     context.fill();
     context.stroke();
-    context.globalAlpha = 0.78;
-    for (let spoke = 0; spoke < 6; spoke += 1) {
-      const angle = spoke / 6 * TAU;
-      context.beginPath();
-      context.moveTo(
-        center.x + Math.cos(angle) * coreRadius * 0.2,
-        center.y + Math.sin(angle) * coreRadius * 0.2,
-      );
-      context.lineTo(
-        center.x + Math.cos(angle) * coreRadius * 0.78,
-        center.y + Math.sin(angle) * coreRadius * 0.78,
-      );
-      context.stroke();
-    }
-    context.globalAlpha = 1;
-    context.fillStyle = color;
-    context.font = `900 ${clamp(coreRadius * 0.78, 10, 24)}px Inter, sans-serif`;
-    context.fillText(presentation.icon, center.x, center.y + 1);
+    // A faceted prize locked in the core, with one/two reward pips beneath the
+    // ring, makes the two risk tiers distinguishable from a glance.
+    const gemSize = Math.max(4, coreRadius * 0.62);
+    context.globalAlpha = presentation.phase === "cooldown" ? 0.48 : 1;
+    context.fillStyle = "#fff1a6";
+    context.shadowColor = color;
+    context.shadowBlur = presentation.active ? 12 : 6;
+    context.beginPath();
+    context.moveTo(center.x, center.y - gemSize);
+    context.lineTo(center.x + gemSize * 0.72, center.y);
+    context.lineTo(center.x, center.y + gemSize);
+    context.lineTo(center.x - gemSize * 0.72, center.y);
+    context.closePath();
+    context.fill();
+    context.shadowBlur = 0;
 
-    const labelY = center.y + outerRadius + 16;
-    const labelWidth = Math.max(120, Math.min(330, width - 18));
-    context.shadowColor = "rgba(0, 8, 20, 0.96)";
-    context.shadowBlur = 6;
-    context.fillStyle = "#fff1bd";
-    context.font = `900 ${clamp(9 * zoom, 9, 13)}px Inter, sans-serif`;
-    context.fillText(presentation.heading.toUpperCase(), center.x, labelY, labelWidth);
-    context.fillStyle = color;
-    context.font = `800 ${clamp(7.5 * zoom, 7.5, 10.5)}px Inter, sans-serif`;
-    context.fillText(presentation.detail, center.x, labelY + 14, labelWidth);
+    const rewardPips = station.massReward >= 20 ? 2 : 1;
+    context.fillStyle = "#fff4b0";
+    for (let pip = 0; pip < rewardPips; pip += 1) {
+      const x = center.x + (pip - (rewardPips - 1) / 2) * Math.max(7, 9 * zoom);
+      const y = center.y + outerRadius + Math.max(8, 10 * zoom);
+      context.globalAlpha = 0.94;
+      context.beginPath();
+      context.arc(x, y, clamp(2.3 * zoom, 2.3, 4.2), 0, TAU);
+      context.fill();
+    }
+    if (completedPrize) {
+      drawOrbitPrizeBurst(context, center, outerRadius, color, now, orbitSeed);
+    }
     context.restore();
   }
 }

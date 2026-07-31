@@ -52,23 +52,27 @@ export function RelicStatus({
       data-timer-ratio={model.timerRatio.toFixed(4)}
       aria-label={`${relic.label} Relic status`}
     >
-      <div
-        className="relic-status__identity"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        aria-label={`${relic.label}. ${model.effectText}. ${model.rivalDisclosure}.`}
-      >
-        {multiplierGlyph ? (
-          <span className="relic-status__multiplier" aria-hidden="true">{multiplierGlyph}</span>
-        ) : (
-          <img
-            className="relic-status__icon"
-            src={relic.ground.assetPath}
-            alt=""
-            aria-hidden="true"
-          />
-        )}
+      <div className="relic-status__chest">
+        <span className="relic-status__chest-lid" aria-hidden="true" />
+        <span className="relic-status__chest-base" aria-hidden="true" />
+        <div
+          className="relic-status__identity"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`${relic.label}. ${model.effectText}. ${model.rivalDisclosure}.`}
+        >
+          {multiplierGlyph ? (
+            <span className="relic-status__multiplier" aria-hidden="true">{multiplierGlyph}</span>
+          ) : (
+            <img
+              className="relic-status__icon"
+              src={relic.ground.assetPath}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
       <time
         className="relic-status__time"

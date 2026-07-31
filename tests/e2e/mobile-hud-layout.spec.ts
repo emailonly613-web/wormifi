@@ -86,13 +86,17 @@ for (const viewport of [
       if (!hudElement || !stage) throw new Error("Arena HUD unavailable");
       hudElement.insertAdjacentHTML("beforeend", `
         <aside class="relic-status relic-status--loot-compass specialist-status active"
-          data-testid="relic-status" aria-label="Loot Compass Relic status">
-          <div class="relic-status__identity" role="status" aria-live="polite"
-            aria-label="Loot Compass. Pulls nearby gems and your wake loot.">
-            <img class="relic-status__icon" src="/assets/sprites/pirate-atlas/loot-compass.png" alt="" aria-hidden="true" />
+          data-testid="relic-status" aria-label="Treasure Magnet Relic status">
+          <div class="relic-status__chest">
+            <span class="relic-status__chest-lid" aria-hidden="true"></span>
+            <span class="relic-status__chest-base" aria-hidden="true"></span>
+            <div class="relic-status__identity" role="status" aria-live="polite"
+              aria-label="Treasure Magnet. Pulls nearby gems and your wake loot.">
+              <img class="relic-status__icon" src="/assets/relics/treasure-magnet.svg" alt="" aria-hidden="true" />
+            </div>
           </div>
           <time class="relic-status__time" aria-label="8 seconds remaining">8.0S</time>
-          <progress class="relic-status__progress" max="12" value="8" aria-label="Loot Compass duration remaining">67%</progress>
+          <progress class="relic-status__progress" max="12" value="8" aria-label="Treasure Magnet duration remaining">67%</progress>
         </aside>
       `);
       stage.insertAdjacentHTML("beforeend", `
@@ -107,12 +111,13 @@ for (const viewport of [
     const relicBox = await expectInsideViewport(relic, page);
     const sprintAfter = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 4 size/i }), page);
     const authority = await expectInsideViewport(page.getByTestId("mobile-authority-proof"), page);
+    expect(overlapArea(relicBox, room)).toBe(0);
     expect(overlapArea(relicBox, sprintAfter)).toBe(0);
     expect(overlapArea(authority, sprintAfter)).toBe(0);
     expect(overlapArea(authority, relicBox)).toBe(0);
 
     await page.screenshot({
-      path: `${proofDirectory}/03-landscape-${viewport.label}-loot-compass.png`,
+      path: `${proofDirectory}/03-landscape-${viewport.label}-treasure-magnet.png`,
       fullPage: true,
     });
   });

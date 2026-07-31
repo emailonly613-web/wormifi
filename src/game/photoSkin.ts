@@ -5,6 +5,17 @@ import {
   isCosmeticThemeId,
   type CosmeticThemeId,
 } from "./cosmeticThemes";
+import {
+  DEFAULT_CAPTAIN_EXPRESSION_STYLE,
+  DEFAULT_CAPTAIN_EYE_STYLE,
+  DEFAULT_CAPTAIN_FACE_MODE,
+  isCaptainExpressionStyle,
+  isCaptainEyeStyle,
+  isCaptainFaceMode,
+  type CaptainExpressionStyle,
+  type CaptainEyeStyle,
+  type CaptainFaceMode,
+} from "./captainFeatures";
 
 export {
   PHOTO_SKIN_THEMES,
@@ -73,6 +84,10 @@ export interface PhotoSkinState {
   themeId: PhotoSkinThemeId;
   /** Independent cinematic captain face. Missing legacy values inherit themeId. */
   faceThemeId: PhotoSkinThemeId;
+  /** Full authored captain, mixed features, or eyes without a complete face. */
+  faceMode: CaptainFaceMode;
+  eyeStyle: CaptainEyeStyle;
+  expressionStyle: CaptainExpressionStyle;
   photos: PhotoSkinPhoto[];
   privacy: typeof PHOTO_SKIN_PRIVACY_CONTRACT;
   updatedAtMs: number;
@@ -110,6 +125,9 @@ export interface PhotoSkinCoverCrop {
 export interface PhotoSkinRenderPlan {
   theme: typeof PHOTO_SKIN_THEMES[number];
   faceTheme: typeof PHOTO_SKIN_THEMES[number];
+  faceMode: CaptainFaceMode;
+  eyeStyle: CaptainEyeStyle;
+  expressionStyle: CaptainExpressionStyle;
   localPhotosEnabled: boolean;
   localPhotos: readonly PhotoSkinPhoto[];
   /** This is the only multiplayer-safe cosmetic value until moderation exists. */
@@ -203,6 +221,9 @@ export function createDefaultPhotoSkinState(timestamp = nowMs()): PhotoSkinState
     enabled: false,
     themeId: DEFAULT_THEME_ID,
     faceThemeId: DEFAULT_THEME_ID,
+    faceMode: DEFAULT_CAPTAIN_FACE_MODE,
+    eyeStyle: DEFAULT_CAPTAIN_EYE_STYLE,
+    expressionStyle: DEFAULT_CAPTAIN_EXPRESSION_STYLE,
     photos: [],
     privacy: privacyContract(),
     updatedAtMs: timestamp,
@@ -238,6 +259,15 @@ export function normalizePhotoSkinState(value: unknown, timestamp = nowMs()): Ph
       : isThemeId(value.themeId)
         ? value.themeId
         : DEFAULT_THEME_ID,
+    faceMode: isCaptainFaceMode(value.faceMode)
+      ? value.faceMode
+      : DEFAULT_CAPTAIN_FACE_MODE,
+    eyeStyle: isCaptainEyeStyle(value.eyeStyle)
+      ? value.eyeStyle
+      : DEFAULT_CAPTAIN_EYE_STYLE,
+    expressionStyle: isCaptainExpressionStyle(value.expressionStyle)
+      ? value.expressionStyle
+      : DEFAULT_CAPTAIN_EXPRESSION_STYLE,
     photos,
     privacy: privacyContract(),
     updatedAtMs: typeof value.updatedAtMs === "number" && Number.isFinite(value.updatedAtMs)
@@ -341,6 +371,45 @@ export function selectPhotoSkinFace(
   return {
     ...state,
     faceThemeId: isThemeId(faceThemeId) ? faceThemeId : DEFAULT_THEME_ID,
+    faceMode: "captain",
+    updatedAtMs: timestamp,
+  };
+}
+
+export function selectCaptainFaceMode(
+  state: PhotoSkinState,
+  faceMode: CaptainFaceMode,
+  timestamp = nowMs(),
+): PhotoSkinState {
+  return {
+    ...state,
+    faceMode: isCaptainFaceMode(faceMode) ? faceMode : DEFAULT_CAPTAIN_FACE_MODE,
+    updatedAtMs: timestamp,
+  };
+}
+
+export function selectCaptainEyeStyle(
+  state: PhotoSkinState,
+  eyeStyle: CaptainEyeStyle,
+  timestamp = nowMs(),
+): PhotoSkinState {
+  return {
+    ...state,
+    eyeStyle: isCaptainEyeStyle(eyeStyle) ? eyeStyle : DEFAULT_CAPTAIN_EYE_STYLE,
+    updatedAtMs: timestamp,
+  };
+}
+
+export function selectCaptainExpressionStyle(
+  state: PhotoSkinState,
+  expressionStyle: CaptainExpressionStyle,
+  timestamp = nowMs(),
+): PhotoSkinState {
+  return {
+    ...state,
+    expressionStyle: isCaptainExpressionStyle(expressionStyle)
+      ? expressionStyle
+      : DEFAULT_CAPTAIN_EXPRESSION_STYLE,
     updatedAtMs: timestamp,
   };
 }
@@ -356,6 +425,7 @@ export function selectCompletePhotoSkinStyle(
     ...state,
     themeId: normalizedThemeId,
     faceThemeId: normalizedThemeId,
+    faceMode: "captain",
     updatedAtMs: timestamp,
   };
 }
@@ -632,6 +702,9 @@ export function createPhotoSkinRenderPlan(state: PhotoSkinState): PhotoSkinRende
   return {
     theme: getPhotoSkinTheme(state.themeId),
     faceTheme: getPhotoSkinTheme(state.faceThemeId),
+    faceMode: state.faceMode,
+    eyeStyle: state.eyeStyle,
+    expressionStyle: state.expressionStyle,
     localPhotosEnabled,
     localPhotos: localPhotosEnabled ? state.photos : [],
     multiplayerAppearance: {

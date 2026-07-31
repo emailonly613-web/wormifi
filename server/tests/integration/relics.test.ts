@@ -95,6 +95,14 @@ test("rooms seed the complete Relic set deterministically without changing the v
         relicTier: undefined,
       },
       {
+        id: "storm-battery-relic-1",
+        relicKind: "storm-battery",
+        durationTicks: 70,
+        specialist: undefined,
+        mass: 0,
+        relicTier: undefined,
+      },
+      {
         id: "gilded-ledger-relic-1",
         relicKind: "gilded-ledger",
         durationTicks: 80,
@@ -108,7 +116,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 2,
+        relicTier: 3,
       },
       {
         id: "gilded-ledger-relic-3",
@@ -116,7 +124,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 2,
+        relicTier: 4,
       },
       {
         id: "gilded-ledger-relic-4",
@@ -185,11 +193,11 @@ test("rooms seed the complete Relic set deterministically without changing the v
           relicTier: undefined,
         },
         {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
+          relicKind: "storm-battery",
+          relicDurationTicks: 70,
           specialist: undefined,
           specialistDurationTicks: undefined,
-          relicTier: 2,
+          relicTier: undefined,
         },
         {
           relicKind: "gilded-ledger",
@@ -203,7 +211,14 @@ test("rooms seed the complete Relic set deterministically without changing the v
           relicDurationTicks: 80,
           specialist: undefined,
           specialistDurationTicks: undefined,
-          relicTier: 2,
+          relicTier: 3,
+        },
+        {
+          relicKind: "gilded-ledger",
+          relicDurationTicks: 80,
+          specialist: undefined,
+          specialistDurationTicks: undefined,
+          relicTier: 4,
         },
         {
           relicKind: "gilded-ledger",

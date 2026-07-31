@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "wormifi-retention-viral-v1",
+  "status": "predeclared_not_run",
+  "purpose": "Determine whether first-time players voluntarily replay, save a Captain, invite a friend, and return before publicity or payments.",
+  "minimumSample": {
+    "firstTimePlayers": 20,
+    "uncoachedFriendPairs": 5,
+    "returnObservationHours": [24, 168]
+  },
+  "privacy": {
+    "participantIds": "random study codes only",
+    "emailAddressesInObservationSheet": false,
+    "namesInObservationSheet": false,
+    "freeTextChatCaptured": false,
+    "screenOrVoiceRecording": "separate explicit consent required",
+    "marketingConsentImplied": false
+  },
+  "gates": [
+    {
+      "id": "landing_to_play",
+      "numerator": "players_who_start_without_coaching",
+      "denominator": "eligible_first_time_players",
+      "minimumRate": 0.9
+    },
+    {
+      "id": "second_run",
+      "numerator": "players_who_voluntarily_start_second_run",
+      "denominator": "players_who_complete_or_die_in_first_run",
+      "minimumRate": 0.7
+    },
+    {
+      "id": "death_comprehension",
+      "numerator": "players_who_correctly_explain_death_or_turning_point",
+      "denominator": "players_with_a_completed_first_run",
+      "minimumRate": 0.8
+    },
+    {
+      "id": "customization_comprehension",
+      "numerator": "players_who_distinguish_body_face_and_complete_style",
+      "denominator": "players_who_open_customization",
+      "minimumRate": 0.8
+    },
+    {
+      "id": "multiplier_comprehension",
+      "numerator": "players_who_explain_2x_3x_4x_5x_10x_without_floor_math_confusion",
+      "denominator": "players_who_encounter_or_are_shown_a_multiplier",
+      "minimumRate": 0.7
+    },
+    {
+      "id": "timed_power_comprehension",
+      "numerator": "players_who_explain_magnet_reach_lightning_turbo_and_chest_countdown",
+      "denominator": "players_who_encounter_or_are_shown_both_timed_powers",
+      "minimumRate": 0.8
+    },
+    {
+      "id": "charging_risk_comprehension",
+      "numerator": "players_who_explain_orbit_hold_reward_and_exposure_without_coaching",
+      "denominator": "players_who_encounter_an_orbit_ring",
+      "minimumRate": 0.7
+    },
+    {
+      "id": "friend_pair_join",
+      "numerator": "pairs_who_create_share_open_join_and_both_play_without_coaching",
+      "denominator": "eligible_friend_pairs",
+      "minimumRate": 1
+    },
+    {
+      "id": "passport_value_comprehension",
+      "numerator": "players_who_explain_optional_save_and_verified_live_progress",
+      "denominator": "players_who_see_save_prompt",
+      "minimumRate": 0.8
+    },
+    {
+      "id": "offer_comprehension",
+      "numerator": "players_who_explain_monthly_access_vs_permanent_collection_and_no_paid_power",
+      "denominator": "players_who_view_the_offer",
+      "minimumRate": 0.8
+    },
+    {
+      "id": "hosted_room_comprehension",
+      "numerator": "players_who_create_and_copy_the_correct_free_room_link_and_explain_guests_auto_join_without_login_payment_or_gameplay_advantage",
+      "denominator": "players_who_view_captain_rooms",
+      "minimumRate": 0.8
+    }
+  ],
+  "returnSignals": {
+    "d1": "report only; no pass threshold until pilot variance is known",
+    "d7": "report only; no pass threshold until pilot variance is known"
+  },
+  "requiredEventVocabulary": [
+    "landing_viewed",
+    "play_started",
+    "first_treasure_collected",
+    "life_ended",
+    "retry_started",
+    "invite_created",
+    "invite_opened",
+    "invite_joined",
+    "friend_pair_both_played",
+    "passport_prompt_seen",
+    "passport_method_selected",
+    "passport_completed",
+    "customization_opened",
+    "customization_selected",
+    "offer_viewed",
+    "offer_interest_selected",
+    "hosted_room_offer_viewed",
+    "hosted_room_interest_selected",
+    "return_d1",
+    "return_d7",
+    "disconnect",
+    "reconnect",
+    "client_error"
+  ],
+  "decisionRule": "Every comprehension and conversion gate must meet its predeclared threshold. Samples below minimum are inconclusive, never passes. Record failures and confusion verbatim without names.",
+  "claimBoundary": "Passing this pilot would support a measured small-cohort retention and invite result only. It would not prove virality, public scale, revenue, or payment readiness."
+}

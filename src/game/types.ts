@@ -14,8 +14,9 @@ export type PirateRelicKind =
   | "pepper-cutlass"
   | "gale-pennant"
   | "maelstrom-wheel"
+  | "storm-battery"
   | "gilded-ledger";
-export type TreasureMultiplierTier = 2 | 5 | 10;
+export type TreasureMultiplierTier = 2 | 3 | 4 | 5 | 10;
 export type ChargingStationKind = "capstan" | "harbor";
 
 /**
@@ -87,7 +88,7 @@ export interface ActiveSpecialist {
   kind: SpecialistKind;
   /**
    * Optional protocol-v5 extension. Absent on legacy Collector state, which
-   * means Loot Compass exactly. The outer kind stays `collector` so older
+   * means Treasure Magnet exactly. The outer kind stays `collector` so older
    * clients can safely retain the single timed-slot envelope.
    */
   relicKind?: PirateRelicKind;

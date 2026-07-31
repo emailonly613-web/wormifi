@@ -66,7 +66,9 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await page.keyboard.press("Enter");
 
     const settingsClose = page.getByTestId("settings-close");
-    const customizeSkin = page.getByRole("button", { name: /customize skin/i });
+    const captainPassport = page.getByTestId("captain-passport-settings");
+    const captainRooms = page.getByTestId("captain-rooms-settings");
+    const customizeSkin = page.getByTestId("skin-studio-launch");
     const legendVoyage = page.getByTestId("legend-voyage-launch");
     const drag = page.getByTestId("control-drag-anywhere");
     const leftHelm = page.getByTestId("control-left-helm");
@@ -92,7 +94,16 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(rush).toHaveAttribute("aria-pressed", "true");
     await expect(endless).toHaveAttribute("aria-pressed", "false");
 
-    for (const control of [customizeSkin, legendVoyage, drag, leftHelm, rightHelm, rush]) {
+    for (const control of [
+      captainPassport,
+      captainRooms,
+      customizeSkin,
+      legendVoyage,
+      drag,
+      leftHelm,
+      rightHelm,
+      rush,
+    ]) {
       await page.keyboard.press("Tab");
       await expect(control).toBeFocused();
       await expectVisibleFocus(control);
@@ -130,6 +141,8 @@ test.describe("Wormifi accessibility and browser resilience", () => {
 
     const nickname = page.getByRole("textbox", { name: "Your arena name" });
     const chooseLook = page.getByTestId("launcher-choose-look");
+    const launcherPassport = page.getByTestId("launcher-passport");
+    const launcherCaptainRooms = page.getByTestId("launcher-captain-rooms");
     const live = page.getByRole("button", { name: /play live/i });
     const play = page.getByTestId("solo-run-button");
     await page.keyboard.press("Tab");
@@ -139,6 +152,12 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(nickname).toBeFocused();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Keyboard Pilot");
+    await page.keyboard.press("Tab");
+    await expect(launcherPassport).toBeFocused();
+    await expectVisibleFocus(launcherPassport);
+    await page.keyboard.press("Tab");
+    await expect(launcherCaptainRooms).toBeFocused();
+    await expectVisibleFocus(launcherCaptainRooms);
     await page.keyboard.press("Tab");
     await expect(live).toBeFocused();
     await page.keyboard.press("Tab");
@@ -152,7 +171,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(arena).toHaveAttribute("aria-describedby", "arena-keyboard-help");
     await expect(page.getByTestId("room-identity")).toHaveText(/SOLO RUN — NO LIVE ROOM/u);
     await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Steer to start.");
-    await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/size rank \d+/i);
+    await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/rank \d+ of \d+/i);
     await expect(page.getByTestId("hud-score")).toHaveAccessibleName(/score \d+/i);
     await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
     await expect(page.getByRole("timer")).toHaveCount(0);

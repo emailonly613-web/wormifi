@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Wormifi Treasure Magnet</title>
+  <desc id="desc">A red and gold horseshoe magnet pulling three faceted treasure gems.</desc>
+  <defs>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6a6f"/>
+      <stop offset=".55" stop-color="#c52f55"/>
+      <stop offset="1" stop-color="#6f173d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3a6"/>
+      <stop offset=".5" stop-color="#ffc845"/>
+      <stop offset="1" stop-color="#b96712"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M23 25v46c0 24 18 42 41 42s41-18 41-42V25H82v45c0 11-8 20-18 20s-18-9-18-20V25Z"
+        fill="url(#red)" stroke="#3b102c" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M23 25h23v23H23Zm59 0h23v23H82Z"
+        fill="url(#gold)" stroke="#5b3510" stroke-width="4"/>
+  <path d="M35 51v17m58-17v17" fill="none" stroke="#ffd86a" stroke-width="4"
+        stroke-linecap="round" stroke-dasharray="6 7" opacity=".8"/>
+  <g filter="url(#glow)" stroke="#fff8ca" stroke-width="2">
+    <path d="m64 8 9 10-9 10-9-10Z" fill="#65f5dd"/>
+    <path d="m43 4 7 8-7 8-7-8Z" fill="#ff75b8"/>
+    <path d="m85 5 7 8-7 8-7-8Z" fill="#9b82ff"/>
+  </g>
+</svg>

@@ -38,7 +38,7 @@ client order and network arrival order never decide the result.
 - The reserved identity keeps older protocol-v5 clients from rejecting the
   conserved pickup while never matching a real `human-*` or `bot-*` owner.
 - Current clients render a mixed cache neutrally and never count it as an
-  owner-only Loot Compass pull or as one bot's Heat Ring loot.
+  owner-only Treasure Magnet pull or as one bot's Heat Ring loot.
 - The private bank and its contributor history remain absent from the wire.
 
 ## Treasure-mass accounting
