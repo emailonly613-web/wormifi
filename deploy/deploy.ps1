@@ -227,13 +227,21 @@ try {
   if ($code -eq 404) { Step 'PROVEN: unknown path answers 404' } else { $fail += "unknown path answered $code" }
 }
 
-# PowerShell treats an unfollowed redirect as a terminating error, so read the
-# status off the exception rather than letting the client chase the hop.
+# Windows PowerShell 5 does not reliably expose the response when
+# Invoke-WebRequest is told to follow zero redirects. Use the underlying .NET
+# request so the verifier can inspect the first hop without following it.
 $wwwCode = 0
+$wwwResponse = $null
 try {
-  $wwwCode = (Invoke-WebRequest -Uri 'https://www.wormifi.com/' -UseBasicParsing -MaximumRedirection 0).StatusCode
+  $wwwRequest = [System.Net.HttpWebRequest]::Create('https://www.wormifi.com/')
+  $wwwRequest.AllowAutoRedirect = $false
+  $wwwRequest.Method = 'HEAD'
+  $wwwResponse = $wwwRequest.GetResponse()
+  $wwwCode = [int]$wwwResponse.StatusCode
 } catch {
   if ($_.Exception.Response) { $wwwCode = [int]$_.Exception.Response.StatusCode }
+} finally {
+  if ($wwwResponse) { $wwwResponse.Close() }
 }
 if ($wwwCode -eq 301) { Step 'PROVEN: www answers 301' } else { $fail += "www answered $wwwCode, expected 301" }
 
@@ -250,9 +258,15 @@ try {
 }
 
 foreach ($p in @('/robots.txt', '/sitemap.xml', '/404.html', "/$IndexNowKey.txt")) {
-  $r = Invoke-WebRequest -Uri "https://wormifi.com$p" -UseBasicParsing -SkipHttpErrorCheck
-  Step "$p -> $($r.StatusCode)"
-  if ($r.StatusCode -ne 200) { $fail += "$p answered $($r.StatusCode), expected 200" }
+  $code = 0
+  try {
+    $code = [int](Invoke-WebRequest -Uri "https://wormifi.com$p" -UseBasicParsing).StatusCode
+  } catch {
+    if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+    else { $fail += "$p could not be reached: $($_.Exception.Message)" }
+  }
+  Step "$p -> $code"
+  if ($code -ne 200) { $fail += "$p answered $code, expected 200" }
 }
 
 # IndexNow is the only push channel Bing and Yandex expose without a console.
@@ -267,8 +281,14 @@ $payload = @{
   )
 } | ConvertTo-Json
 foreach ($endpoint in @('https://api.indexnow.org/indexnow', 'https://www.bing.com/indexnow', 'https://yandex.com/indexnow')) {
-  $r = Invoke-WebRequest -Uri $endpoint -Method Post -Body $payload -ContentType 'application/json; charset=utf-8' -UseBasicParsing -SkipHttpErrorCheck
-  Step "  $endpoint -> $($r.StatusCode)"
+  $code = 0
+  try {
+    $code = [int](Invoke-WebRequest -Uri $endpoint -Method Post -Body $payload -ContentType 'application/json; charset=utf-8' -UseBasicParsing).StatusCode
+  } catch {
+    if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+    else { Step "  $endpoint -> unreachable: $($_.Exception.Message)"; continue }
+  }
+  Step "  $endpoint -> $code"
 }
 
 if ($fail.Count) {
