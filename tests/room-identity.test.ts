@@ -33,12 +33,13 @@ describe("room identity", () => {
   it("builds a clean friend link without local sockets or solo challenges", () => {
     const url = new URL(buildRoomInviteUrl(
       "crew-004217",
-      "https://wormifi.com/?c=solo-token&arena_ws=ws%3A%2F%2Flocalhost%3A8080#play",
+      "https://wormifi.com/?c=solo-token&launch=captain-room&arena_ws=ws%3A%2F%2Flocalhost%3A8080#play",
     ));
     expect(url.origin).toBe("https://wormifi.com");
     expect(url.searchParams.get("room")).toBe("crew-004217");
     expect(url.searchParams.has("c")).toBe(false);
     expect(url.searchParams.has("arena_ws")).toBe(false);
+    expect(url.searchParams.has("launch")).toBe(false);
     expect(url.hash).toBe("");
   });
 

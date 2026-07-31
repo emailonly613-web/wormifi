@@ -333,6 +333,11 @@ function installFunnelTracking() {
     if (!target) return;
 
     const testId = target.dataset.testid;
+    const growthAction = target.dataset.growthAction;
+    if (growthAction && ["play", "host", "share"].includes(growthAction)) {
+      sendEvent("first_50_action", { action: growthAction });
+      return;
+    }
     if (testId === "live-lab-button") {
       if (target.textContent?.includes("ACCEPT CHALLENGE")) {
         lastLaunchMode = "challenge";

@@ -42,6 +42,7 @@ export function buildRoomInviteUrl(roomId: string, href = window.location.href):
   const url = new URL(href);
   url.searchParams.delete("c");
   url.searchParams.delete("arena_ws");
+  url.searchParams.delete("launch");
   url.searchParams.delete(PUBLIC_MATCHMAKING_QUERY);
   url.searchParams.set("room", normalizeRoomId(roomId));
   url.hash = "";

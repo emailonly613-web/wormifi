@@ -13,6 +13,7 @@
     "build": "tsc -b && vite build",
     "build:crazygames": "tsc -b && vite build --mode crazygames && node scripts/verify-crazygames-build.mjs",
     "package:crazygames": "pnpm build:crazygames && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-crazygames.ps1",
+    "package:first50": "pnpm package:crazygames && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-first-50-kit.ps1",
     "preview": "vite preview --host 0.0.0.0",
     "preview:crazygames": "vite preview --mode crazygames --host 127.0.0.1 --port 4174 --strictPort",
     "test": "vitest run",

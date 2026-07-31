@@ -5,6 +5,8 @@ dist/
 *.tsbuildinfo
 Wormifi_CrazyGames_Ready/
 Wormifi_CrazyGames_Ready.zip
+Wormifi_First_50_Distribution_Ready/
+Wormifi_First_50_Distribution_Ready.zip
 
 # Test output (proof selected for release should be copied intentionally to proof/)
 coverage/

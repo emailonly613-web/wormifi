@@ -8,6 +8,18 @@ const ANALYTICS_CONSENT_KEY = "wormifi.analytics-consent.v1";
 initWormifiAnalytics();
 registerWormifiServiceWorker();
 
+function installFounding50Link() {
+  const nav = document.querySelector<HTMLElement>(".seo-nav");
+  if (!nav || window.location.pathname === "/founding-50.html") return;
+  const link = document.createElement("a");
+  link.href = "/founding-50.html?utm_source=wormifi&utm_medium=owned_navigation&utm_campaign=founding_50&utm_id=seo_nav";
+  link.className = "seo-founding-50-link";
+  link.textContent = "FIRST 50 PLAYTEST";
+  nav.append(link);
+}
+
+installFounding50Link();
+
 function analyticsChoiceMessage() {
   switch (document.documentElement.dataset.analyticsState) {
     case "active":

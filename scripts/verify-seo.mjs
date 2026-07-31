@@ -9,6 +9,7 @@ const pages = [
   ["multiplayer.html", "https://wormifi.com/multiplayer.html"],
   ["pirate-treasure.html", "https://wormifi.com/pirate-treasure.html"],
   ["guides.html", "https://wormifi.com/guides.html"],
+  ["founding-50.html", "https://wormifi.com/founding-50.html"],
   ["devlog-captain-centered-launcher.html", "https://wormifi.com/devlog-captain-centered-launcher.html"],
   ["wormifi-vs-snake-io.html", "https://wormifi.com/wormifi-vs-snake-io.html"],
   ["snake-io-vs-slither-io.html", "https://wormifi.com/snake-io-vs-slither-io.html"],
@@ -104,9 +105,13 @@ for (const [filename, expectedCanonical] of pages) {
   if (canonical !== expectedCanonical) fail(`${filename} canonical must be ${expectedCanonical}`);
   if (!robots?.startsWith("index,follow")) fail(`${filename} must explicitly allow indexing`);
   if (!ogTitle || !ogDescription || ogUrl !== expectedCanonical) fail(`${filename} Open Graph metadata is incomplete`);
-  if (ogImage !== "https://wormifi.com/og-wormifi-sea-serpent-v2.png") fail(`${filename} must use the versioned absolute social image URL`);
-  if (!ogImageAlt?.includes("sea-serpent") || /\bchains?\b/iu.test(ogImageAlt)) {
-    fail(`${filename} social image alt must describe the current sea-serpent artwork`);
+  if (!ogImage?.startsWith("https://wormifi.com/") || !/\.(?:jpe?g|png|webp)$/iu.test(ogImage)) {
+    fail(`${filename} must use an absolute Wormifi social image URL`);
+  }
+  const socialImagePath = path.join(projectRoot, "public", new URL(ogImage).pathname.slice(1));
+  await stat(socialImagePath).catch(() => fail(`${filename} social image does not exist locally: ${ogImage}`));
+  if (!ogImageAlt || ogImageAlt.length < 12 || /\bchains?\b/iu.test(ogImageAlt)) {
+    fail(`${filename} social image alt must describe its current artwork`);
   }
   if (twitterCard !== "summary_large_image") fail(`${filename} must request a large Twitter card`);
   if (manifest !== "/manifest.webmanifest") fail(`${filename} must link the shared PWA manifest`);

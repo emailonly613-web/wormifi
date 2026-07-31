@@ -70,6 +70,15 @@ button:focus-visible,
 
 .seo-nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .seo-nav a { color: #bad0d5; font-size: 0.9rem; font-weight: 750; text-decoration: none; }
+.seo-nav .seo-founding-50-link {
+  color: #071326;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #ffd274;
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
 
 .seo-hero {
   padding: clamp(58px, 10vw, 110px) 0 50px;
@@ -114,6 +123,38 @@ button:focus-visible,
   text-decoration: none;
 }
 .seo-button.secondary { color: #e7fbfb; background: transparent; }
+button.seo-button { cursor: pointer; font: inherit; }
+
+.founding-50-page {
+  background:
+    radial-gradient(circle at 76% 12%, rgba(255, 210, 116, 0.2), transparent 29rem),
+    radial-gradient(circle at 8% 28%, rgba(45, 226, 205, 0.18), transparent 34rem),
+    #061324;
+}
+
+.founding-50-hero { position: relative; }
+.founding-50-hero::after {
+  content: "50";
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: -0.13em;
+  color: rgba(138, 255, 234, 0.06);
+  font-size: clamp(10rem, 33vw, 25rem);
+  font-weight: 950;
+  line-height: 0.8;
+}
+.founding-50-actions .seo-button { justify-content: center; }
+.founding-50-share-status {
+  min-height: 1.4em;
+  margin: 14px 0 0;
+  color: #ffd274;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.founding-50-mission ol { margin: 22px 0 0; padding-left: 1.4rem; }
+.founding-50-mission li strong { color: #f4fffe; }
 
 .seo-content {
   display: grid;

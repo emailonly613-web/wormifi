@@ -1,0 +1,11 @@
+lane,status,target_sessions,tracked_url,automatic_trigger,external_action_required
+owned_seo_navigation,AUTOMATIC_AFTER_DEPLOY,8,https://wormifi.com/founding-50.html?utm_source=wormifi&utm_medium=owned_navigation&utm_campaign=founding_50&utm_id=seo_nav,visible link injected into every public guide page,no
+organic_search,AUTOMATIC_AFTER_DEPLOY,7,https://wormifi.com/founding-50.html?utm_source=organic_search&utm_medium=organic&utm_campaign=founding_50&utm_id=search,canonical sitemap plus IndexNow announcement,no
+player_share,AUTOMATIC_AFTER_FIRST_VISITOR,12,https://wormifi.com/founding-50.html?utm_source=player_share&utm_medium=referral&utm_campaign=founding_50&utm_id=founding_crew,native share sheet or clipboard,no
+captain_room_invite,AUTOMATIC_AFTER_FIRST_HOST,8,https://wormifi.com/?utm_source=founding50&utm_medium=owned_campaign&utm_campaign=founding_50&utm_id=host&launch=captain-room,free host flow creates an opaque room invite,no
+direct_seed,READY_FOR_PLACEMENT,5,https://wormifi.com/founding-50.html?utm_source=direct_seed&utm_medium=direct&utm_campaign=founding_50&utm_id=owner_seed,direct universal campaign link,yes - place link in an owned audience
+crazygames,PACKAGE_READY_NOT_SUBMITTED,5,https://wormifi.com/founding-50.html?utm_source=crazygames&utm_medium=game_portal&utm_campaign=founding_50&utm_id=crazygames_basic,portable upload package exists,yes - portal account terms and review
+itch,READY_NOT_SUBMITTED,2,https://wormifi.com/founding-50.html?utm_source=itch&utm_medium=game_portal&utm_campaign=founding_50&utm_id=itch,listing copy and assets packaged,yes - account terms and listing
+gamejolt,READY_NOT_SUBMITTED,1,https://wormifi.com/founding-50.html?utm_source=gamejolt&utm_medium=game_portal&utm_campaign=founding_50&utm_id=gamejolt,listing copy and assets packaged,yes - account terms and listing
+newgrounds,READY_NOT_SUBMITTED,1,https://wormifi.com/founding-50.html?utm_source=newgrounds&utm_medium=game_portal&utm_campaign=founding_50&utm_id=newgrounds,listing copy and assets packaged,yes - account terms and listing
+microcreator,READY_NOT_SENT,1,https://wormifi.com/founding-50.html?utm_source=microcreator&utm_medium=creator&utm_campaign=founding_50&utm_id=creator_seed,outreach copy and assets packaged,yes - accountable outreach identity

@@ -95,7 +95,7 @@ export function buildCaptainRoomInviteUrl(
     throw new Error(`Invalid free Captain Room id: ${roomId}`);
   }
   const url = new URL(href);
-  for (const key of ["arena_ws", "board", "boardId", "c", "match", "pace", "paceId"]) {
+  for (const key of ["arena_ws", "board", "boardId", "c", "launch", "match", "pace", "paceId"]) {
     url.searchParams.delete(key);
   }
   url.searchParams.set("room", roomId);

@@ -1,0 +1,15 @@
+﻿{
+    "generatedAt":  "2026-07-31T16:07:54.7299336Z",
+    "status":  "PASS",
+    "zip":  "D:\\wormifi-art\\Wormifi_First_50_Distribution_Ready.zip",
+    "bytes":  11609676,
+    "sha256":  "c1381891a8d8cb3160c6f1bd817a02a1c1606959be17a35671c1a999d3aa23e8",
+    "files":  [
+                  "FIRST-50-AUTONOMOUS-ACQUISITION.md",
+                  "FIRST-50-CAMPAIGN-LINKS.csv",
+                  "FIRST-50-EXTERNAL-SUBMISSION-PACK.md",
+                  "wormifi-icon-512.png",
+                  "wormifi-key-art-1200x630.png",
+                  "Wormifi_CrazyGames_Ready.zip"
+              ]
+}

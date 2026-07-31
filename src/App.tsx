@@ -99,6 +99,7 @@ import {
   isCrazyGamesDistribution,
   reportPlatformError,
 } from "./platform/runtime";
+import { readGrowthLaunchIntent } from "./growthCampaign";
 
 const CaptainPassport = lazy(async () => {
   const module = await import("./components/CaptainPassport");
@@ -299,7 +300,10 @@ export function App() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [skinStudioOpen, setSkinStudioOpen] = useState(false);
   const [legendVoyageOpen, setLegendVoyageOpen] = useState(false);
-  const [captainRoomsOpen, setCaptainRoomsOpen] = useState(false);
+  const [captainRoomsOpen, setCaptainRoomsOpen] = useState(
+    () => !isCrazyGamesDistribution &&
+      readGrowthLaunchIntent(window.location.search) === "captain-room",
+  );
   const [passportOpen, setPassportOpen] = useState(() => Boolean(emailLinkTokenFromLocation()));
   const [passportProfile, setPassportProfile] = useState<PassportProfile | null>(null);
   const [passportNudgePending, setPassportNudgePending] = useState(false);

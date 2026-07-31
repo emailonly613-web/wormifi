@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-30T13:17:42.226Z",
+  "generatedAt": "2026-07-31T16:07:53.288Z",
   "status": "PASS",
   "platform": "CrazyGames HTML5 SDK v3",
   "distributionRuntime": "crazygames-v3",
-  "fileCount": 23,
-  "totalBytes": 6316117,
-  "totalMegabytes": 6.024,
+  "fileCount": 39,
+  "totalBytes": 11504506,
+  "totalMegabytes": 10.972,
   "underCrazyGamesMobileHomepageTarget": true,
   "sdkLifecycle": [
     "loadingStart",
@@ -26,19 +26,24 @@
       "sha256": "79d516438b16bbbbc20d3bfbd506d63a7a78217200e94c543d1c01814acbebdd"
     },
     {
-      "path": "art/treasure-chest-v3.png",
-      "bytes": 1131400,
-      "sha256": "83673c7ff6908ca539657fd0767ef3b30fdfb2ad47f84bdc9e09930eb53c8aad"
+      "path": "assets/CaptainPassport-CJTUdWfs.js",
+      "bytes": 11580,
+      "sha256": "520d9197fdffd58152d6b3af3e58119a8b07115c164a207ef65e0cec18aa81d8"
     },
     {
-      "path": "assets/game-BriEU3NK.css",
-      "bytes": 54270,
-      "sha256": "a8a3e2bec5edccd2e325bd9fbe57265a1fca6c82e0daab9635baf3b736354191"
+      "path": "assets/CaptainRooms-CpgbLmav.js",
+      "bytes": 2647,
+      "sha256": "e601deeaa5d83c9cb45ee758cc3fb4d74074476ef9d576f709838e35734d5791"
     },
     {
-      "path": "assets/game-MJqdGhjw.js",
-      "bytes": 395291,
-      "sha256": "60e0ba4f2925f465d51876d8e1623e7da69e4bcb718cfaf4842781f3eae75bf7"
+      "path": "assets/game-D-CN4XvN.js",
+      "bytes": 517047,
+      "sha256": "05354a2f1bc0537161f4048217633dda7031287f6114b3f49aa3b436b25cfa33"
+    },
+    {
+      "path": "assets/game-DjoOqURm.css",
+      "bytes": 124024,
+      "sha256": "aa59a3533d0571d94bfecfb92ddefff05dcc697b8d5959feef77f0cb1eb7a79b"
     },
     {
       "path": "assets/sprites/pirate-atlas/doubloon-stack.png",
@@ -52,13 +57,33 @@
     },
     {
       "path": "assets/sprites/pirate-atlas/ground-treasure-rotations-1x.png",
-      "bytes": 396628,
-      "sha256": "974932ca8d3c0745cea53933284fc87191248e6a58f9753c07185885b25c997d"
+      "bytes": 457757,
+      "sha256": "c431da5bf65609840d0a4a5d4cc4a33573108088db2bd0dacac193299cb6ab41"
     },
     {
       "path": "assets/sprites/pirate-atlas/ground-treasure-rotations-2x.png",
-      "bytes": 1351302,
-      "sha256": "ba7950f1b6dbd8f215d4e8eb60847efb1c6d5931fb2cab898ed2da08fe7c940a"
+      "bytes": 1505149,
+      "sha256": "9ed4c1eeccbb2e84490f1d6f2bb6197a5e5ed4684d86ee925d5206dc116f7f72"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-v2-rotations-1x.png",
+      "bytes": 457757,
+      "sha256": "c431da5bf65609840d0a4a5d4cc4a33573108088db2bd0dacac193299cb6ab41"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-v2-rotations-2x.png",
+      "bytes": 1505149,
+      "sha256": "9ed4c1eeccbb2e84490f1d6f2bb6197a5e5ed4684d86ee925d5206dc116f7f72"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-v3-rotations-1x.png",
+      "bytes": 426416,
+      "sha256": "64d28b2a4674390dbce5734323d4ec46184c80d2b7f19be65a2404019c4ccb5d"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/ground-treasure-v3-rotations-2x.png",
+      "bytes": 1447067,
+      "sha256": "0a3dd42342453f5a3fb72588698ad4299b3b58f3c40a84de03b895c4b0c48a32"
     },
     {
       "path": "assets/sprites/pirate-atlas/loot-compass.png",
@@ -116,9 +141,39 @@
       "sha256": "e9378d12c1a84147455ab6e6cf4315b249a600a4cd75978f35657bceca4ec3fe"
     },
     {
+      "path": "assets/sprites/pirate-atlas/treasure-chart-scroll.png",
+      "bytes": 212242,
+      "sha256": "f8ecdabf4899f1e11c505ab4d3b35bb4acecf2e71b673133a43907118d567a05"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-chest-premium.png",
+      "bytes": 506871,
+      "sha256": "e71d46dbbcd8eaaba1451b5798072aa0ccfaa94e48a1a68f60ce253c8c9f4824"
+    },
+    {
       "path": "assets/sprites/pirate-atlas/treasure-chest.png",
       "bytes": 163578,
       "sha256": "6c48849f7dc0fb91a78038fd61c3f06b03b5558718ea047f72e11dcffa274334"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-doubloons.png",
+      "bytes": 249033,
+      "sha256": "944c6c78a5c12d1aa5024b16627fa388356df3b9a1d61a83ab074b30aa63ff6d"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-emerald-spyglass.png",
+      "bytes": 184342,
+      "sha256": "2d85dabf5ca19addc8fb019c74cd86708bda2d4ccd4117e200e6a164279951d6"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-float-shadow-v1.svg",
+      "bytes": 745,
+      "sha256": "7e47c45699322eec431ffcfcda4293765d46cf2dac138a5914d4850782f5cb7e"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-glint-v1.svg",
+      "bytes": 573,
+      "sha256": "7080dc25fd3b1c7012addd5d9a4c4f7a9a16557b73ff954e628c497b62b324e2"
     },
     {
       "path": "assets/sprites/pirate-atlas/treasure-map.png",
@@ -126,14 +181,39 @@
       "sha256": "eda22525eb17a3327895ca24560994b8354f89b9f70c54595302dc2eddaaf443"
     },
     {
+      "path": "assets/sprites/pirate-atlas/treasure-ornate-key.png",
+      "bytes": 171824,
+      "sha256": "b2c23eb3c718938e0fd54103b535e405a76a81a48de2bbeccbc966b5e84eb48c"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-pearl-shell.png",
+      "bytes": 253904,
+      "sha256": "30fabb3e215c3a712b61f2f9892fe4feae14b5102518fa7bd540b25db5b89ff3"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-ruby-cluster.png",
+      "bytes": 283573,
+      "sha256": "7f0b0a6bc49593c7e50009038fc703ec6964ba3ac73afba58c4aba001d56e2b4"
+    },
+    {
+      "path": "assets/sprites/pirate-atlas/treasure-sapphire-anchor.png",
+      "bytes": 196921,
+      "sha256": "33a56fd5c51a2bdae3a224578788f2cbe6f1cccc4e74ca3dada70bb6f80db4a3"
+    },
+    {
       "path": "assets/sprites/pirate-atlas/vortex-astrolabe.png",
       "bytes": 154006,
       "sha256": "1bdd6bdbcbb6d6fb4286ca539317e29a88a4e5b20a0cff90abdfd115e3957149"
     },
     {
+      "path": "assets/webauthn-DS88Ff0t.js",
+      "bytes": 2488,
+      "sha256": "68df57c2b5e4d7a113f02166bab8d8ae5a2047889593d35e82445987f41ad927"
+    },
+    {
       "path": "index.html",
-      "bytes": 1481,
-      "sha256": "73268bca26f3ffcb127711dc192514816b1064b459fe8f962b6a49225dd51c7a"
+      "bytes": 1652,
+      "sha256": "2e7fdf9d2068be32e0aa2930251dd0e4a66249fd4e04e5f74794014de8b6f461"
     }
   ]
 }

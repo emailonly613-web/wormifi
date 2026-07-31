@@ -1,11 +1,12 @@
 const CACHE_PREFIX = "wormifi-app-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v13`;
+const CACHE_NAME = `${CACHE_PREFIX}v14`;
 const CANONICAL_PAGE_URLS = [
   "/",
   "/how-to-play.html",
   "/multiplayer.html",
   "/pirate-treasure.html",
   "/guides.html",
+  "/founding-50.html",
   "/devlog-captain-centered-launcher.html",
   "/wormifi-vs-snake-io.html",
   "/snake-io-vs-slither-io.html",

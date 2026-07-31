@@ -16,7 +16,7 @@ function copyCrazyGamesRuntimeAssets() {
   mkdirSync(spriteOutput, { recursive: true });
 
   for (const filename of readdirSync(spriteSource)) {
-    if (!filename.endsWith(".png")) continue;
+    if (!/\.(?:png|svg)$/u.test(filename)) continue;
     if (filename.includes("source") || filename.includes("transparent")) continue;
     copyFileSync(`${spriteSource}/${filename}`, `${spriteOutput}/${filename}`);
   }
@@ -95,6 +95,7 @@ export default defineConfig(({ mode }) => {
         multiplayer: page("multiplayer.html"),
         pirateTreasure: page("pirate-treasure.html"),
         guides: page("guides.html"),
+        founding50: page("founding-50.html"),
         devlogCaptainCenteredLauncher: page("devlog-captain-centered-launcher.html"),
         wormifiVsSnakeIo: page("wormifi-vs-snake-io.html"),
         snakeIoVsSlitherIo: page("snake-io-vs-slither-io.html"),

@@ -36,7 +36,7 @@ describe("Captain Rooms viral-launch contract", () => {
 
     const invite = new URL(buildCaptainRoomInviteUrl(
       roomId,
-      "https://wormifi.com/?match=public&board=black-pearl-relay&pace=tempest&c=secret#play",
+      "https://wormifi.com/?match=public&board=black-pearl-relay&pace=tempest&launch=captain-room&c=secret#play",
     ));
     expect(invite.origin).toBe("https://wormifi.com");
     expect(invite.pathname).toBe("/");
