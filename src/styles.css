@@ -4981,6 +4981,57 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   min-width: 0;
 }
 
+.settings-board-shortcut {
+  min-width: 0;
+  border: 1px solid rgba(112, 255, 226, .22);
+  border-radius: 13px;
+  background: rgba(4, 23, 37, .62);
+}
+
+.settings-board-shortcut > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 39px;
+  padding: 7px 10px;
+  align-items: center;
+  gap: 9px;
+  color: #e8fff9;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-board-shortcut > summary::-webkit-details-marker { display: none; }
+
+.settings-board-shortcut > summary::after {
+  content: "+";
+  grid-column: 4;
+  color: #73ead9;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.settings-board-shortcut[open] > summary::after { content: "−"; }
+
+.settings-board-shortcut > summary span,
+.settings-board-shortcut > summary small {
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
+.settings-board-shortcut > summary span { color: #75ead8; }
+.settings-board-shortcut > summary strong { font-size: 11px; }
+.settings-board-shortcut > summary small { color: #9eb9c8; }
+
+.settings-board-shortcut > summary:focus-visible {
+  outline: 3px solid #fff0a6;
+  outline-offset: 2px;
+}
+
+.settings-board-shortcut > .board-picker {
+  margin: 0 7px 7px;
+}
+
 .friend-room-card--settings {
   padding: 9px;
 }

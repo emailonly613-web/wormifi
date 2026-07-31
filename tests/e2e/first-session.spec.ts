@@ -225,6 +225,8 @@ test.describe("first Wormifi session", () => {
     await page.getByLabel("Your arena name").fill("Proof Player");
 
     await page.getByTestId("settings-button").click();
+    await expect(page.getByTestId("board-shortcut")).not.toHaveAttribute("open", "");
+    await expect(page.getByTestId("board-shortcut-toggle")).toContainText("Open Seas");
     const rush = page.getByRole("button", { name: /90s rush/i });
     await rush.click();
     await expect(rush).toHaveClass(/active/);

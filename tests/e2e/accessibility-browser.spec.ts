@@ -76,6 +76,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const endless = modeGroup.getByRole("button", { name: /endless/i });
     const openSeas = page.getByRole("radio", { name: /open seas/i });
     const blackPearl = page.getByRole("radio", { name: /black pearl/i });
+    const boardShortcut = page.getByTestId("board-shortcut-toggle");
     const boardPicker = page.getByTestId("board-picker");
     const harborPace = page.getByRole("radio", { name: /harbor.*patient default/i });
     const classicPace = page.getByRole("radio", { name: /classic.*fast/i });
@@ -101,6 +102,11 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await page.keyboard.press("Enter");
     await expect(endless).toHaveAttribute("aria-pressed", "true");
 
+    await page.keyboard.press("Tab");
+    await expect(boardShortcut).toBeFocused();
+    await expectVisibleFocus(boardShortcut);
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("board-shortcut")).toHaveAttribute("open", "");
     await page.keyboard.press("Tab");
     await expect(openSeas).toBeFocused();
     await page.keyboard.press("ArrowRight");

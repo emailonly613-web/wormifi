@@ -32,6 +32,7 @@ import {
   writeRoomIdToLocation,
 } from "./game/roomIdentity";
 import {
+  BOARD_OPTIONS,
   boardIdForJoin,
   buildBoardAwareInviteUrl,
   buildBoardPreferenceUrl,
@@ -245,6 +246,10 @@ export function App() {
   const boardSelection = useMemo(
     () => resolveRoomBoardPreference(requestedBoardId, authoritativeBoardId),
     [authoritativeBoardId, requestedBoardId],
+  );
+  const selectedBoardOption = useMemo(
+    () => BOARD_OPTIONS.find((option) => option.id === boardSelection.boardId) ?? BOARD_OPTIONS[0],
+    [boardSelection.boardId],
   );
   const paceSelection = useMemo(
     () => resolveRoomPacePreference(requestedPaceId, authoritativePaceId),
@@ -841,11 +846,18 @@ export function App() {
                 </div>
 
                 {!isCrazyGamesDistribution && (
-                  <BoardPicker
-                    value={requestedBoardId}
-                    existingRoomBoardId={authoritativeBoardId}
-                    onChange={chooseBoard}
-                  />
+                  <details className="settings-board-shortcut" data-testid="board-shortcut">
+                    <summary data-testid="board-shortcut-toggle">
+                      <span>BOARD</span>
+                      <strong>{selectedBoardOption.name}</strong>
+                      <small>{boardSelection.locked ? "ROOM LOCKED" : "CHANGE"}</small>
+                    </summary>
+                    <BoardPicker
+                      value={requestedBoardId}
+                      existingRoomBoardId={authoritativeBoardId}
+                      onChange={chooseBoard}
+                    />
+                  </details>
                 )}
 
                 <PacePicker
