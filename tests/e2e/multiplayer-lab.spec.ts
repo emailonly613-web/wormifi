@@ -41,8 +41,16 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   await Promise.all([first.goto(path), second.goto(path)]);
   await expect(first.getByTestId("lobby-room-identity")).toHaveText(`ROOM #${room.toUpperCase()}`);
   await expect(second.getByTestId("lobby-room-identity")).toHaveText(`ROOM #${room.toUpperCase()}`);
+  await Promise.all([
+    first.getByTestId("settings-button").click(),
+    second.getByTestId("settings-button").click(),
+  ]);
   await expect(first.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
   await expect(second.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
+  await Promise.all([
+    first.getByTestId("settings-close").click(),
+    second.getByTestId("settings-close").click(),
+  ]);
   await first.getByLabel("Your arena name").fill("Browser Alice");
   await second.getByLabel("Your arena name").fill("Browser Bob");
 

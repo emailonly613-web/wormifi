@@ -5,6 +5,7 @@ import { PHOTO_SKIN_STORAGE_KEY } from "../../src/game/photoSkin";
 
 test("opens and closes the private Photo Skin Studio from the launcher", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("settings-button").click();
 
   const customize = page.getByTestId("skin-studio-launch");
   await expect(customize).toBeVisible();
@@ -28,14 +29,17 @@ test("opens and closes the private Photo Skin Studio from the launcher", async (
 
   await expect(studio).toHaveCount(0);
   await expect(customize).toBeVisible();
-  await expect(page.locator(".launch-panel")).toBeVisible();
+  await expect(page.getByTestId("settings-panel")).toBeVisible();
   await expect(page.getByTestId("friend-room-card")).toBeVisible();
+  await page.getByTestId("settings-close").click();
+  await expect(page.locator(".launch-panel")).toBeVisible();
   await expect(page.getByTestId("live-lab-button")).toBeVisible();
   await expect(page.getByTestId("solo-run-button")).toBeVisible();
 });
 
 test("imports, re-encodes, stores, and renders two private files without uploading them", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("settings-button").click();
   await page.getByTestId("skin-studio-launch").click();
 
   const studio = page.getByTestId("skin-studio");
@@ -77,6 +81,7 @@ test("imports, re-encodes, stores, and renders two private files without uploadi
   await page.getByRole("checkbox", { name: /USE PRIVATE PHOTOS ON THIS DEVICE/i }).check();
   await expect(studio).toHaveAttribute("data-photo-enabled", "true");
   await page.getByRole("button", { name: "Close Photo Skin Studio" }).click();
+  await page.getByTestId("settings-close").click();
   await page.getByTestId("solo-run-button").click();
 
   const arena = page.getByTestId("arena-canvas");

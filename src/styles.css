@@ -4600,3 +4600,446 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 .controls-right-helm .mode-disclosure {
   display: none;
 }
+
+/* Five-second launcher: playing is the only dominant decision. */
+.launch-panel.launch-panel--simple {
+  width: min(720px, calc(100% - 36px));
+  max-height: calc(100dvh - 58px);
+  gap: 12px;
+  padding: 20px 26px 18px;
+  overflow: hidden;
+}
+
+.launch-header--simple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.launch-header--simple .brand-lockup {
+  flex: 1 1 auto;
+  padding-left: 82px;
+  justify-items: start;
+}
+
+.launch-header--simple .brand-orbit-a {
+  left: 48px;
+}
+
+.launch-header--simple .brand-orbit-b {
+  right: auto;
+  left: 264px;
+}
+
+.launcher-settings-button {
+  display: inline-flex;
+  min-width: 118px;
+  min-height: 43px;
+  padding: 8px 13px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(151, 220, 255, .3);
+  border-radius: 13px;
+  color: #d9efff;
+  background: rgba(5, 18, 38, .74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.launcher-settings-button:hover {
+  border-color: rgba(105, 246, 224, .7);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.launcher-settings-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.launch-five-second-promise {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  color: #d7ebf5;
+  text-align: center;
+}
+
+.launch-five-second-promise strong {
+  color: #fff1a9;
+  font-size: 11px;
+  letter-spacing: .09em;
+}
+
+.launch-five-second-promise span {
+  color: #9fb7c9;
+  font-size: 10px;
+}
+
+.quick-start {
+  display: grid;
+  width: min(530px, 100%);
+  margin: 0 auto;
+  gap: 9px;
+}
+
+.nickname-field--quick {
+  grid-template-columns: 128px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.nickname-field--quick > span {
+  margin: 0;
+  text-align: right;
+}
+
+.nickname-field--quick input {
+  height: 38px;
+  padding-inline: 13px;
+  text-align: left;
+}
+
+.play-button--primary {
+  min-height: 82px;
+  border-radius: 21px;
+}
+
+.play-button--primary span {
+  font-size: 31px;
+}
+
+.quick-play-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-play-button {
+  display: grid;
+  min-height: 46px;
+  padding: 6px 10px;
+  align-content: center;
+  gap: 1px;
+  border: 1px solid rgba(132, 204, 236, .26);
+  border-radius: 13px;
+  color: #d8eef8;
+  background: rgba(6, 21, 42, .72);
+  text-align: center;
+  cursor: pointer;
+}
+
+.quick-play-button:hover {
+  border-color: rgba(93, 239, 216, .65);
+  background: rgba(21, 68, 82, .72);
+}
+
+.quick-play-button b {
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.quick-play-button small {
+  color: #91aebe;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.friend-room-card--quick {
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.friend-room-card--quick .friend-challenge-button {
+  width: 100%;
+  min-height: 47px;
+  border-radius: 13px;
+}
+
+.friend-room-card--quick .friend-challenge-button span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.friend-room-card--quick .friend-challenge-button strong {
+  font-size: inherit;
+  letter-spacing: .06em;
+}
+
+.quick-start .trust-row {
+  justify-content: center;
+}
+
+/* Secondary choices live in a dedicated full-page settings surface. */
+.settings-panel {
+  position: absolute;
+  z-index: 24;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(1120px, calc(100% - 36px));
+  max-height: calc(100dvh - 46px);
+  padding: 19px 22px 17px;
+  gap: 14px;
+  overflow: auto;
+  border: 1px solid rgba(145, 232, 255, .38);
+  border-radius: 28px;
+  color: #f5fbff;
+  background:
+    radial-gradient(circle at 12% 0, rgba(55, 214, 218, .12), transparent 31%),
+    radial-gradient(circle at 94% 92%, rgba(255, 113, 172, .11), transparent 28%),
+    linear-gradient(145deg, rgba(17, 40, 71, .98), rgba(4, 14, 31, .98));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .58), inset 0 1px 0 rgba(255, 255, 255, .12);
+  transform: translate(-50%, -50%);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(153, 219, 244, .15);
+}
+
+.settings-header > div {
+  display: grid;
+  gap: 1px;
+}
+
+.settings-header small,
+.settings-group > header small {
+  color: #75ead8;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-family: "Baloo 2", system-ui, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.settings-header p {
+  margin: 0;
+  color: #9eb6c8;
+  font-size: 10px;
+}
+
+.settings-close {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 13px;
+  color: #d9e8f0;
+  background: rgba(5, 16, 34, .76);
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, .82fr) minmax(390px, 1.45fr) minmax(230px, .88fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.settings-group {
+  display: grid;
+  min-width: 0;
+  padding: 12px;
+  gap: 10px;
+  border: 1px solid rgba(139, 204, 232, .18);
+  border-radius: 18px;
+  background: rgba(4, 15, 32, .5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+
+.settings-group > header {
+  display: grid;
+  gap: 1px;
+}
+
+.settings-group > header h3 {
+  margin: 0;
+  color: #f4fbff;
+  font-size: 13px;
+  letter-spacing: .08em;
+}
+
+.settings-captain-group .captain-progress-launch {
+  min-width: 0;
+}
+
+.settings-captain-group .captain-progress-launch__copy {
+  min-width: 0;
+}
+
+.friend-room-card--settings {
+  padding: 9px;
+}
+
+.friend-room-card--settings form {
+  grid-template-columns: 1fr 1fr;
+}
+
+.friend-room-card--settings form label {
+  grid-column: 1 / -1;
+}
+
+.settings-extras-group {
+  grid-column: 1 / -1;
+}
+
+.settings-done {
+  justify-self: center;
+  min-width: 180px;
+  min-height: 42px;
+  padding: 8px 24px;
+  border: 0;
+  border-radius: 13px;
+  color: #052a29;
+  background: linear-gradient(105deg, #6cffe3, #58cfff);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  box-shadow: 0 10px 25px rgba(70, 220, 225, .2);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .settings-grid {
+    grid-template-columns: minmax(210px, .8fr) minmax(360px, 1.35fr);
+  }
+
+  .settings-room-group {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .launch-panel.launch-panel--simple {
+    width: calc(100% - 14px);
+    max-height: calc(100dvh - 14px);
+    padding: 10px 12px 9px;
+    gap: 7px;
+    border-radius: 20px;
+  }
+
+  .launch-header--simple .brand-lockup {
+    padding-left: 40px;
+  }
+
+  .launch-header--simple .brand-lockup h1 {
+    font-size: 40px;
+  }
+
+  .launch-header--simple .brand-lockup p {
+    font-size: 7px;
+  }
+
+  .launch-header--simple .brand-orbit-a { left: 17px; }
+  .launch-header--simple .brand-orbit-b { left: 192px; }
+
+  .launcher-settings-button {
+    min-width: 46px;
+    min-height: 40px;
+    padding: 8px;
+  }
+
+  .launcher-settings-button span { display: none; }
+
+  .launch-five-second-promise strong { font-size: 9px; }
+  .launch-five-second-promise span { font-size: 8px; }
+
+  .quick-start { gap: 6px; }
+
+  .nickname-field--quick {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .nickname-field--quick input { height: 33px; }
+  .play-button--primary { min-height: 60px; padding: 7px 14px; }
+  .play-button--primary span { font-size: 24px; }
+  .play-button--primary small { font-size: 7px; }
+  .quick-play-button { min-height: 38px; padding: 4px 8px; }
+  .friend-room-card--quick .friend-challenge-button { min-height: 40px; }
+
+  .settings-panel {
+    width: calc(100% - 14px);
+    max-height: calc(100dvh - 14px);
+    padding: 12px;
+    gap: 10px;
+    border-radius: 20px;
+  }
+
+  .settings-grid { grid-template-columns: 1fr; }
+  .settings-room-group,
+  .settings-extras-group { grid-column: auto; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 460px) {
+  .launch-panel.launch-panel--simple {
+    width: min(650px, calc(100% - 12px));
+    max-height: calc(100dvh - 10px);
+    padding: 6px 12px;
+    gap: 4px;
+  }
+
+  .launch-header--simple .brand-lockup h1 { font-size: 31px; }
+  .launch-header--simple .brand-lockup p { display: none; }
+  .launch-header--simple .brand-orbit-a,
+  .launch-header--simple .brand-orbit-b { display: none; }
+  .launcher-settings-button { min-height: 31px; height: 31px; }
+  .launcher-settings-button svg { width: 17px; height: 17px; }
+  .launch-five-second-promise span { display: none; }
+  .launch-five-second-promise strong { font-size: 7px; }
+  .nickname-field--quick input { height: 27px; }
+  .nickname-field--quick > span { font-size: 6px; }
+  .play-button--primary { min-height: 48px; }
+  .play-button--primary span { font-size: 20px; }
+  .play-button--primary small { font-size: 6px; }
+  .quick-play-button { min-height: 31px; }
+  .quick-play-button b { font-size: 8px; }
+  .quick-play-button small { display: none; }
+  .friend-room-card--quick .friend-challenge-button { min-height: 34px; }
+  .friend-room-card--quick .friend-challenge-button b { font-size: 9px; }
+  .quick-start .trust-row { font-size: 5px; }
+
+  .settings-panel {
+    width: calc(100% - 10px);
+    max-height: calc(100dvh - 10px);
+    padding: 8px 10px;
+  }
+
+  .settings-header { padding-bottom: 6px; }
+  .settings-header h2 { font-size: 20px; }
+  .settings-header p { display: none; }
+  .settings-grid {
+    grid-template-columns: minmax(190px, .75fr) minmax(350px, 1.35fr) minmax(200px, .78fr);
+    gap: 7px;
+  }
+  .settings-group { padding: 7px; gap: 6px; border-radius: 12px; }
+  .settings-room-group { grid-column: auto; }
+  .settings-done { min-height: 31px; }
+}

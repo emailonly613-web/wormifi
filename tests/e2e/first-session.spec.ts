@@ -50,10 +50,10 @@ async function steerToHighlightedSpark(page: Page) {
 async function expectLauncher(page: Page) {
   await expect(page.getByRole("heading", { name: "WORMIFI" })).toBeVisible();
   await expect(page.getByLabel("Your arena name")).toBeEditable();
-  await expect(page.getByRole("button", { name: /90s rush/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /endless/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /play live/i })).toBeVisible();
   await expect(page.getByTestId("solo-run-button")).toBeVisible();
+  await expect(page.getByTestId("settings-button")).toBeVisible();
+  await expect(page.getByTestId("settings-panel")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /practice with labeled bots/i }),
   ).toBeVisible();
@@ -182,9 +182,11 @@ test.describe("first Wormifi session", () => {
     await expectLauncher(page);
     await page.getByLabel("Your arena name").fill("Proof Player");
 
+    await page.getByTestId("settings-button").click();
     const rush = page.getByRole("button", { name: /90s rush/i });
     await rush.click();
     await expect(rush).toHaveClass(/active/);
+    await page.getByTestId("settings-close").click();
     await page.getByTestId("solo-run-button").click();
 
     await expectActiveArena(page);
@@ -308,7 +310,9 @@ test.describe("first Wormifi session", () => {
   test("makes a friend room code and its clean invite link obvious before play", async ({ page }) => {
     await page.goto("/?room=crew-246810&arena_ws=ws%3A%2F%2Flocalhost%3A9999&c=discard-me");
     await expect(page.getByTestId("lobby-room-identity")).toHaveText("ROOM #CREW-246810");
+    await page.getByTestId("settings-button").click();
     await expect(page.getByLabel("Room number or code")).toHaveValue("crew-246810");
+    await page.getByTestId("settings-close").click();
     await expect(page.getByTestId("lobby-invite")).toContainText("CHALLENGE A FRIEND");
 
     await page.getByTestId("lobby-invite").click();
@@ -402,10 +406,14 @@ test.describe("first Wormifi session", () => {
 
   test("persists a handed pirate helm and mirrors Sprint to the free hand", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.name.includes("mobile"), "Handed helm proof runs on mobile.");
+    await page.getByTestId("settings-button").click();
     await page.getByTestId("control-right-helm").click();
     await expect(page.getByTestId("control-right-helm")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("settings-close").click();
     await page.reload();
+    await page.getByTestId("settings-button").click();
     await expect(page.getByTestId("control-right-helm")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("settings-close").click();
 
     await page.getByTestId("solo-run-button").click();
     const arena = page.getByTestId(gameContract.arena);

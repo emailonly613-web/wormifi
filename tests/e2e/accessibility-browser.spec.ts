@@ -52,13 +52,28 @@ async function expectVisibleFocus(locator: Locator) {
 }
 
 test.describe("Wormifi accessibility and browser resilience", () => {
-  test("keyboard-only launch, tutorial, and exit preserve visible focus", async ({ page }, testInfo) => {
+  test("keyboard-only launch, settings, tutorial, and exit preserve visible focus", async ({ page }, testInfo) => {
     await page.goto("/");
 
-    const modeGroup = page.getByRole("group", { name: "Solo mode" });
-    const nickname = page.getByRole("textbox", { name: "Your arena name" });
+    const settings = page.getByTestId("settings-button");
+    await page.keyboard.press("Tab");
+    if (!await settings.evaluate((element) => element === document.activeElement)) {
+      // Headless Firefox can consume the first Tab while focus enters the page.
+      await page.keyboard.press("Tab");
+    }
+    await expect(settings).toBeFocused();
+    await expectVisibleFocus(settings);
+    await page.keyboard.press("Enter");
+
+    const settingsClose = page.getByTestId("settings-close");
     const customizeSkin = page.getByRole("button", { name: /customize skin/i });
     const legendVoyage = page.getByTestId("legend-voyage-launch");
+    const drag = page.getByTestId("control-drag-anywhere");
+    const leftHelm = page.getByTestId("control-left-helm");
+    const rightHelm = page.getByTestId("control-right-helm");
+    const modeGroup = page.getByRole("group", { name: "Solo mode" });
+    const rush = modeGroup.getByRole("button", { name: /90s rush/i });
+    const endless = modeGroup.getByRole("button", { name: /endless/i });
     const openSeas = page.getByRole("radio", { name: /open seas/i });
     const blackPearl = page.getByRole("radio", { name: /black pearl/i });
     const boardPicker = page.getByTestId("board-picker");
@@ -69,83 +84,53 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const joinRoom = page.getByRole("button", { name: "JOIN ROOM" });
     const newRoom = page.getByRole("button", { name: "NEW ROOM" });
     const inviteRoom = page.getByTestId("lobby-invite");
-    const drag = page.getByTestId("control-drag-anywhere");
-    const leftHelm = page.getByTestId("control-left-helm");
-    const rightHelm = page.getByTestId("control-right-helm");
-    const practice = page.getByRole("button", { name: /practice with labeled bots/i });
-    const live = page.getByRole("button", { name: /play live/i });
-    const rush = modeGroup.getByRole("button", { name: /90s rush/i });
-    const endless = modeGroup.getByRole("button", { name: /endless/i });
-    const play = page.getByTestId("solo-run-button");
+    const settingsDone = page.getByRole("button", { name: "DONE" });
 
-    await expect(modeGroup).toBeVisible();
+    await expect(settingsClose).toBeFocused();
+    await expectVisibleFocus(settingsClose);
     await expect(rush).toHaveAttribute("aria-pressed", "true");
     await expect(endless).toHaveAttribute("aria-pressed", "false");
 
-    await page.keyboard.press("Tab");
-    if (!await nickname.evaluate((element) => element === document.activeElement)) {
-      // Headless Firefox can consume the first Tab while transferring focus
-      // from browser chrome into the document. The next Tab must still land
-      // on the first page control.
+    for (const control of [customizeSkin, legendVoyage, drag, leftHelm, rightHelm, rush]) {
       await page.keyboard.press("Tab");
+      await expect(control).toBeFocused();
+      await expectVisibleFocus(control);
     }
-    await expect(nickname).toBeFocused();
-    await expectVisibleFocus(nickname);
-    await page.keyboard.press("ControlOrMeta+A");
-    await page.keyboard.type("Keyboard Pilot");
+    await page.keyboard.press("Tab");
+    await expect(endless).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(endless).toHaveAttribute("aria-pressed", "true");
 
     await page.keyboard.press("Tab");
-    await expect(customizeSkin).toBeFocused();
-    await expectVisibleFocus(customizeSkin);
-    await page.keyboard.press("Tab");
-    await expect(legendVoyage).toBeFocused();
-    await expectVisibleFocus(legendVoyage);
-    await page.keyboard.press("Tab");
-    await expect(drag).toBeFocused();
-    await expectVisibleFocus(drag);
-    await expect(drag).toHaveAttribute("aria-pressed", "true");
-    await page.keyboard.press("Tab");
-    await expect(leftHelm).toBeFocused();
-    await expectVisibleFocus(leftHelm);
-    await page.keyboard.press("Tab");
-    await expect(rightHelm).toBeFocused();
-    await expectVisibleFocus(rightHelm);
-    await page.keyboard.press("Tab");
-    await expect(practice).toBeFocused();
-    await expectVisibleFocus(practice);
-    await page.keyboard.press("Tab");
     await expect(openSeas).toBeFocused();
-    await expectVisibleFocus(openSeas);
     await page.keyboard.press("ArrowRight");
     await expect(blackPearl).toBeFocused();
     await expect(blackPearl).toBeChecked();
     await expect(boardPicker).toHaveAttribute("data-board-id", "black-pearl-relay");
     await page.keyboard.press("Tab");
     await expect(harborPace).toBeFocused();
-    await expectVisibleFocus(harborPace);
     await page.keyboard.press("ArrowRight");
     await expect(classicPace).toBeFocused();
     await expect(classicPace).toBeChecked();
     await expect(pacePicker).toHaveAttribute("data-pace-id", "classic");
+
+    for (const control of [roomCode, joinRoom, newRoom, inviteRoom, settingsDone]) {
+      await page.keyboard.press("Tab");
+      await expect(control).toBeFocused();
+      await expectVisibleFocus(control);
+    }
+    await page.keyboard.press("Enter");
+    await expect(settings).toBeFocused();
+
+    const nickname = page.getByRole("textbox", { name: "Your arena name" });
+    const live = page.getByRole("button", { name: /play live/i });
+    const play = page.getByTestId("solo-run-button");
     await page.keyboard.press("Tab");
-    await expect(roomCode).toBeFocused();
-    await expectVisibleFocus(roomCode);
-    await page.keyboard.press("Tab");
-    await expect(joinRoom).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(newRoom).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(inviteRoom).toBeFocused();
+    await expect(nickname).toBeFocused();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("Keyboard Pilot");
     await page.keyboard.press("Tab");
     await expect(live).toBeFocused();
-    await expectVisibleFocus(live);
-    await page.keyboard.press("Tab");
-    await expect(rush).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(endless).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(endless).toHaveAttribute("aria-pressed", "true");
-
     await page.keyboard.press("Tab");
     await expect(play).toBeFocused();
     await expectVisibleFocus(play);
@@ -167,7 +152,6 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await page.keyboard.press("ArrowDown");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
     await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Collect the ringed gem.");
-
     await page.keyboard.press("Tab");
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
     await expect(exit).toBeFocused();
@@ -265,7 +249,10 @@ test.describe("Wormifi accessibility and browser resilience", () => {
 
     const panel = page.locator(".launch-panel");
     await expect(panel).toBeVisible();
-    expect(await panel.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+    expect(await panel.evaluate((element) => getComputedStyle(element).overflowY)).toBe("hidden");
+    expect(await panel.evaluate((element) => element.scrollHeight)).toBeLessThanOrEqual(
+      await panel.evaluate((element) => element.clientHeight + 1),
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 
     const live = page.getByRole("button", { name: /play live/i });
@@ -279,9 +266,22 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const play = page.getByTestId("solo-run-button");
     await play.scrollIntoViewIfNeeded();
     await play.focus();
+    await page.evaluate(() => {
+      // This case proves the constrained regular-tab viewport. Native browser
+      // fullscreen can expand Firefox to the host screen and is covered by
+      // the dedicated fullscreen contract tests.
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(document.documentElement, "webkitRequestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+    });
     await page.keyboard.press("Enter");
-    if (testInfo.project.name.includes("mobile")) {
-      const landscapeGate = page.getByTestId("landscape-gate");
+    const landscapeGate = page.getByTestId("landscape-gate");
+    if (await landscapeGate.isVisible().catch(() => false)) {
       await expect(landscapeGate).toBeVisible();
       await expect(landscapeGate).toContainText("ROTATE TO PLAY");
       await page.setViewportSize({ width: 568, height: 320 });

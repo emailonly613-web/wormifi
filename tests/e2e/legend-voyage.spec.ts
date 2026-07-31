@@ -14,6 +14,7 @@ test("Legend Voyage proves value without exposing checkout", async ({ page }) =>
     await declineAnalytics.click();
   }
 
+  await page.getByTestId("settings-button").click();
   const launch = page.getByTestId("legend-voyage-launch");
   await expect(launch).toBeVisible();
   await expect(launch).toContainText("CAPTAIN LEVEL");
@@ -47,11 +48,13 @@ test("Legend Voyage proves value without exposing checkout", async ({ page }) =>
 
   await page.getByRole("button", { name: "Close Legend Voyage" }).click();
   await expect(voyage).toHaveCount(0);
+  await expect(page.getByTestId("settings-panel")).toBeVisible();
   await expect(launch).toBeVisible();
 });
 
 test("legacy query-string store preview cannot expose a payment action", async ({ page }) => {
   await page.goto("/?store=preview");
+  await page.getByTestId("settings-button").click();
   await page.getByTestId("skin-studio-launch").click();
   await expect(page.getByTestId("skin-studio")).toBeVisible();
   await expect(page.getByTestId("skin-studio-founder")).toHaveCount(0);

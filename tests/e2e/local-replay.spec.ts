@@ -112,7 +112,9 @@ test("offers the same verified replay and honest actions after Endless", async (
   test.setTimeout(50_000);
 
   await page.goto("/");
+  await page.getByTestId("settings-button").click();
   await page.getByRole("button", { name: /endless/i }).click();
+  await page.getByTestId("settings-close").click();
   await page.getByTestId("solo-run-button").click();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByTestId("results-panel")).toBeVisible({ timeout: 35_000 });

@@ -239,7 +239,9 @@ test("binds the selected board and private Photo Skin to play without putting ph
   });
 
   await page.goto(`/?room=${roomId}&board=black-pearl-relay`);
+  await page.getByTestId("settings-button").click();
   await expect(page.getByTestId("board-picker")).toHaveAttribute("data-board-id", "black-pearl-relay");
+  await page.getByTestId("settings-close").click();
   await page.getByTestId("live-lab-button").click();
 
   const arena = page.getByTestId("live-arena-canvas");
@@ -280,7 +282,9 @@ test("binds the selected board and private Photo Skin to play without putting ph
     });
   }
   await page.getByTestId("live-exit-button").click();
+  await page.getByTestId("settings-button").click();
   await expect(page.getByTestId("board-picker")).toHaveAttribute("data-board-locked", "true");
+  await page.getByTestId("settings-close").click();
   await page.getByTestId("lobby-invite").click();
   const invite = new URL(await page.getByTestId("room-invite-url").inputValue());
   expect(invite.searchParams.get("room")).toBe(roomId);
@@ -378,6 +382,7 @@ test("accepts an existing room's locked board after rejecting an override reques
   }
 
   await page.getByTestId("live-exit-button").click();
+  await page.getByTestId("settings-button").click();
   const picker = page.getByTestId("board-picker");
   await expect(picker).toHaveAttribute("data-board-id", "open-seas");
   await expect(picker).toHaveAttribute("data-board-locked", "true");
