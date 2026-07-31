@@ -484,6 +484,12 @@ export function spawnDrop(
   ) {
     throw new Error("Global pickup lock must be a non-negative safe tick");
   }
+  if (
+    options.lifetimeTicks !== undefined &&
+    (!Number.isSafeInteger(options.lifetimeTicks) || options.lifetimeTicks < 1)
+  ) {
+    throw new Error("Drop lifetime must be a positive safe tick count");
+  }
 
   const source = options.source ?? "arena";
   const specialistDurationSeconds =
@@ -518,6 +524,8 @@ export function spawnDrop(
     id,
     position: cloneVec(options.position),
     mass: options.mass,
+    spawnedAtTick: state.tick,
+    ...(options.lifetimeTicks ? { expiresAtTick: state.tick + options.lifetimeTicks } : {}),
     ...(bankedMass > EPSILON ? { bankedMass } : {}),
     radius: options.radius ?? state.config.dropRadius,
     source,

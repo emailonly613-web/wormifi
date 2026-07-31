@@ -21,6 +21,8 @@ export const FREE_WORM_MATERIAL_PATTERNS = [
   "cutlass-flame",
   "broadside-bolt",
   "oracle-spiral",
+  "gumball-pop",
+  "prism-plume",
 ] as const;
 
 /** Founder's Pack materials — authored for the paid legend themes only. */

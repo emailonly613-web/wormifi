@@ -69,7 +69,10 @@ export interface PhotoSkinState {
   version: typeof PHOTO_SKIN_STATE_VERSION;
   consented: boolean;
   enabled: boolean;
+  /** Body material selection. Kept as themeId for wire/storage compatibility. */
   themeId: PhotoSkinThemeId;
+  /** Independent cinematic captain face. Missing legacy values inherit themeId. */
+  faceThemeId: PhotoSkinThemeId;
   photos: PhotoSkinPhoto[];
   privacy: typeof PHOTO_SKIN_PRIVACY_CONTRACT;
   updatedAtMs: number;
@@ -106,6 +109,7 @@ export interface PhotoSkinCoverCrop {
 
 export interface PhotoSkinRenderPlan {
   theme: typeof PHOTO_SKIN_THEMES[number];
+  faceTheme: typeof PHOTO_SKIN_THEMES[number];
   localPhotosEnabled: boolean;
   localPhotos: readonly PhotoSkinPhoto[];
   /** This is the only multiplayer-safe cosmetic value until moderation exists. */
@@ -198,6 +202,7 @@ export function createDefaultPhotoSkinState(timestamp = nowMs()): PhotoSkinState
     consented: false,
     enabled: false,
     themeId: DEFAULT_THEME_ID,
+    faceThemeId: DEFAULT_THEME_ID,
     photos: [],
     privacy: privacyContract(),
     updatedAtMs: timestamp,
@@ -228,6 +233,11 @@ export function normalizePhotoSkinState(value: unknown, timestamp = nowMs()): Ph
     consented,
     enabled,
     themeId: isThemeId(value.themeId) ? value.themeId : DEFAULT_THEME_ID,
+    faceThemeId: isThemeId(value.faceThemeId)
+      ? value.faceThemeId
+      : isThemeId(value.themeId)
+        ? value.themeId
+        : DEFAULT_THEME_ID,
     photos,
     privacy: privacyContract(),
     updatedAtMs: typeof value.updatedAtMs === "number" && Number.isFinite(value.updatedAtMs)
@@ -318,6 +328,34 @@ export function selectPhotoSkinTheme(
   return {
     ...state,
     themeId: isThemeId(themeId) ? themeId : DEFAULT_THEME_ID,
+    updatedAtMs: timestamp,
+  };
+}
+
+/** Change only the captain face and preserve the body material. */
+export function selectPhotoSkinFace(
+  state: PhotoSkinState,
+  faceThemeId: PhotoSkinThemeId,
+  timestamp = nowMs(),
+): PhotoSkinState {
+  return {
+    ...state,
+    faceThemeId: isThemeId(faceThemeId) ? faceThemeId : DEFAULT_THEME_ID,
+    updatedAtMs: timestamp,
+  };
+}
+
+/** Apply one art-directed identity whose body material and face were made together. */
+export function selectCompletePhotoSkinStyle(
+  state: PhotoSkinState,
+  themeId: PhotoSkinThemeId,
+  timestamp = nowMs(),
+): PhotoSkinState {
+  const normalizedThemeId = isThemeId(themeId) ? themeId : DEFAULT_THEME_ID;
+  return {
+    ...state,
+    themeId: normalizedThemeId,
+    faceThemeId: normalizedThemeId,
     updatedAtMs: timestamp,
   };
 }
@@ -593,6 +631,7 @@ export function createPhotoSkinRenderPlan(state: PhotoSkinState): PhotoSkinRende
   const localPhotosEnabled = state.enabled && isPhotoSkinReady(state);
   return {
     theme: getPhotoSkinTheme(state.themeId),
+    faceTheme: getPhotoSkinTheme(state.faceThemeId),
     localPhotosEnabled,
     localPhotos: localPhotosEnabled ? state.photos : [],
     multiplayerAppearance: {

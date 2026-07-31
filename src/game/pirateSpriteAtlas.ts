@@ -399,9 +399,38 @@ export interface GroundTreasureSpriteItem {
   position: { x: number; y: number };
   radius: number;
   seed: number;
+  /** Authoritative phase opacity for treasure relocation. */
+  opacity?: number;
+  /** Constant pickup reward signal shown beside every visible treasure. */
+  points?: number;
   /** Optional caller-projected coordinates avoid a second allocation/transform. */
   screenX?: number;
   screenY?: number;
+}
+
+export function drawTreasurePointLabel(
+  context: CanvasRenderingContext2D,
+  points: number,
+  x: number,
+  y: number,
+  treasureSize: number,
+): void {
+  if (!Number.isFinite(points) || points <= 0) return;
+  const fontSize = Math.max(8, Math.min(12, treasureSize * 0.19));
+  const label = `+${Math.round(points)}`;
+  context.save();
+  context.font = `950 ${fontSize}px Inter, system-ui, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(2.5, fontSize * 0.34);
+  context.strokeStyle = "rgba(2, 12, 25, 0.94)";
+  context.strokeText(label, x, y);
+  context.fillStyle = points >= 30 ? "#ffe071" : "#edfff9";
+  context.shadowColor = points >= 30 ? "#ffbd36" : "#4fffd8";
+  context.shadowBlur = points >= 30 ? 7 : 3;
+  context.fillText(label, x, y);
+  context.restore();
 }
 
 /**
@@ -450,6 +479,8 @@ export function drawGroundTreasureSpriteField(
   context.imageSmoothingQuality = "medium";
   try {
     for (const item of items) {
+      const itemOpacity = Math.max(0, Math.min(1, item.opacity ?? 1));
+      if (itemOpacity <= 0) continue;
       const projected = item.screenX === undefined || item.screenY === undefined
         ? worldToScreen(item.position)
         : undefined;
@@ -479,7 +510,7 @@ export function drawGroundTreasureSpriteField(
       if (floatShadow) {
         const shadowWidth = size * (0.9 - lift * 0.1);
         const shadowHeight = size * (0.34 - lift * 0.05);
-        context.globalAlpha = previousGlobalAlpha * (0.62 - lift * 0.14);
+        context.globalAlpha = previousGlobalAlpha * itemOpacity * (0.62 - lift * 0.14);
         context.drawImage(
           floatShadow,
           screenX - shadowWidth / 2,
@@ -487,8 +518,9 @@ export function drawGroundTreasureSpriteField(
           shadowWidth,
           shadowHeight,
         );
-        context.globalAlpha = previousGlobalAlpha;
+        context.globalAlpha = previousGlobalAlpha * itemOpacity;
       }
+      context.globalAlpha = previousGlobalAlpha * itemOpacity;
       const rotationIndex = safeSeed % GROUND_TREASURE_ROTATION_COUNT;
       if (rotationAtlas) {
         const treasureIndex = safeSeed % COMMON_TREASURE.length;
@@ -520,7 +552,7 @@ export function drawGroundTreasureSpriteField(
           Math.sin(now * 0.0042 + safeSeed * 0.73),
         );
         const glintSize = size * (0.17 + twinkle * 0.1);
-        context.globalAlpha = previousGlobalAlpha * (0.28 + twinkle * 0.62);
+        context.globalAlpha = previousGlobalAlpha * itemOpacity * (0.28 + twinkle * 0.62);
         context.drawImage(
           glint,
           spriteOptions.x - size * 0.25 - glintSize / 2,
@@ -528,8 +560,16 @@ export function drawGroundTreasureSpriteField(
           glintSize,
           glintSize,
         );
-        context.globalAlpha = previousGlobalAlpha;
+        context.globalAlpha = previousGlobalAlpha * itemOpacity;
       }
+      drawTreasurePointLabel(
+        context,
+        item.points ?? 0,
+        spriteOptions.x,
+        screenY + size * 0.48,
+        size,
+      );
+      context.globalAlpha = previousGlobalAlpha;
     }
   } finally {
     context.imageSmoothingEnabled = previousSmoothingEnabled;

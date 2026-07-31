@@ -145,6 +145,10 @@ export interface DropState {
   id: DropId;
   position: Vec2;
   mass: number;
+  /** Authoritative age clock used by neutral treasure phase-in. */
+  spawnedAtTick: number;
+  /** Present only on ordinary arena treasure that will relocate. */
+  expiresAtTick?: number;
   /**
    * Conserved transient Echo mass waiting behind the visible pickup chunk.
    * This is authoritative simulation state and is never serialized to clients.
@@ -240,6 +244,8 @@ export interface SpawnDropOptions {
   id?: DropId;
   position: Vec2;
   mass: number;
+  /** Optional lifetime for ordinary neutral treasure. Echoes and Relics omit it. */
+  lifetimeTicks?: number;
   bankedMass?: number;
   radius?: number;
   source?: DropState["source"];

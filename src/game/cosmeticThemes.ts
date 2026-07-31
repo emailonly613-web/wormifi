@@ -82,6 +82,50 @@ export const COSMETIC_THEME_CATALOG = [
     pattern: "oracle-spiral",
     tier: "rare",
   },
+  {
+    id: "gumball-armada",
+    label: "GUMBALL ARMADA",
+    description: "Glossy candy orbs popping through a bubble-bright wake.",
+    palette: ["#ff4fa3", "#24c7f4", "#ffd62e", "#8b5cf6", "#ff8a1f", "#9bea42"],
+    pattern: "gumball-pop",
+    tier: "rare",
+    headHue: 0,
+  },
+  {
+    id: "gumball-berry",
+    label: "GUMBALL · BERRY",
+    description: "Pink, raspberry, grape, and cream candy spheres.",
+    palette: ["#ff4f9a", "#e52b50", "#9c4dff", "#ffd0e5", "#fff0cf"],
+    pattern: "gumball-pop",
+    tier: "rare",
+    headHue: 320,
+  },
+  {
+    id: "gumball-ocean",
+    label: "GUMBALL · OCEAN",
+    description: "Cyan, cobalt, violet, and sea-glass candy spheres.",
+    palette: ["#27d7f5", "#2374ff", "#7657ff", "#72f1c7", "#e8ffff"],
+    pattern: "gumball-pop",
+    tier: "rare",
+    headHue: 175,
+  },
+  {
+    id: "gumball-citrus",
+    label: "GUMBALL · CITRUS",
+    description: "Lemon, orange, lime, and mango candy spheres.",
+    palette: ["#ffe23f", "#ff8a1f", "#9bea42", "#ffbf37", "#fff7b2"],
+    pattern: "gumball-pop",
+    tier: "rare",
+    headHue: 48,
+  },
+  {
+    id: "prism-plume",
+    label: "PRISM PLUME",
+    description: "Winged rainbow petals braided into a joyful sky-blue flight.",
+    palette: ["#43c9ff", "#ffca42", "#ff5988", "#8c5cf5", "#f4fbff"],
+    pattern: "prism-plume",
+    tier: "rare",
+  },
   // FOUNDER'S PACK — the paid legend trio. New content only: every theme above
   // this line was free before the pack existed and stays free forever.
   {
@@ -119,6 +163,8 @@ export const COSMETIC_THEME_CATALOG = [
   pattern: WormMaterialPattern;
   tier: CosmeticThemeTier;
   premium?: true;
+  /** Optional art-directed hue rotation for recolorable cinematic head cutouts. */
+  headHue?: number;
 }[];
 
 /** Paid catalog entries. Equipping one requires an unlock; seeing one never does. */
@@ -158,12 +204,14 @@ export function isCosmeticTheme(value: unknown): value is CosmeticTheme {
     description?: unknown;
     palette?: unknown;
     pattern?: unknown;
+    headHue?: unknown;
   };
   if (!isCosmeticThemeId(candidate.id)) return false;
   const canonical = getCosmeticTheme(candidate.id);
   return candidate.label === canonical.label &&
     candidate.description === canonical.description &&
     candidate.pattern === canonical.pattern &&
+    (typeof candidate.headHue === "number" ? candidate.headHue : 0) === cosmeticThemeHeadHue(canonical) &&
     Array.isArray(candidate.palette) &&
     candidate.palette.length === canonical.palette.length &&
     candidate.palette.every((color, index) => color === canonical.palette[index]);
@@ -172,4 +220,11 @@ export function isCosmeticTheme(value: unknown): value is CosmeticTheme {
 export function getCosmeticTheme(themeId: unknown): CosmeticTheme {
   return COSMETIC_THEME_CATALOG.find((theme) => theme.id === themeId) ??
     COSMETIC_THEME_CATALOG[0];
+}
+
+/** Head-only colorway. Body palette selection remains completely independent. */
+export function cosmeticThemeHeadHue(theme: CosmeticTheme): number {
+  return "headHue" in theme && typeof theme.headHue === "number"
+    ? theme.headHue
+    : 0;
 }

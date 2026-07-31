@@ -17,6 +17,8 @@ import {
   readPhotoSkinState,
   removePhotoSkinPhoto,
   reorderPhotoSkinPhoto,
+  selectCompletePhotoSkinStyle,
+  selectPhotoSkinFace,
   selectPhotoSkinTheme,
   setPhotoSkinConsent,
   setPhotoSkinEnabled,
@@ -28,6 +30,7 @@ import {
 } from "../game/photoSkin";
 import { drawPhotoSkinCanvas } from "../game/photoSkinCanvas";
 import { drawContinuousPirateWorm } from "../game/treasureRender";
+import { cinematicHeadSource } from "../game/cinematicHeads";
 import {
   MATERIAL_MOTION_LEVELS,
   readRenderPreferences,
@@ -36,6 +39,7 @@ import {
   type RenderPreferences,
 } from "../game/renderPreferences";
 import {
+  cosmeticThemeHeadHue,
   getCosmeticTheme,
   isPremiumCosmeticThemeId,
   type CosmeticThemeTier,
@@ -70,14 +74,18 @@ export interface SkinStudioProps {
   storage?: PhotoSkinStorage;
   onStateChange?: (state: PhotoSkinState) => void;
   onClose?: () => void;
+  onOpenLegendVoyage?: () => void;
   className?: string;
 }
+
+type CustomizationMode = "body" | "face" | "complete";
 
 export function SkinStudio({
   initialState,
   storage,
   onStateChange,
   onClose,
+  onOpenLegendVoyage,
   className = "",
 }: SkinStudioProps) {
   const titleId = useId();
@@ -97,6 +105,7 @@ export function SkinStudio({
   const [renderPrefs, setRenderPrefs] = useState<RenderPreferences>(() => readRenderPreferences());
   const [founderUnlocked] = useState(() => isFounderPackUnlocked());
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
+  const [customizationMode, setCustomizationMode] = useState<CustomizationMode>("body");
   // Historic test grants remain usable, but the public Skin Studio no longer
   // exposes any checkout or query-string purchase preview.
   const founderStoreVisible = founderUnlocked;
@@ -133,6 +142,7 @@ export function SkinStudio({
     // A "try before you unlock" preview repaints the worm in a premium theme
     // without ever writing it into the persisted state.
     const previewTheme = previewThemeId ? getCosmeticTheme(previewThemeId) : renderPlan.theme;
+    const previewFaceTheme = previewThemeId ? getCosmeticTheme(previewThemeId) : renderPlan.faceTheme;
     // Reduced motion wins over every studio control, exactly as in the arena.
     const motionScale = reducedMotionRef.current ? 0 : PREVIEW_MOTION_SCALE[renderPrefs.materialMotion];
     let decoded: ReadonlyMap<string, CanvasImageSource> = new Map();
@@ -190,6 +200,9 @@ export function SkinStudio({
         materialMotion: motionScale,
         materialGlow: renderPrefs.materialGlow,
         cinematicHead: true,
+        cinematicHeadPattern: previewFaceTheme.pattern,
+        cinematicHeadPalette: previewFaceTheme.palette,
+        cinematicHeadHue: cosmeticThemeHeadHue(previewFaceTheme),
       });
       drawPhotoSkinCanvas(context, {
         points: points.slice(1),
@@ -293,38 +306,53 @@ export function SkinStudio({
     >
       <header className="skin-studio-header">
         <div>
-          <span className="skin-studio-kicker">PRIVATE COSMETIC WORKSHOP</span>
-          <h2 id={titleId}>PHOTO SKIN STUDIO</h2>
+          <span className="skin-studio-kicker">THREE CLEAR WAYS TO BUILD YOUR CAPTAIN</span>
+          <h2 id={titleId}>CAPTAIN CUSTOMIZER</h2>
+          <p>Change the body, change the face, or equip one art-directed complete identity.</p>
         </div>
-        {onClose && (
-          <button type="button" className="skin-studio-close" onClick={onClose} aria-label="Close Photo Skin Studio">
-            ×
-          </button>
-        )}
+        <div className="skin-studio-header-actions">
+          {onOpenLegendVoyage && (
+            <button type="button" className="skin-studio-voyage-link" onClick={onOpenLegendVoyage}>
+              <strong>SEE LEGEND VOYAGE</strong>
+              <small>STORY + 3 CINEMATIC LEGENDS</small>
+            </button>
+          )}
+          {onClose && (
+            <button type="button" className="skin-studio-close" onClick={onClose} aria-label="Close Captain Customizer">
+              ×
+            </button>
+          )}
+        </div>
       </header>
 
-      <div className="skin-studio-privacy" id={privacyId}>
-        <strong>{PHOTO_SKIN_PRIVACY_PROMISE}</strong>
-        <span>{PHOTO_SKIN_MULTIPLAYER_PROMISE}</span>
-        <small>{storageStatus}</small>
+      <div className="skin-studio-modes" role="tablist" aria-label="Customization category">
+        {([
+          ["body", "1", "BODY SKIN ONLY", "Face stays exactly the same."],
+          ["face", "2", "FACE ONLY", "Body skin stays exactly the same."],
+          ["complete", "3", "COMPLETE STYLES", "Matched face + skin made together."],
+        ] as const).map(([mode, number, label, detail]) => (
+          <button
+            key={mode}
+            type="button"
+            role="tab"
+            aria-selected={customizationMode === mode}
+            className={customizationMode === mode ? "selected" : ""}
+            data-testid={`customizer-mode-${mode}`}
+            onClick={() => {
+              setPreviewThemeId(null);
+              setCustomizationMode(mode);
+              setStatus(`${label.toLowerCase()} selected.`);
+            }}
+          >
+            <span>{number}</span>
+            <strong>{label}</strong>
+            <small>{detail}</small>
+          </button>
+        ))}
       </div>
 
-      <label className="skin-studio-consent" htmlFor={consentId}>
-        <input
-          id={consentId}
-          type="checkbox"
-          checked={state.consented}
-          onChange={(event) => handleConsent(event.currentTarget.checked)}
-        />
-        <span>
-          <strong>EXPLICIT PHOTO CONSENT</strong>
-          {PHOTO_SKIN_CONSENT_TEXT}
-          {state.consented && state.photos.length > 0 && <small>Unchecking immediately deletes every stored photo copy.</small>}
-        </span>
-      </label>
-
-      <fieldset className="skin-studio-themes">
-        <legend>AUTHORED THEME OTHER PLAYERS CAN SEE</legend>
+      {customizationMode === "body" && <fieldset className="skin-studio-themes" data-testid="body-skin-catalog">
+        <legend>BODY SKIN ONLY · PICK A MATERIAL</legend>
         <div>
           {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => (
             <label key={theme.id} className={state.themeId === theme.id ? "selected" : ""}>
@@ -335,7 +363,7 @@ export function SkinStudio({
                 checked={state.themeId === theme.id}
                 onChange={() => {
                   setPreviewThemeId(null);
-                  commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} selected for public play.`);
+                  commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} body selected. Your face did not change.`);
                 }}
               />
               <span className="skin-theme-swatches" aria-hidden="true">
@@ -349,19 +377,99 @@ export function SkinStudio({
                   </em>
                 )}
               </strong>
-              <small>{theme.description}</small>
+              <small>{theme.description} Face stays {getCosmeticTheme(state.faceThemeId).label}.</small>
             </label>
           ))}
         </div>
-      </fieldset>
+      </fieldset>}
 
-      {founderStoreVisible && (
+      {customizationMode === "face" && <fieldset className="skin-studio-themes skin-studio-faces" data-testid="face-only-catalog">
+        <legend>FACE ONLY · PICK A CINEMATIC CAPTAIN</legend>
+        <div>
+          {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => (
+            <label key={theme.id} className={state.faceThemeId === theme.id ? "selected" : ""}>
+              <input
+                type="radio"
+                name={`${titleId}-face`}
+                value={theme.id}
+                checked={state.faceThemeId === theme.id}
+                onChange={() => {
+                  setPreviewThemeId(null);
+                  commit(selectPhotoSkinFace(state, theme.id), `${theme.label} face selected. Your body skin did not change.`);
+                }}
+              />
+              <span className="skin-face-cutout" aria-hidden="true">
+                <img
+                  src={cinematicHeadSource(theme.pattern)}
+                  alt=""
+                  draggable={false}
+                  style={{ filter: `hue-rotate(${cosmeticThemeHeadHue(theme)}deg)` }}
+                />
+              </span>
+              <strong>{theme.label}</strong>
+              <small>FACE ONLY · body remains {getCosmeticTheme(state.themeId).label}</small>
+            </label>
+          ))}
+        </div>
+        {onOpenLegendVoyage && (
+          <button type="button" className="skin-studio-legend-card" onClick={onOpenLegendVoyage}>
+            <strong>+ 3 LEGEND FACES</strong>
+            <span>KRAKEN · PHOENIX · LEVIATHAN</span>
+            <small>Open the playable story and preview all three.</small>
+          </button>
+        )}
+      </fieldset>}
+
+      {customizationMode === "complete" && <fieldset className="skin-studio-themes skin-studio-complete" data-testid="complete-style-catalog">
+        <legend>COMPLETE STYLES · MATCHED FACE + BODY</legend>
+        <div>
+          {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => {
+            const selected = state.themeId === theme.id && state.faceThemeId === theme.id;
+            return (
+              <label key={theme.id} className={selected ? "selected" : ""}>
+                <input
+                  type="radio"
+                  name={`${titleId}-complete`}
+                  value={theme.id}
+                  checked={selected}
+                  onChange={() => {
+                    setPreviewThemeId(null);
+                    commit(selectCompletePhotoSkinStyle(state, theme.id), `${theme.label} complete style equipped — matched face and body.`);
+                  }}
+                />
+                <span className="skin-face-cutout" aria-hidden="true">
+                  <img
+                    src={cinematicHeadSource(theme.pattern)}
+                    alt=""
+                    draggable={false}
+                    style={{ filter: `hue-rotate(${cosmeticThemeHeadHue(theme)}deg)` }}
+                  />
+                </span>
+                <span className="skin-theme-swatches" aria-hidden="true">
+                  {theme.palette.map((color) => <i key={color} style={{ backgroundColor: color }} />)}
+                </span>
+                <strong>{theme.label}</strong>
+                <small>COMPLETE IDENTITY · face and material authored together</small>
+              </label>
+            );
+          })}
+        </div>
+        {onOpenLegendVoyage && (
+          <button type="button" className="skin-studio-legend-card" onClick={onOpenLegendVoyage}>
+            <strong>ENTER LEGEND VOYAGE</strong>
+            <span>3 COMPLETE LEGEND IDENTITIES + REWARD STORY</span>
+            <small>See Kraken, Phoenix, and Leviathan in the progression route. Not for sale yet.</small>
+          </button>
+        )}
+      </fieldset>}
+
+      {customizationMode === "complete" && founderStoreVisible && (
         <fieldset
           className="skin-studio-founder"
           data-testid="skin-studio-founder"
           data-founder-unlocked={founderUnlocked ? "true" : "false"}
         >
-          <legend>{FOUNDER_PACK.label} · THREE LEGEND SKINS</legend>
+          <legend>{FOUNDER_PACK.label} · THREE COMPLETE LEGEND IDENTITIES</legend>
           <div className="skin-founder-themes">
             {FOUNDER_PACK.themeIds.map((themeId) => {
               const theme = getCosmeticTheme(themeId);
@@ -369,18 +477,18 @@ export function SkinStudio({
               return (
                 <label
                   key={theme.id}
-                  className={state.themeId === theme.id ? "selected" : previewThemeId === theme.id ? "previewing" : ""}
+                  className={state.themeId === theme.id && state.faceThemeId === theme.id ? "selected" : previewThemeId === theme.id ? "previewing" : ""}
                 >
                   <input
                     type="radio"
                     name={`${titleId}-theme`}
                     value={theme.id}
-                    checked={state.themeId === theme.id}
+                    checked={state.themeId === theme.id && state.faceThemeId === theme.id}
                     disabled={!equippable}
                     onChange={() => {
                       if (!canEquipTheme(theme.id)) return;
                       setPreviewThemeId(null);
-                      commit(selectPhotoSkinTheme(state, theme.id), `${theme.label} equipped for public play.`);
+                      commit(selectCompletePhotoSkinStyle(state, theme.id), `${theme.label} complete identity equipped for public play.`);
                     }}
                   />
                   <span className="skin-theme-swatches" aria-hidden="true">
@@ -458,18 +566,43 @@ export function SkinStudio({
 
       <div className="skin-studio-worm-preview" data-testid="skin-studio-worm-preview">
         <div>
-          <strong>CONTINUOUS WORM PREVIEW</strong>
+          <strong>YOUR FACE + BODY PREVIEW</strong>
           <span>{getPreviewLabel(state)}</span>
         </div>
         <canvas
           ref={previewCanvasRef}
           role="img"
-          aria-label={`${PHOTO_SKIN_THEMES.find((theme) => theme.id === state.themeId)?.label ?? "Wormifi"} continuous worm skin preview`}
+          aria-label={`${getCosmeticTheme(state.faceThemeId).label} face with ${getCosmeticTheme(state.themeId).label} body preview`}
         >
           Continuous Wormifi skin preview.
         </canvas>
-        <small>Photos flow as overlapping body bands. They never change the worm's collision size or leave this device.</small>
+        <small>The face and body are independent. Optional private photos affect body bands only.</small>
       </div>
+
+      <div className="skin-studio-photo-heading">
+        <strong>OPTIONAL · PRIVATE PHOTO BODY OVERLAY</strong>
+        <span>This does not change your selected cinematic face.</span>
+      </div>
+
+      <div className="skin-studio-privacy" id={privacyId}>
+        <strong>{PHOTO_SKIN_PRIVACY_PROMISE}</strong>
+        <span>{PHOTO_SKIN_MULTIPLAYER_PROMISE}</span>
+        <small>{storageStatus}</small>
+      </div>
+
+      <label className="skin-studio-consent" htmlFor={consentId}>
+        <input
+          id={consentId}
+          type="checkbox"
+          checked={state.consented}
+          onChange={(event) => handleConsent(event.currentTarget.checked)}
+        />
+        <span>
+          <strong>EXPLICIT PHOTO CONSENT</strong>
+          {PHOTO_SKIN_CONSENT_TEXT}
+          {state.consented && state.photos.length > 0 && <small>Unchecking immediately deletes every stored photo copy.</small>}
+        </span>
+      </label>
 
       <div className="skin-studio-import">
         <div>
@@ -607,6 +740,10 @@ export function SkinStudio({
 }
 
 function getPreviewLabel(state: PhotoSkinState): string {
-  if (state.enabled && isPhotoSkinReady(state)) return `${state.photos.length} PRIVATE PHOTO BANDS ACTIVE`;
-  return "AUTHORED THEME ONLY";
+  const body = getCosmeticTheme(state.themeId).label;
+  const face = getCosmeticTheme(state.faceThemeId).label;
+  if (state.enabled && isPhotoSkinReady(state)) {
+    return `${face} FACE · ${body} BODY · ${state.photos.length} PRIVATE BANDS`;
+  }
+  return `${face} FACE · ${body} BODY`;
 }

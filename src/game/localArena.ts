@@ -12,6 +12,10 @@ import {
 } from "./core";
 import { nextRandomState } from "./random";
 import {
+  ambientTreasureLifetimeTicks,
+  expireAmbientTreasure,
+} from "./treasureFlow";
+import {
   RARE_TREASURE_CHEST_MASS,
   STARTER_TREASURE_MASS,
   selectNeutralTreasureMass,
@@ -197,6 +201,7 @@ function seedArenaDrops(
     mass: 0,
     radius: 0,
     source: "arena" as const,
+    lifetimeTicks: 1,
   };
   while (state.drops.length < target) {
     const pointAngleState = nextRandomState(state.randomState);
@@ -214,6 +219,10 @@ function seedArenaDrops(
     sharedPosition.y = Math.sin(pointAngle) * pointDistance;
     sharedOptions.mass = selectNeutralTreasureMass(massX, massY);
     sharedOptions.radius = 4 + Math.abs(massY) * 3;
+    sharedOptions.lifetimeTicks = ambientTreasureLifetimeTicks(
+      state.nextEntityNumber,
+      state.config.fixedStepSeconds,
+    );
     spawnDrop(state, sharedOptions);
   }
 }
@@ -408,6 +417,8 @@ export function stepLocalArena(
     session.providers,
   );
   localRelicDirectors.get(session.state)?.reconcile(result.events);
+  const relocatedTreasure = expireAmbientTreasure(session.state);
+  if (relocatedTreasure > 0) seedArenaDrops(session.state, LOCAL_TARGET_DROP_COUNT);
   maintainLocalArena(session);
   return result;
 }

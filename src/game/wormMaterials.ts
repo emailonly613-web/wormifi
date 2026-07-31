@@ -2,18 +2,18 @@
  * Animated material layers for the continuous pirate worm.
  *
  * Every authored theme names a `pattern`; until this module existed those nine
- * patterns were metadata only, so nine themes rendered as one identical worm
- * in nine palettes. Each pattern is now a real animated material painted along
- * the body centerline.
+ * patterns were metadata only, so the original themes rendered as one
+ * identical worm in different palettes. Each pattern is now a real animated
+ * material painted along the body centerline.
  *
  * Contract with the collider (same law as the base worm surface):
- * - Every mark stays inside the skin stroke, at most 0.71 × bodyRadius from
- *   the centerline. Materials never widen the visible worm beyond the
- *   authoritative silhouette.
+ * - Ordinary marks stay inside the inner skin stroke, at most 0.71 ×
+ *   bodyRadius from the centerline. Gumball spheres intentionally replace the
+ *   skin up to 0.95 × bodyRadius, but never cross the authoritative collider.
  * - `motion` scales the time term only. At motion 0 every material is a fully
  *   deterministic still composition — required by reduced-motion players and
  *   by replay/screenshot determinism.
- * - Each material draws a bounded number of batched passes (≤3 strokes/fills
+ * - Each material draws a bounded number of batched passes (≤5 strokes/fills
  *   total, one beginPath per pass). No per-point save/restore, no allocation
  *   inside point loops. This runs for every visible worm on every frame in
  *   crowded 29-chain scenes; the frame budget is already spoken for.
@@ -436,6 +436,156 @@ function drawOracleSpiral(
 }
 
 /**
+ * A complete chain of overlapping glossy candy spheres. Four color batches
+ * build the rainbow; one shared highlight pass makes every orb read as round.
+ */
+function drawGumballPop(
+  context: CanvasRenderingContext2D,
+  options: WormMaterialOptions,
+) {
+  const { points, bodyRadius, palette, identity, now, motion, glow } = options;
+  if (points.length < 3) return;
+  const t = now * 0.0017 * motion + identity * 0.43;
+  const spacing = Math.max(2, bodyRadius * 1.38);
+  const colors = [
+    palette[0] ?? "#ff4fa3",
+    palette[1] ?? "#24c7f4",
+    palette[2] ?? "#ffd62e",
+    palette[3] ?? "#8b5cf6",
+  ];
+
+  // Each color owns every fourth sphere, so the entire body becomes the
+  // gumball chain while still spending only one fill per color.
+  for (let pass = 0; pass < colors.length; pass += 1) {
+    const color = colors[pass];
+    context.fillStyle = color;
+    context.globalAlpha = 0.96;
+    if (pass === 0) applyGlow(context, color, bodyRadius, glow);
+    context.beginPath();
+    let ballIndex = 0;
+    for (let segment = 1; segment < points.length; segment += 1) {
+      const from = points[segment - 1];
+      const to = points[segment];
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+      const steps = Math.max(1, Math.ceil(length / spacing));
+      for (let step = 0; step < steps; step += 1, ballIndex += 1) {
+        if (ballIndex % colors.length !== pass) continue;
+        const progress = step / steps;
+        const x = from.x + (to.x - from.x) * progress;
+        const y = from.y + (to.y - from.y) * progress;
+        const pulse = 1 + Math.sin(t * 2.1 + ballIndex * 0.83) * 0.025;
+        const radius = bodyRadius * 0.92 * pulse;
+        context.moveTo(x + radius, y);
+        context.arc(x, y, radius, 0, TAU);
+      }
+    }
+    if (ballIndex % colors.length === pass) {
+      const end = points.at(-1)!;
+      const pulse = 1 + Math.sin(t * 2.1 + ballIndex * 0.83) * 0.025;
+      const radius = bodyRadius * 0.92 * pulse;
+      context.moveTo(end.x + radius, end.y);
+      context.arc(end.x, end.y, radius, 0, TAU);
+    }
+    context.fill();
+    if (pass === 0) clearGlow(context);
+  }
+
+  // One tiny reflected light per orb, batched into a single paint.
+  context.fillStyle = "rgba(255,255,255,0.92)";
+  context.globalAlpha = 0.66;
+  context.beginPath();
+  let highlightIndex = 0;
+  for (let segment = 1; segment < points.length; segment += 1) {
+    const from = points[segment - 1];
+    const to = points[segment];
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    const steps = Math.max(1, Math.ceil(length / spacing));
+    for (let step = 0; step < steps; step += 1, highlightIndex += 1) {
+      const progress = step / steps;
+      const x = from.x + (to.x - from.x) * progress - bodyRadius * 0.27;
+      const y = from.y + (to.y - from.y) * progress - bodyRadius * 0.3;
+      const radius = bodyRadius * (highlightIndex % 3 === 0 ? 0.16 : 0.12);
+      context.moveTo(x + radius, y);
+      context.arc(x, y, radius, 0, TAU);
+    }
+  }
+  const end = points.at(-1)!;
+  const endRadius = bodyRadius * (highlightIndex % 3 === 0 ? 0.16 : 0.12);
+  context.moveTo(end.x - bodyRadius * 0.27 + endRadius, end.y - bodyRadius * 0.3);
+  context.arc(end.x - bodyRadius * 0.27, end.y - bodyRadius * 0.3, endRadius, 0, TAU);
+  context.fill();
+}
+
+/**
+ * Interlocking rainbow feather-petals. Alternating offsets create the braided
+ * silhouette from the reference while every plate remains inside the skin.
+ */
+function drawPrismPlume(
+  context: CanvasRenderingContext2D,
+  options: WormMaterialOptions,
+) {
+  const { points, bodyRadius, palette, identity, now, motion, glow } = options;
+  if (points.length < 3) return;
+  const t = now * 0.00145 * motion + identity * 0.37;
+  const spacing = Math.max(2, bodyRadius * 0.82);
+  const colors = [
+    palette[1] ?? "#ffca42",
+    palette[2] ?? "#ff5988",
+    palette[3] ?? "#8c5cf5",
+    palette[0] ?? "#43c9ff",
+  ];
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    context.fillStyle = colors[pass];
+    context.globalAlpha = 0.82 + Math.sin(t * 1.8 + pass * 1.4) * 0.09;
+    if (pass === 0) applyGlow(context, colors[pass], bodyRadius, glow);
+    context.beginPath();
+    let plumeIndex = 0;
+    for (let segment = 1; segment < points.length; segment += 1) {
+      const from = points[segment - 1];
+      const to = points[segment];
+      const deltaX = to.x - from.x;
+      const deltaY = to.y - from.y;
+      const length = Math.hypot(deltaX, deltaY);
+      if (length < 0.0001) continue;
+      const tangentX = deltaX / length;
+      const tangentY = deltaY / length;
+      const normalX = -tangentY;
+      const normalY = tangentX;
+      const steps = Math.max(1, Math.ceil(length / spacing));
+      for (let step = 0; step < steps; step += 1, plumeIndex += 1) {
+        if (plumeIndex % colors.length !== pass) continue;
+        const progress = step / steps;
+        const side = plumeIndex % 2 === 0 ? -1 : 1;
+        const drift = Math.sin(t * 1.25 + plumeIndex * 0.74) * bodyRadius * 0.035;
+        const offset = side * bodyRadius * 0.08 + drift;
+        const centerX = from.x + deltaX * progress + normalX * offset;
+        const centerY = from.y + deltaY * progress + normalY * offset;
+        const tip = bodyRadius * 0.94;
+        const shoulder = bodyRadius * 0.68;
+        const tail = bodyRadius * 0.52;
+        context.moveTo(centerX + tangentX * tip, centerY + tangentY * tip);
+        context.quadraticCurveTo(
+          centerX + normalX * shoulder,
+          centerY + normalY * shoulder,
+          centerX - tangentX * tail,
+          centerY - tangentY * tail,
+        );
+        context.quadraticCurveTo(
+          centerX - normalX * shoulder,
+          centerY - normalY * shoulder,
+          centerX + tangentX * tip,
+          centerY + tangentY * tip,
+        );
+        context.closePath();
+      }
+    }
+    context.fill();
+    if (pass === 0) clearGlow(context);
+  }
+}
+
+/**
  * FOUNDER'S PACK — Kraken's Ink. Drifting abyssal ink billows, curling
  * tentacle flicks whose curl breathes with time, and paired sucker marks.
  */
@@ -634,6 +784,8 @@ const MATERIAL_RENDERERS: Record<
   "cutlass-flame": drawCutlassFlame,
   "broadside-bolt": drawBroadsideBolt,
   "oracle-spiral": drawOracleSpiral,
+  "gumball-pop": drawGumballPop,
+  "prism-plume": drawPrismPlume,
   "kraken-ink": drawKrakenInk,
   "phoenix-wake": drawPhoenixWake,
   "leviathan-scale": drawLeviathanScale,

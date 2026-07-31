@@ -56,6 +56,10 @@ import {
 } from "../../src/game/gamePace.ts";
 import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel.ts";
 import { selectNeutralTreasureMass } from "../../src/game/treasureEconomy.ts";
+import {
+  ambientTreasureLifetimeTicks,
+  expireAmbientTreasure,
+} from "../../src/game/treasureFlow.ts";
 
 const MAX_SNAPSHOT_BUFFER_BYTES = 256 * 1024;
 const SCHEDULER_WAKE_MS = 4;
@@ -489,6 +493,8 @@ export class ArenaRoom {
     }
     this.reconcileCollectorBeacon(result.events);
     this.pirateRelics.reconcile(result.events);
+    const relocatedTreasure = expireAmbientTreasure(this.state);
+    if (relocatedTreasure > 0) this.seedArenaDrops();
     // Refill in bounded batches. The shared deficit is part of the spatial and
     // payload contract: 600 is the target and 552 is the lowest ordinary
     // refill point, leaving room for transient body-shaped death hoards.
@@ -656,6 +662,9 @@ export class ArenaRoom {
         mass: drop.mass,
         radius: drop.radius,
         source: drop.source,
+        ...(drop.expiresAtTick !== undefined
+          ? { spawnedAtTick: drop.spawnedAtTick, expiresAtTick: drop.expiresAtTick }
+          : {}),
         originPlayerId: mixedOrigin ? MIXED_ECHO_ORIGIN_ID : drop.originPlayerId,
         ...(mixedOrigin ? { mixedOrigin: true as const } : {}),
         specialist: drop.specialist,
@@ -757,6 +766,10 @@ export class ArenaRoom {
         mass: selectNeutralTreasureMass(massRoll.value.x, massRoll.value.y),
         radius: 4 + Math.abs(massRoll.value.y) * 3,
         source: "arena",
+        lifetimeTicks: ambientTreasureLifetimeTicks(
+          this.state.nextEntityNumber,
+          this.state.config.fixedStepSeconds,
+        ),
       });
     }
   }

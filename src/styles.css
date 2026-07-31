@@ -2936,7 +2936,7 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   }
 }
 
-/* Privacy-first Photo Skin Studio. Kept isolated for later App integration. */
+/* Captain Customizer: body, face, and art-directed complete identities. */
 .skin-studio {
   position: relative;
   z-index: 20;
@@ -2945,6 +2945,8 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   margin: 12px auto;
   padding: 18px;
   overflow: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   color: #ecfffb;
   border: 1px solid rgba(112, 255, 226, 0.34);
   border-radius: 24px;
@@ -2985,6 +2987,96 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 .skin-studio-header > div {
   display: grid;
   gap: 2px;
+}
+
+.skin-studio-header p {
+  max-width: 560px;
+  margin: 5px 0 0;
+  color: #bed4dc;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.skin-studio-header-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  align-items: flex-start;
+  gap: 8px !important;
+}
+
+.skin-studio-voyage-link {
+  min-width: 190px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 216, 103, 0.62);
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(89, 54, 10, 0.96), rgba(41, 25, 72, 0.96));
+  box-shadow: 0 0 18px rgba(244, 199, 91, 0.14);
+  color: #ffe9a4;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skin-studio-voyage-link strong {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.skin-studio-voyage-link small {
+  color: #d8c7f8;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.skin-studio-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skin-studio-modes button {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(135, 195, 207, 0.28);
+  border-radius: 15px;
+  background: rgba(4, 22, 37, 0.88);
+  color: #d9edf0;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 2px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skin-studio-modes button > span {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(129, 255, 232, 0.4);
+  border-radius: 50%;
+  color: #8affe7;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.skin-studio-modes button strong {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+}
+
+.skin-studio-modes button small {
+  color: #8faab5;
+  font-size: 8px;
+  line-height: 1.25;
+}
+
+.skin-studio-modes button.selected {
+  border-color: #7affe5;
+  background: linear-gradient(145deg, rgba(21, 91, 91, 0.72), rgba(8, 38, 57, 0.92));
+  box-shadow: inset 0 0 0 1px rgba(122, 255, 228, 0.14), 0 0 18px rgba(79, 236, 207, 0.09);
 }
 
 .skin-studio-kicker {
@@ -3141,6 +3233,74 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   color: #9fbac4;
   font-size: 9px;
   line-height: 1.3;
+}
+
+.skin-studio-faces label,
+.skin-studio-complete label {
+  min-height: 88px;
+  grid-template-columns: auto 74px minmax(0, 1fr);
+  align-items: center;
+}
+
+.skin-studio-faces label > strong,
+.skin-studio-faces label > small,
+.skin-studio-complete label > strong,
+.skin-studio-complete label > small,
+.skin-studio-complete .skin-theme-swatches {
+  grid-column: 3;
+}
+
+.skin-face-cutout {
+  grid-column: 2;
+  grid-row: 1 / 5;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.skin-face-cutout img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.46)) drop-shadow(0 0 5px rgba(110, 255, 231, 0.16));
+}
+
+.skin-studio-legend-card {
+  width: 100%;
+  margin-top: 9px;
+  padding: 12px 15px;
+  border: 1px solid rgba(255, 216, 103, 0.52);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(75, 43, 8, 0.8), rgba(37, 18, 74, 0.84));
+  color: #ffe7a0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skin-studio-legend-card strong {
+  grid-row: 1 / 3;
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.skin-studio-legend-card span {
+  color: #e6d4ff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+}
+
+.skin-studio-legend-card small {
+  color: #b7a9ca;
+  font-size: 8px;
 }
 
 /* Visual-complexity tier badges. Flavor labels, not price tags. */
@@ -3412,6 +3572,26 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   background: #071b31;
 }
 
+.skin-studio-photo-heading {
+  padding-top: 3px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(120, 197, 207, 0.18);
+}
+
+.skin-studio-photo-heading strong {
+  color: #8affe7;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.skin-studio-photo-heading span {
+  color: #91aeb7;
+  font-size: 9px;
+}
+
 .skin-theme-swatches {
   height: 10px;
   border-radius: 999px;
@@ -3630,6 +3810,32 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 
   .skin-studio-themes > div {
     grid-template-columns: 1fr;
+  }
+
+  .skin-studio-header {
+    align-items: stretch;
+  }
+
+  .skin-studio-header-actions {
+    grid-auto-flow: row;
+  }
+
+  .skin-studio-voyage-link {
+    min-width: 0;
+  }
+
+  .skin-studio-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .skin-studio-modes button {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .skin-studio-photo-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
   }
 
   .skin-studio-import,

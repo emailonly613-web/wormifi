@@ -60,8 +60,20 @@ describe("founder pack catalog contract", () => {
     const freeIds = COSMETIC_THEME_CATALOG
       .filter((theme) => !PREMIUM_COSMETIC_THEME_IDS.has(theme.id))
       .map((theme) => theme.id);
-    // The original nine, exactly; a regression here means a free skin was walled off.
-    expect(freeIds).toHaveLength(9);
+    // The original nine stay at the front forever; new free identities may be
+    // appended without weakening the no-retroactive-paywall contract.
+    expect(freeIds.slice(0, 9)).toEqual([
+      "tideglass-corsair",
+      "sunken-crown",
+      "coral-signal",
+      "emerald-privateer",
+      "ruby-raider",
+      "pearl-wraith",
+      "pepper-flare",
+      "storm-cannon",
+      "vortex-oracle",
+    ]);
+    expect(freeIds).toHaveLength(14);
     for (const id of freeIds) expect(isPremiumCosmeticThemeId(id)).toBe(false);
   });
 

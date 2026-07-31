@@ -67,6 +67,7 @@ import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
+  drawTreasurePointLabel,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
   GROUND_TREASURE_RADIUS_SCALE,
   type GroundTreasureSpriteItem,
@@ -87,6 +88,7 @@ import {
 } from "../game/relicPresentation";
 import {
   getSpyglassDangerBearings,
+  getTreasureMassMultiplier,
   isTreasureMultiplierTier,
   type SpyglassDangerBearing,
 } from "../game/relics";
@@ -94,8 +96,9 @@ import {
   getArenaCameraVisibleRadius,
   getArenaCameraZoom,
 } from "../game/spatialFeel";
-import { RARE_TREASURE_CHEST_MASS } from "../game/treasureEconomy";
-import { wormMaterialForIdentity } from "../game/wormMaterials";
+import { RARE_TREASURE_CHEST_MASS, treasurePointValue } from "../game/treasureEconomy";
+import { ambientTreasureOpacity } from "../game/treasureFlow";
+import { isWormMaterialPattern, wormMaterialForIdentity } from "../game/wormMaterials";
 import {
   fixedHelmAnchor,
   touchStartsHelm,
@@ -483,6 +486,11 @@ function isPublicDrop(value: unknown): value is PublicDropState {
     isVec2(value.position) &&
     typeof value.mass === "number" && Number.isFinite(value.mass) && value.mass >= 0 &&
     typeof value.radius === "number" && Number.isFinite(value.radius) && value.radius > 0 &&
+    (value.spawnedAtTick === undefined ||
+      (typeof value.spawnedAtTick === "number" && Number.isSafeInteger(value.spawnedAtTick) && value.spawnedAtTick >= 0)) &&
+    (value.expiresAtTick === undefined ||
+      (typeof value.expiresAtTick === "number" && Number.isSafeInteger(value.expiresAtTick) &&
+        (value.spawnedAtTick === undefined || value.expiresAtTick > value.spawnedAtTick))) &&
     (value.source === "arena" || value.source === "boost" || value.source === "death") &&
     (value.originPlayerId === undefined || (typeof value.originPlayerId === "string" && value.originPlayerId.length > 0)) &&
     (value.mixedOrigin === undefined || value.mixedOrigin === true);
@@ -2316,6 +2324,7 @@ function renderLiveArena(
     context.fillText("WAITING FOR AN AUTHORITATIVE SNAPSHOT", width / 2, height / 2);
     return;
   }
+  const treasureMultiplier = getTreasureMassMultiplier(ownPlayer?.specialist, snapshot.tick);
 
   if (world.heatRing) {
     drawHeatRingTelegraph(
@@ -2384,6 +2393,8 @@ function renderLiveArena(
     item.position = drop.position;
     item.radius = drop.radius;
     item.seed = seed;
+    item.opacity = ambientTreasureOpacity(drop, snapshot.tick, world.fixedStepSeconds);
+    item.points = treasurePointValue(drop.mass, treasureMultiplier);
     item.screenX = screen.x;
     item.screenY = screen.y;
     fieldItems[fieldItemCount] = item;
@@ -2408,6 +2419,8 @@ function renderLiveArena(
       drop.source !== "death" &&
       drop.mass < RARE_TREASURE_CHEST_MASS
     ) continue;
+    context.save();
+    context.globalAlpha *= ambientTreasureOpacity(drop, snapshot.tick, world.fixedStepSeconds);
     drawNetworkDrop(
       context,
       drop,
@@ -2418,7 +2431,9 @@ function renderLiveArena(
       now,
       world.fixedStepSeconds,
       drop.id === tutorialSparkId,
+      treasureMultiplier,
     );
+    context.restore();
   }
   drawLiveParticles(context, particles, worldToScreen, zoom, width, height);
   const players = snapshot.players
@@ -2519,6 +2534,7 @@ function drawNetworkDrop(
   now: number,
   fixedStepSeconds: number,
   tutorialTarget: boolean,
+  treasureMultiplier: number,
 ) {
   const screen = worldToScreen(drop.position);
   const pulse = 0.92 + Math.sin(now * 0.004 + stableNumber(drop.id)) * 0.08;
@@ -2596,6 +2612,13 @@ function drawNetworkDrop(
   if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
     // High-value neutral mass is one authoritative treasure chest collider.
     drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
+    drawTreasurePointLabel(
+      context,
+      treasurePointValue(drop.mass, treasureMultiplier),
+      0,
+      radius * 1.9,
+      radius * GROUND_TREASURE_RADIUS_SCALE,
+    );
     context.restore();
     return;
   }
@@ -2611,6 +2634,13 @@ function drawNetworkDrop(
   })) {
     drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
   }
+  drawTreasurePointLabel(
+    context,
+    treasurePointValue(drop.mass, treasureMultiplier),
+    0,
+    radius * 2,
+    radius * GROUND_TREASURE_RADIUS_SCALE,
+  );
   context.restore();
 }
 
@@ -2670,6 +2700,11 @@ function drawNetworkChain(
     pattern: player.themeId
       ? getCosmeticTheme(player.themeId).pattern
       : wormMaterialForIdentity(identityNumber),
+    cinematicHeadPattern: isLocal && photoSkin && isWormMaterialPattern(photoSkin.renderPlan.faceTheme.pattern)
+      ? photoSkin.renderPlan.faceTheme.pattern
+      : undefined,
+    cinematicHeadPalette: isLocal ? photoSkin?.renderPlan.faceTheme.palette : undefined,
+    cinematicHeadHue: isLocal ? photoSkin?.renderPlan.faceTheme.headHue ?? 0 : 0,
     materialMotion,
     // Every crew keeps its authored material; only the local captain spends
     // this device's shadow-blur budget on bloom in a crowded room.

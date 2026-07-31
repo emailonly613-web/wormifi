@@ -69,6 +69,7 @@ import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
+  drawTreasurePointLabel,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
   GROUND_TREASURE_RADIUS_SCALE,
   type GroundTreasureSpriteItem,
@@ -86,6 +87,7 @@ import {
   resolveRelicPresentation,
 } from "../game/relicPresentation";
 import {
+  getTreasureMassMultiplier,
   getSpyglassDangerBearings,
   type SpyglassDangerBearing,
 } from "../game/relics";
@@ -93,7 +95,8 @@ import {
   getArenaCameraVisibleRadius,
   getArenaCameraZoom,
 } from "../game/spatialFeel";
-import { RARE_TREASURE_CHEST_MASS } from "../game/treasureEconomy";
+import { RARE_TREASURE_CHEST_MASS, treasurePointValue } from "../game/treasureEconomy";
+import { ambientTreasureOpacity } from "../game/treasureFlow";
 import {
   fixedHelmAnchor,
   touchStartsHelm,
@@ -1955,6 +1958,10 @@ function drawDrops(
   now: number,
   tutorialSparkId?: string,
 ) {
+  const treasureMultiplier = getTreasureMassMultiplier(
+    state.players[PLAYER_ID]?.specialist,
+    state.tick,
+  );
   // Reuse both the list and each stable ground-item descriptor. Practice can
   // hold 1,050 drops, so rebuilding these objects every frame creates GC
   // pauses even when the actual Canvas callback is inexpensive.
@@ -1998,6 +2005,8 @@ function drawDrops(
     }
     item.position = drop.position;
     item.radius = drop.radius;
+    item.opacity = ambientTreasureOpacity(drop, state.tick, state.config.fixedStepSeconds);
+    item.points = treasurePointValue(drop.mass, treasureMultiplier);
     item.screenX = screenX;
     item.screenY = screenY;
     fieldItems.push(item);
@@ -2029,6 +2038,7 @@ function drawDrops(
     if (screen.x < -radius * 2 || screen.y < -radius * 2 || screen.x > width + radius * 2 || screen.y > height + radius * 2) continue;
     const color = foodColor(drop);
     context.save();
+    context.globalAlpha *= ambientTreasureOpacity(drop, state.tick, state.config.fixedStepSeconds);
     context.translate(screen.x, screen.y);
 
     if (drop.id === tutorialSparkId) {
@@ -2096,6 +2106,13 @@ function drawDrops(
     if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
       // One authoritative collider is rendered as a high-value treasure chest.
       drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
+      drawTreasurePointLabel(
+        context,
+        treasurePointValue(drop.mass, treasureMultiplier),
+        0,
+        radius * 1.9,
+        radius * GROUND_TREASURE_RADIUS_SCALE,
+      );
       context.restore();
       continue;
     }
@@ -2111,6 +2128,13 @@ function drawDrops(
     })) {
       drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
     }
+    drawTreasurePointLabel(
+      context,
+      treasurePointValue(drop.mass, treasureMultiplier),
+      0,
+      radius * 2,
+      radius * GROUND_TREASURE_RADIUS_SCALE,
+    );
     context.restore();
   }
 }
@@ -2184,6 +2208,11 @@ function drawLivingChain(
     pattern: photoSkin && isWormMaterialPattern(photoSkin.renderPlan.theme.pattern)
       ? photoSkin.renderPlan.theme.pattern
       : wormMaterialForIdentity(identity),
+    cinematicHeadPattern: photoSkin && isWormMaterialPattern(photoSkin.renderPlan.faceTheme.pattern)
+      ? photoSkin.renderPlan.faceTheme.pattern
+      : undefined,
+    cinematicHeadPalette: photoSkin?.renderPlan.faceTheme.palette,
+    cinematicHeadHue: photoSkin?.renderPlan.faceTheme.headHue ?? 0,
     materialMotion,
     // Preserve authored patterns on every visible crew, but spend expensive
     // bloom only on this device's captain. Rival skin remains fully readable.

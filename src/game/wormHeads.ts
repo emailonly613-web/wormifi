@@ -289,6 +289,54 @@ function faceOracleSpiral(face: FaceContext) {
   context.stroke();
 }
 
+/** Gumball: twin glassy eyes on a round candy face with bouncing sugar shine. */
+function faceGumballPop(face: FaceContext) {
+  const { context, radius, palette, now, motion, identity } = face;
+  drawTrackingEye(face, radius * 0.18, -radius * 0.2, radius * 0.24, "#27081d");
+  drawTrackingEye(face, radius * 0.46, radius * 0.02, radius * 0.18, "#27081d");
+  const bounce = Math.sin(now * 0.004 * motion + identity * 0.77) * radius * 0.035;
+  context.fillStyle = palette[2] ?? "#ffd62e";
+  context.globalAlpha = 0.9;
+  context.beginPath();
+  context.arc(-radius * 0.16, -radius * 0.42 + bounce, radius * 0.18, 0, TAU);
+  context.arc(-radius * 0.3, -radius * 0.17 - bounce, radius * 0.12, 0, TAU);
+  context.fill();
+  context.fillStyle = "rgba(255,255,255,0.9)";
+  context.beginPath();
+  context.arc(-radius * 0.22, -radius * 0.48 + bounce, radius * 0.045, 0, TAU);
+  context.fill();
+  context.globalAlpha = 1;
+}
+
+/** Prism Plume: a bright eye under four living feather-petal brow plates. */
+function facePrismPlume(face: FaceContext) {
+  const { context, radius, palette, now, motion, identity } = face;
+  drawTrackingEye(face, radius * 0.3, -radius * 0.12, radius * 0.23, "#071f59");
+  const colors = [
+    palette[1] ?? "#ffca42",
+    palette[2] ?? "#ff5988",
+    palette[3] ?? "#8c5cf5",
+    palette[0] ?? "#43c9ff",
+  ];
+  for (let feather = 0; feather < colors.length; feather += 1) {
+    const flutter = Math.sin(now * 0.003 * motion + identity + feather * 0.8) * radius * 0.035;
+    context.strokeStyle = colors[feather];
+    context.globalAlpha = 0.82;
+    context.lineWidth = Math.max(1, radius * 0.095);
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(radius * (0.24 - feather * 0.16), -radius * (0.42 + feather * 0.04));
+    context.quadraticCurveTo(
+      -radius * (0.12 + feather * 0.12),
+      -radius * (0.72 - feather * 0.03) + flutter,
+      -radius * (0.34 + feather * 0.1),
+      -radius * (0.43 - feather * 0.05),
+    );
+    context.stroke();
+  }
+  context.globalAlpha = 1;
+}
+
 /** Kraken's Ink: four asymmetric eyes and an ink drip working down the jaw. */
 function faceKrakenInk(face: FaceContext) {
   const { context, radius, palette, now, motion, identity } = face;
@@ -380,6 +428,8 @@ const FACE_RENDERERS: Record<WormMaterialPattern, (face: FaceContext) => void> =
   "cutlass-flame": faceCutlassFlame,
   "broadside-bolt": faceBroadsideBolt,
   "oracle-spiral": faceOracleSpiral,
+  "gumball-pop": faceGumballPop,
+  "prism-plume": facePrismPlume,
   "kraken-ink": faceKrakenInk,
   "phoenix-wake": facePhoenixWake,
   "leviathan-scale": faceLeviathanScale,

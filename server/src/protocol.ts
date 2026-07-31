@@ -94,6 +94,9 @@ export interface PublicDropState {
   mass: number;
   radius: number;
   source: DropState["source"];
+  /** Additive lifecycle metadata for neutral treasure phase-in/out. */
+  spawnedAtTick?: number;
+  expiresAtTick?: number;
   /**
    * Identity of the producer. Mixed caches use MIXED_ECHO_ORIGIN_ID so older
    * protocol-v5 clients keep the conserved pickup visible without granting it

@@ -834,6 +834,12 @@ export interface ContinuousPirateWormOptions {
   boosting?: boolean;
   /** Opt-in while the high-resolution local/preview head layer is rolled out. */
   cinematicHead?: boolean;
+  /** Independent face identity. Omit to keep the face matched to the body material. */
+  cinematicHeadPattern?: WormMaterialPattern;
+  /** Independent face colorway; body palette never bleeds into a mixed face. */
+  cinematicHeadPalette?: readonly string[];
+  /** Art-directed hue rotation for recolorable cinematic head cutouts. */
+  cinematicHeadHue?: number;
 }
 
 function drawFloatingCinematicHead(
@@ -843,22 +849,45 @@ function drawFloatingCinematicHead(
   radius: number,
   angle: number,
   highlight: string,
+  hue: number,
   identity: number,
   now: number,
   motion: number,
 ) {
   const animated = Math.max(0, Math.min(1, Number.isFinite(motion) ? motion : 1));
   const phase = now * 0.0024 * animated + identity * 0.71;
-  const floatY = Math.sin(phase) * radius * 0.045;
-  const floatRoll = Math.sin(phase * 0.73) * 0.018;
-  const scale = 1 + Math.sin(phase * 0.61) * 0.018;
-  const extent = radius * 3.02 * scale;
+  // Keep the face alive without letting its neck detach from the body.
+  const floatY = Math.sin(phase) * radius * 0.012;
+  const floatRoll = Math.sin(phase * 0.73) * 0.008;
+  const scale = 1 + Math.sin(phase * 0.61) * 0.012;
+  const extent = radius * 2.72 * scale;
 
   context.save();
   context.translate(point.x, point.y);
   context.rotate(angle + floatRoll);
-  context.translate(-radius * 0.02, floatY);
+  context.translate(radius * 0.12, floatY);
+  // The generated heads include a sculpted lower neck. Mask only that rear,
+  // downward overhang so the transparent cutout joins the continuous body
+  // instead of hanging beneath it like a separate sticker.
+  context.beginPath();
+  context.moveTo(-extent * 0.54, -extent * 0.54);
+  context.lineTo(extent * 0.54, -extent * 0.54);
+  context.lineTo(extent * 0.54, extent * 0.54);
+  context.lineTo(radius * 0.3, extent * 0.54);
+  context.bezierCurveTo(
+    radius * 0.06,
+    radius * 0.9,
+    -radius * 0.26,
+    radius * 0.5,
+    -extent * 0.54,
+    radius * 0.46,
+  );
+  context.closePath();
+  context.clip();
   context.globalAlpha = 0.995;
+  context.filter = Number.isFinite(hue) && hue !== 0
+    ? `hue-rotate(${hue}deg)`
+    : "none";
   paintRenderImage(context, image, extent, extent, undefined, highlight);
   context.restore();
 }
@@ -1228,12 +1257,17 @@ export function drawContinuousPirateWorm(
     materialGlow,
     boosting = false,
     cinematicHead = false,
+    cinematicHeadPattern,
+    cinematicHeadPalette,
+    cinematicHeadHue = 0,
   } = options;
   if (points.length < 2 || headRadius <= 0 || bodyRadius <= 0) return;
 
   const outer = palette[1] ?? "#075d69";
   const skin = palette[0] ?? "#19cbb8";
   const highlight = palette[2] ?? "#a0fff0";
+  const facePalette = cinematicHeadPalette ?? palette;
+  const faceHighlight = facePalette[2] ?? highlight;
 
   context.save();
   context.lineCap = "round";
@@ -1332,7 +1366,7 @@ export function drawContinuousPirateWorm(
 
   // A single inset body emblem enriches larger worms without reconstructing a
   // chain of repeated body blocks.
-  if (points.length >= 6) {
+  if (points.length >= 6 && pattern !== "gumball-pop" && pattern !== "prism-plume") {
     const markIndex = Math.min(points.length - 2, Math.max(2, Math.floor(points.length * 0.42)));
     const tangent = unitVector(points[markIndex - 1], points[markIndex + 1], direction);
     const bodyImage = readyRenderImage(
@@ -1358,11 +1392,13 @@ export function drawContinuousPirateWorm(
   const beforeTail = points.at(-2)!;
   const tailDirection = unitVector(beforeTail, tailPoint, { x: -direction.x, y: -direction.y });
   const tailAngle = Math.atan2(tailDirection.y, tailDirection.x);
-  const tailImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormTail);
-  if (tailImage) {
-    drawClippedAtlasPart(context, tailImage, tailPoint, bodyRadius, tailAngle, skin, 0.96, 2.38);
-  } else {
-    drawProceduralWormTail(context, tailPoint, bodyRadius, tailAngle, palette);
+  if (pattern !== "gumball-pop" && pattern !== "prism-plume") {
+    const tailImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormTail);
+    if (tailImage) {
+      drawClippedAtlasPart(context, tailImage, tailPoint, bodyRadius, tailAngle, skin, 0.96, 2.38);
+    } else {
+      drawProceduralWormTail(context, tailPoint, bodyRadius, tailAngle, palette);
+    }
   }
 
   const headPoint = points[0];
@@ -1390,8 +1426,9 @@ export function drawContinuousPirateWorm(
   // A themed captain wears its material's own living face; only unthemed
   // crews (and image-less first frames) fall back to the shared authored head.
   let themedFaceDrawn = false;
-  if (pattern && cinematicHead) {
-    const cinematicImage = readyRenderImage(cinematicHeadSource(pattern));
+  const facePattern = cinematicHeadPattern ?? pattern;
+  if (facePattern && cinematicHead) {
+    const cinematicImage = readyRenderImage(cinematicHeadSource(facePattern));
     if (cinematicImage) {
       drawFloatingCinematicHead(
         context,
@@ -1399,7 +1436,8 @@ export function drawContinuousPirateWorm(
         headPoint,
         headRadius,
         headAngle,
-        highlight,
+        faceHighlight,
+        cinematicHeadHue,
         identity,
         now,
         materialMotion ?? 1,
@@ -1407,14 +1445,14 @@ export function drawContinuousPirateWorm(
       themedFaceDrawn = true;
     }
   }
-  if (pattern) {
+  if (facePattern) {
     if (!themedFaceDrawn) {
       context.save();
       context.translate(headPoint.x, headPoint.y);
       context.rotate(headAngle);
-      themedFaceDrawn = drawWormHeadFace(context, pattern, {
+      themedFaceDrawn = drawWormHeadFace(context, facePattern, {
         radius: headRadius,
-        palette,
+        palette: facePalette,
         direction,
         identity,
         now,

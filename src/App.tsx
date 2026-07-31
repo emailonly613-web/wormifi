@@ -54,6 +54,7 @@ import {
   PhotoSkinImageCache,
   createPhotoSkinRenderPlan,
   readPhotoSkinState,
+  selectPhotoSkinFace,
   selectPhotoSkinTheme,
   type PhotoSkinState,
 } from "./game/photoSkin";
@@ -351,7 +352,10 @@ export function App() {
     if (isPremiumCosmeticThemeId(photoSkinState.themeId) && !isFounderPackUnlocked()) {
       setPhotoSkinState((current) => selectPhotoSkinTheme(current, DEFAULT_COSMETIC_THEME_ID));
     }
-  }, [photoSkinState.themeId]);
+    if (isPremiumCosmeticThemeId(photoSkinState.faceThemeId) && !isFounderPackUnlocked()) {
+      setPhotoSkinState((current) => selectPhotoSkinFace(current, DEFAULT_COSMETIC_THEME_ID));
+    }
+  }, [photoSkinState.faceThemeId, photoSkinState.themeId]);
 
   useEffect(() => {
     if (!isCrazyGamesDistribution) return;
@@ -726,6 +730,10 @@ export function App() {
               setSkinStudioOpen(false);
               setSettingsOpen(skinStudioReturnToSettingsRef.current);
             }}
+            onOpenLegendVoyage={() => {
+              setSkinStudioOpen(false);
+              setLegendVoyageOpen(true);
+            }}
           />
         ) : currencyStoreOpen && currencyStoreMenuEnabled ? (
           <CurrencyStoreLayout
@@ -768,8 +776,8 @@ export function App() {
                     setSkinStudioOpen(true);
                   }}
                 >
-                  <b>CUSTOMIZE SKIN</b>
-                  <small>YOUR PHOTOS STAY ON THIS DEVICE</small>
+                  <b>CUSTOMIZE FACE &amp; SKIN</b>
+                  <small>BODY ONLY · FACE ONLY · COMPLETE STYLES</small>
                 </button>}
 
                 {!isCrazyGamesDistribution && <button

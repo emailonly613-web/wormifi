@@ -3,14 +3,14 @@ import { resolve } from "node:path";
 
 import { PHOTO_SKIN_STORAGE_KEY } from "../../src/game/photoSkin";
 
-test("opens and closes the private Photo Skin Studio from the launcher", async ({ page }) => {
+test("opens and closes the three-way Captain Customizer from the launcher", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("settings-button").click();
 
   const customize = page.getByTestId("skin-studio-launch");
   await expect(customize).toBeVisible();
-  await expect(customize).toContainText("CUSTOMIZE SKIN");
-  await expect(customize).toContainText("YOUR PHOTOS STAY ON THIS DEVICE");
+  await expect(customize).toContainText("CUSTOMIZE FACE & SKIN");
+  await expect(customize).toContainText("BODY ONLY · FACE ONLY · COMPLETE STYLES");
 
   await customize.click();
 
@@ -19,13 +19,37 @@ test("opens and closes the private Photo Skin Studio from the launcher", async (
   await expect(studio).toHaveAttribute("data-photo-sharing", "authored-theme-only");
   await expect(studio).toContainText("PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE");
   await expect(studio).toContainText("Other players see only your authored Wormifi theme");
+  await expect(page.getByTestId("customizer-mode-body")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("body-skin-catalog")).toBeVisible();
+  await page.getByTestId("customizer-mode-face").click();
+  await expect(page.getByTestId("face-only-catalog")).toBeVisible();
+  await page.getByTestId("customizer-mode-complete").click();
+  await expect(page.getByTestId("complete-style-catalog")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /GUMBALL ARMADA COMPLETE IDENTITY/i })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /PRISM PLUME COMPLETE IDENTITY/i })).toBeVisible();
+
+  await page.getByTestId("customizer-mode-body").click();
+  await page.getByRole("radio", { name: /GUMBALL · OCEAN/i }).check();
+  await page.getByTestId("customizer-mode-face").click();
+  await page.getByRole("radio", { name: /GUMBALL · BERRY/i }).check();
   const wormPreview = page.getByTestId("skin-studio-worm-preview");
   await expect(wormPreview).toBeVisible();
-  await expect(wormPreview).toContainText("CONTINUOUS WORM PREVIEW");
+  await expect(wormPreview).toContainText("YOUR FACE + BODY PREVIEW");
   await expect(wormPreview.locator("canvas")).toHaveAttribute("role", "img");
+  await expect(wormPreview.locator("canvas")).toHaveAttribute(
+    "aria-label",
+    "GUMBALL · BERRY face with GUMBALL · OCEAN body preview",
+  );
+
+  await page.getByTestId("customizer-mode-complete").click();
+  await page.getByRole("radio", { name: /PRISM PLUME COMPLETE IDENTITY/i }).check();
+  await expect(wormPreview.locator("canvas")).toHaveAttribute(
+    "aria-label",
+    "PRISM PLUME face with PRISM PLUME body preview",
+  );
   await expect(page.locator(".launch-panel")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Close Photo Skin Studio" }).click();
+  await page.getByRole("button", { name: "Close Captain Customizer" }).click();
 
   await expect(studio).toHaveCount(0);
   await expect(customize).toBeVisible();
@@ -80,7 +104,7 @@ test("imports, re-encodes, stores, and renders two private files without uploadi
 
   await page.getByRole("checkbox", { name: /USE PRIVATE PHOTOS ON THIS DEVICE/i }).check();
   await expect(studio).toHaveAttribute("data-photo-enabled", "true");
-  await page.getByRole("button", { name: "Close Photo Skin Studio" }).click();
+  await page.getByRole("button", { name: "Close Captain Customizer" }).click();
   await page.getByTestId("settings-close").click();
   await page.getByTestId("solo-run-button").click();
 

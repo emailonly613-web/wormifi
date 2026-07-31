@@ -21,6 +21,8 @@ export const CINEMATIC_HEAD_CATALOG = [
   { pattern: "cutlass-flame", id: "magma-corsair", label: "MAGMA CORSAIR", file: "magma-corsair-v1.png" },
   { pattern: "broadside-bolt", id: "brass-broadside", label: "BRASS BROADSIDE", file: "brass-broadside-v1.png" },
   { pattern: "oracle-spiral", id: "vortex-oracle", label: "VORTEX ORACLE", file: "vortex-oracle-v1.png" },
+  { pattern: "gumball-pop", id: "gumball-armada", label: "GUMBALL ARMADA", file: "gumball-orb-v2.png" },
+  { pattern: "prism-plume", id: "prism-plume", label: "PRISM PLUME", file: "prism-plume-v1.png" },
   { pattern: "kraken-ink", id: "kraken-ink", label: "KRAKEN INK CAPTAIN", file: "kraken-ink-v1.png" },
   { pattern: "phoenix-wake", id: "phoenix-wake", label: "PHOENIX WAKE", file: "phoenix-wake-v1.png" },
   { pattern: "leviathan-scale", id: "leviathan-scale", label: "LEVIATHAN SCALE", file: "leviathan-scale-v1.png" },

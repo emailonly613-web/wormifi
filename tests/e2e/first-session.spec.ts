@@ -202,7 +202,7 @@ test.describe("first Wormifi session", () => {
     await page.getByTestId("launcher-choose-look").click();
     await expect(page.getByTestId("skin-studio")).toBeVisible();
     await page.getByRole("radio", { name: /coral signal/i }).check();
-    await page.getByRole("button", { name: "Close Photo Skin Studio" }).click();
+    await page.getByRole("button", { name: "Close Captain Customizer" }).click();
 
     await expect(page.getByTestId("settings-panel")).toHaveCount(0);
     await expect(page.getByTestId("launcher-captain-profile")).toHaveAttribute("data-theme-id", "coral-signal");
@@ -237,7 +237,8 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId(gameContract.tutorial)).toBeVisible();
     const arena = page.getByTestId(gameContract.arena);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
-    await expect(page.getByTestId(gameContract.rank)).toContainText("SIZE RANK");
+    await expect(page.getByTestId(gameContract.rank)).toContainText("PLACE");
+    await expect(page.getByTestId(gameContract.rank)).toHaveAccessibleName(/rank 29 of 29/i);
     await expect(page.getByTestId(gameContract.length)).toContainText("SIZE");
     await expect(page.getByTestId(gameContract.boost)).toHaveAccessibleName(/costs 4 size per second/i);
 

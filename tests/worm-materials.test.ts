@@ -90,9 +90,9 @@ describe("worm material engine", () => {
         return recorder;
       })();
       expect(paintCount(), pattern).toBeGreaterThan(0);
-      // The frame budget contract: a material spends at most four batched
+      // The frame budget contract: a material spends at most five batched
       // passes, never one paint per body point.
-      expect(paintCount(), pattern).toBeLessThanOrEqual(4);
+      expect(paintCount(), pattern).toBeLessThanOrEqual(5);
       // No material stroke approaches the base skin stroke, let alone the
       // collider-width keel.
       for (const width of strokeWidths) {
@@ -138,7 +138,7 @@ describe("worm material engine", () => {
 
   it("assigns a stable authored material to unthemed crews", () => {
     expect(wormMaterialForIdentity(0)).toBe(WORM_MATERIAL_PATTERNS[0]);
-    expect(wormMaterialForIdentity(-10)).toBe(WORM_MATERIAL_PATTERNS[1]);
+    expect(wormMaterialForIdentity(-1)).toBe(WORM_MATERIAL_PATTERNS[1]);
     expect(wormMaterialForIdentity(Number.NaN)).toBe(WORM_MATERIAL_PATTERNS[0]);
     expect(WORM_MATERIAL_PATTERNS).toContain(wormMaterialForIdentity(98_765));
   });

@@ -20,6 +20,8 @@ import {
   readPhotoSkinState,
   removePhotoSkinPhoto,
   reorderPhotoSkinPhoto,
+  selectCompletePhotoSkinStyle,
+  selectPhotoSkinFace,
   selectPhotoSkinTheme,
   setPhotoSkinConsent,
   setPhotoSkinEnabled,
@@ -86,6 +88,42 @@ describe("privacy-first Photo Skin state", () => {
     expect(createPhotoSkinRenderPlan(state).multiplayerAppearance).toEqual({
       themeId: "tideglass-corsair",
       includesPhotos: false,
+    });
+    expect(state.faceThemeId).toBe("tideglass-corsair");
+    expect(createPhotoSkinRenderPlan(state).faceTheme.id).toBe("tideglass-corsair");
+  });
+
+  it("separates body-only, face-only, and complete identity selections", () => {
+    const original = createDefaultPhotoSkinState(1);
+    const bodyOnly = selectPhotoSkinTheme(original, "gumball-ocean", 2);
+    expect(bodyOnly).toMatchObject({
+      themeId: "gumball-ocean",
+      faceThemeId: "tideglass-corsair",
+    });
+
+    const faceOnly = selectPhotoSkinFace(bodyOnly, "gumball-berry", 3);
+    expect(faceOnly).toMatchObject({
+      themeId: "gumball-ocean",
+      faceThemeId: "gumball-berry",
+    });
+    expect(createPhotoSkinRenderPlan(faceOnly)).toMatchObject({
+      theme: { id: "gumball-ocean", palette: ["#27d7f5", "#2374ff", "#7657ff", "#72f1c7", "#e8ffff"] },
+      faceTheme: { id: "gumball-berry", headHue: 320 },
+    });
+
+    expect(selectCompletePhotoSkinStyle(faceOnly, "prism-plume", 4)).toMatchObject({
+      themeId: "prism-plume",
+      faceThemeId: "prism-plume",
+      updatedAtMs: 4,
+    });
+  });
+
+  it("migrates a legacy saved theme into the matching face without losing photos", () => {
+    const legacy = { ...createDefaultPhotoSkinState(1), themeId: "ruby-raider" } as Record<string, unknown>;
+    delete legacy.faceThemeId;
+    expect(normalizePhotoSkinState(legacy, 2)).toMatchObject({
+      themeId: "ruby-raider",
+      faceThemeId: "ruby-raider",
     });
   });
 
@@ -245,7 +283,10 @@ describe("privacy-first Photo Skin state", () => {
     const markup = renderToStaticMarkup(createElement(SkinStudio, {
       initialState: createDefaultPhotoSkinState(1),
     }));
-    expect(markup).toContain("PHOTO SKIN STUDIO");
+    expect(markup).toContain("CAPTAIN CUSTOMIZER");
+    expect(markup).toContain("BODY SKIN ONLY");
+    expect(markup).toContain("FACE ONLY");
+    expect(markup).toContain("COMPLETE STYLES");
     expect(markup).toContain("PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE");
     expect(markup).toContain("Other players see only your authored Wormifi theme");
     expect(markup).toContain("EXPLICIT PHOTO CONSENT");

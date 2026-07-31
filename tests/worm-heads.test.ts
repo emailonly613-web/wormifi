@@ -64,7 +64,7 @@ describe("worm head faces", () => {
       expect(paintCount(), pattern).toBeLessThanOrEqual(16);
       signatures.set(pattern, commands.join(";"));
     }
-    // Twelve materials, twelve genuinely different faces.
+    // Every material has a genuinely different face signature.
     expect(new Set(signatures.values()).size).toBe(WORM_MATERIAL_PATTERNS.length);
   });
 

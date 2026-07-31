@@ -38,6 +38,12 @@ export interface PhotoSkinCanvasRenderPlan {
     /** Authored material name; validated by the renderer before use. */
     pattern?: string;
   };
+  faceTheme: {
+    id?: string;
+    palette: readonly string[];
+    pattern?: string;
+    headHue?: number;
+  };
   localPhotosEnabled: boolean;
   localPhotos: readonly PhotoSkinCanvasPhoto[];
 }

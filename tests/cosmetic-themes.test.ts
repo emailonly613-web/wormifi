@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COSMETIC_THEME_CATALOG,
   DEFAULT_COSMETIC_THEME_ID,
+  cosmeticThemeHeadHue,
   getCosmeticTheme,
   isCosmeticTheme,
   isCosmeticThemeId,
@@ -14,7 +15,7 @@ import {
 } from "../src/game/photoSkin";
 
 describe("public-safe authored cosmetic themes", () => {
-  it("has one stable default, the original free nine, and the founder trio", () => {
+  it("keeps the original free nine stable, adds candy colorways, and preserves the founder trio", () => {
     expect(DEFAULT_COSMETIC_THEME_ID).toBe("tideglass-corsair");
     // The free nine are position-stable forever; a change here means a free
     // theme was renamed, removed, or walled off.
@@ -29,12 +30,22 @@ describe("public-safe authored cosmetic themes", () => {
       "storm-cannon",
       "vortex-oracle",
     ]);
-    expect(COSMETIC_THEME_CATALOG.slice(9).map((theme) => theme.id)).toEqual([
+    expect(COSMETIC_THEME_CATALOG.slice(9, 14).map((theme) => theme.id)).toEqual([
+      "gumball-armada",
+      "gumball-berry",
+      "gumball-ocean",
+      "gumball-citrus",
+      "prism-plume",
+    ]);
+    expect(COSMETIC_THEME_CATALOG.filter((theme) => "premium" in theme).map((theme) => theme.id)).toEqual([
       "krakens-ink",
       "phoenix-wake",
       "leviathan-scale",
     ]);
-    expect(new Set(COSMETIC_THEME_CATALOG.map((theme) => theme.palette.join("|"))).size).toBe(12);
+    expect(new Set(COSMETIC_THEME_CATALOG.map((theme) => theme.palette.join("|"))).size)
+      .toBe(COSMETIC_THEME_CATALOG.length);
+    expect(cosmeticThemeHeadHue(getCosmeticTheme("gumball-ocean"))).toBe(175);
+    expect(cosmeticThemeHeadHue(getCosmeticTheme("tideglass-corsair"))).toBe(0);
     expect(isCosmeticThemeId("sunken-crown")).toBe(true);
     expect(isCosmeticThemeId("data:image/webp;base64,private")).toBe(false);
     expect(isCosmeticThemeId("ghost-theme")).toBe(false);

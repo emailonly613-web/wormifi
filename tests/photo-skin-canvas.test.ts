@@ -37,6 +37,7 @@ function fakeCanvasContext() {
 function renderPlan(ids: readonly string[]): PhotoSkinCanvasRenderPlan {
   return {
     theme: { palette: ["#64ffe1", "#166d83", "#effff8"] },
+    faceTheme: { palette: ["#64ffe1", "#166d83", "#effff8"] },
     localPhotosEnabled: true,
     localPhotos: ids.map((id, index) => ({
       id,
