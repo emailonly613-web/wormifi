@@ -75,21 +75,13 @@ if ($hadCatchall) {
 $web | Add-Member -NotePropertyName error_document -NotePropertyValue '404.html' -Force
 Step 'set error_document=404.html'
 
-# --- 4a. The Founder's Pack store service ---------------------------------
-# A separate tiny component so store code never rides inside the arena
-# service. Secrets come from this machine's stores at deploy time: the Stripe
-# key from the Stripe CLI login, the unlock secret from the signing directory
-# (created once, beside the Android keystore). Neither is ever committed.
-$stripeConfig = Join-Path $env:USERPROFILE '.config\stripe\config.toml'
-$stripeKey = if (Test-Path $stripeConfig) {
-  ([regex]::Match((Get-Content $stripeConfig -Raw), "sk_test_[A-Za-z0-9]+")).Value
-} else { '' }
-$unlockSecretPath = 'D:\wormifi-signing\wormifi-unlock-secret.txt'
-$unlockSecret = if (Test-Path $unlockSecretPath) { (Get-Content $unlockSecretPath -Raw).Trim() } else { '' }
-
-$storeAlready = @($spec.services | Where-Object { $_.name -eq 'store' }).Count -gt 0
+# --- 4a. The hard-locked legacy store service ------------------------------
+# This component keeps old public routes explicitly unavailable while the
+# ordered Captain Passport foundation is built. It must have no payment key,
+# signing secret, origin switch, or environment-based enable path.
+$store = $spec.services | Where-Object { $_.name -eq 'store' }
+$storeAlready = @($store).Count -gt 0
 if (-not $storeAlready) {
-  if (-not $stripeKey -or -not $unlockSecret) { throw 'store secrets unavailable on this machine' }
   $storeService = [pscustomobject]@{
     name             = 'store'
     git              = [pscustomobject]@{
@@ -112,14 +104,15 @@ if (-not $storeAlready) {
       failure_threshold     = 3
     }
     envs             = @(
-      [pscustomobject]@{ key = 'STRIPE_SECRET_KEY'; scope = 'RUN_TIME'; type = 'SECRET'; value = $stripeKey }
-      [pscustomobject]@{ key = 'WORMIFI_UNLOCK_SECRET'; scope = 'RUN_TIME'; type = 'SECRET'; value = $unlockSecret }
-      [pscustomobject]@{ key = 'WORMIFI_PUBLIC_ORIGIN'; scope = 'RUN_TIME'; value = 'https://wormifi.com' }
       [pscustomobject]@{ key = 'PORT'; scope = 'RUN_TIME'; value = '8090' }
     )
   }
   $spec.services = @($spec.services) + $storeService
-  Step "added the store service component ($(if ($stripeKey.StartsWith('sk_test_')) { 'test' } else { 'live' }) mode key)"
+  Step 'added the hard-locked store service with no payment secrets'
+} else {
+  $legacyStoreKeys = @('STRIPE_SECRET_KEY', 'WORMIFI_UNLOCK_SECRET', 'WORMIFI_PUBLIC_ORIGIN', 'WORMIFI_CHECKOUT_ENABLED')
+  $store.envs = @($store.envs | Where-Object { $_.key -notin $legacyStoreKeys })
+  Step 'removed every legacy payment binding from the hard-locked store service'
 }
 
 # --- 4. www -> apex, one permanent redirect -------------------------------
@@ -156,11 +149,15 @@ if ($DryRun) {
 # the commit PINNED on the app (the last attempt), not the branch tip, so a
 # needless spec update after a broken push can only rebuild the broken pin.
 $liveWeb = $liveSpec.static_sites | Where-Object { $_.name -eq 'web' }
+$liveStore = $liveSpec.services | Where-Object { $_.name -eq 'store' }
+$legacyStoreKeys = @('STRIPE_SECRET_KEY', 'WORMIFI_UNLOCK_SECRET', 'WORMIFI_PUBLIC_ORIGIN', 'WORMIFI_CHECKOUT_ENABLED')
+$storeSecretsAbsent = @($liveStore.envs | Where-Object { $_.key -in $legacyStoreKeys }).Count -eq 0
 $gaAlready = @($liveWeb.envs | Where-Object { $_.key -eq 'VITE_GA4_MEASUREMENT_ID' -and $_.value -eq $Ga4MeasurementId }).Count -gt 0
 $specUpToDate = $gaAlready -and
   $arenaRuntimeAlready -and
   -not $hadCatchall -and
   $liveWeb.error_document -eq '404.html' -and
+  $storeSecretsAbsent -and
   @($liveSpec.ingress.rules | Where-Object { $_.redirect.authority -eq 'wormifi.com' }).Count -gt 0 -and
   @($liveSpec.services | Where-Object { $_.name -eq 'store' }).Count -gt 0 -and
   @($liveSpec.ingress.rules | Where-Object { $_.component.name -eq 'store' }).Count -gt 0
@@ -243,8 +240,11 @@ if ($wwwCode -eq 301) { Step 'PROVEN: www answers 301' } else { $fail += "www an
 # The store must answer through the public ingress before any buyer can.
 try {
   $storeHealth = Invoke-RestMethod -Uri 'https://wormifi.com/store/healthz' -TimeoutSec 20
-  if ($storeHealth.ok) { Step "PROVEN: store answers through the public ingress ($($storeHealth.mode) mode)" }
-  else { $fail += 'store healthz answered without ok:true' }
+  if ($storeHealth.ok -and $storeHealth.checkoutEnabled -eq $false -and $storeHealth.purchasable -eq $false) {
+    Step "PROVEN: store answers through public ingress with checkout locked ($($storeHealth.mode) mode)"
+  } else {
+    $fail += 'store healthz did not prove checkoutEnabled:false and purchasable:false'
+  }
 } catch {
   $fail += "store healthz unreachable: $($_.Exception.Message)"
 }

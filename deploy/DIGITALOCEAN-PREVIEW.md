@@ -21,6 +21,14 @@ The production browser already derives the same-origin socket URL as
 `wss://<current-host>/arena`, so the preview does not need to bake an unknown
 starter hostname into `VITE_ARENA_WS_URL`.
 
+The separately deployed legacy `store` proof is intentionally fail-closed.
+`GET /store/healthz` must report `checkoutEnabled: false` and
+`purchasable: false`; both checkout and verification return `503` without
+contacting Stripe. Hidden UI is not the control. Enabling payment is prohibited
+until the ordered Captain Passport gates in
+`docs/CAPTAIN-PASSPORT-GENERATION-AHEAD-AUDIT.md` pass and the owner gives a
+separate explicit authorization.
+
 ## Required preconditions
 
 Do not create the app until all of these are true:

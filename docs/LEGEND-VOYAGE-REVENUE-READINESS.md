@@ -2,6 +2,11 @@
 
 Status: public value preview allowed; payment collection prohibited.
 
+The canonical account, progression, entitlement, security, recovery, operations,
+and generation-ahead gates are defined in
+`docs/CAPTAIN-PASSPORT-GENERATION-AHEAD-AUDIT.md`. If the two documents appear to
+conflict, the stricter fail-closed requirement applies.
+
 ## Product promise
 
 Legend Voyage is a proposed one-time permanent cosmetic route. The current
@@ -61,12 +66,14 @@ or self-selected sample must be labeled inconclusive rather than successful.
 ## Recommended implementation order
 
 1. Ship this no-sale preview and collect only consented product-interest data.
-2. Add account identity, server-owned progression, and the entitlement ledger.
-3. Run observed external-player value/comprehension sessions and tune the route.
-4. Build the payment sandbox and operational/legal controls behind a private
+2. Add and audit account identity without payment or client-authored value.
+3. Add and audit server-owned progression after identity passes.
+4. Add and audit the durable entitlement ledger after progression passes.
+5. Run observed external-player value/comprehension sessions and tune the route.
+6. Build the payment sandbox and operational/legal controls behind a private
    feature flag.
-5. Review the evidence against predeclared thresholds.
-6. Only then authorize a limited live payment cohort and bank settlement.
+7. Review the evidence against predeclared thresholds.
+8. Only then authorize a limited live payment cohort and bank settlement.
 
 This contract deliberately separates a polished offer from the ability to take
 money. Both are required for honest, durable revenue.
