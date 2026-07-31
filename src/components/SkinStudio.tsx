@@ -189,6 +189,7 @@ export function SkinStudio({
         pattern: previewTheme.pattern,
         materialMotion: motionScale,
         materialGlow: renderPrefs.materialGlow,
+        cinematicHead: true,
       });
       drawPhotoSkinCanvas(context, {
         points: points.slice(1),

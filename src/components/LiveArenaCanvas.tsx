@@ -2611,6 +2611,7 @@ function drawNetworkChain(
     // this device's shadow-blur budget on bloom in a crowded room.
     materialGlow: materialGlow && isLocal,
     boosting: player.boosting === true,
+    cinematicHead: isLocal,
   });
 
   if (photoSkin && points.length > 2) {

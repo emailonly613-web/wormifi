@@ -2,6 +2,7 @@ import type { Vec2 } from "./types";
 import { drawPirateAtlasSprite, pirateSpritePath } from "./pirateSpriteAtlas";
 import { drawWormMaterial, type WormMaterialPattern } from "./wormMaterials";
 import { drawWormHeadFace } from "./wormHeads";
+import { cinematicHeadSource } from "./cinematicHeads";
 
 const TAU = Math.PI * 2;
 const gemSpriteCache = new Map<string, HTMLCanvasElement>();
@@ -831,6 +832,35 @@ export interface ContinuousPirateWormOptions {
   materialGlow?: boolean;
   /** True only while authoritative movement has granted the sprint. */
   boosting?: boolean;
+  /** Opt-in while the high-resolution local/preview head layer is rolled out. */
+  cinematicHead?: boolean;
+}
+
+function drawFloatingCinematicHead(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  point: Vec2,
+  radius: number,
+  angle: number,
+  highlight: string,
+  identity: number,
+  now: number,
+  motion: number,
+) {
+  const animated = Math.max(0, Math.min(1, Number.isFinite(motion) ? motion : 1));
+  const phase = now * 0.0024 * animated + identity * 0.71;
+  const floatY = Math.sin(phase) * radius * 0.045;
+  const floatRoll = Math.sin(phase * 0.73) * 0.018;
+  const scale = 1 + Math.sin(phase * 0.61) * 0.018;
+  const extent = radius * 3.02 * scale;
+
+  context.save();
+  context.translate(point.x, point.y);
+  context.rotate(angle + floatRoll);
+  context.translate(-radius * 0.02, floatY);
+  context.globalAlpha = 0.995;
+  paintRenderImage(context, image, extent, extent, undefined, highlight);
+  context.restore();
 }
 
 function traceWormCenterline(
@@ -1197,6 +1227,7 @@ export function drawContinuousPirateWorm(
     materialMotion,
     materialGlow,
     boosting = false,
+    cinematicHead = false,
   } = options;
   if (points.length < 2 || headRadius <= 0 || bodyRadius <= 0) return;
 
@@ -1359,20 +1390,39 @@ export function drawContinuousPirateWorm(
   // A themed captain wears its material's own living face; only unthemed
   // crews (and image-less first frames) fall back to the shared authored head.
   let themedFaceDrawn = false;
+  if (pattern && cinematicHead) {
+    const cinematicImage = readyRenderImage(cinematicHeadSource(pattern));
+    if (cinematicImage) {
+      drawFloatingCinematicHead(
+        context,
+        cinematicImage,
+        headPoint,
+        headRadius,
+        headAngle,
+        highlight,
+        identity,
+        now,
+        materialMotion ?? 1,
+      );
+      themedFaceDrawn = true;
+    }
+  }
   if (pattern) {
-    context.save();
-    context.translate(headPoint.x, headPoint.y);
-    context.rotate(headAngle);
-    themedFaceDrawn = drawWormHeadFace(context, pattern, {
-      radius: headRadius,
-      palette,
-      direction,
-      identity,
-      now,
-      motion: materialMotion ?? 1,
-      shielded,
-    });
-    context.restore();
+    if (!themedFaceDrawn) {
+      context.save();
+      context.translate(headPoint.x, headPoint.y);
+      context.rotate(headAngle);
+      themedFaceDrawn = drawWormHeadFace(context, pattern, {
+        radius: headRadius,
+        palette,
+        direction,
+        identity,
+        now,
+        motion: materialMotion ?? 1,
+        shielded,
+      });
+      context.restore();
+    }
   }
   if (!themedFaceDrawn) {
     const headImage = readyRenderImage(PIRATE_RENDER_ASSETS.wormHead);

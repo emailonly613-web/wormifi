@@ -2208,6 +2208,7 @@ function drawLivingChain(
     // bloom only on this device's captain. Rival skin remains fully readable.
     materialGlow: materialGlow && player.id === PLAYER_ID,
     boosting: isPlayerBoosting(player, state.config),
+    cinematicHead: player.id === PLAYER_ID,
   });
 
   if (photoSkin && points.length > 2) {

@@ -13,6 +13,7 @@ playwright-*-report/
 blob-report/
 test-results/
 test-results-*/
+tmp/imagegen/
 
 # Local configuration and secrets
 .env

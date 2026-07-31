@@ -120,6 +120,7 @@ export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendV
         pattern: selectedTheme.pattern,
         materialMotion: reducedMotion ? 0 : 1,
         materialGlow: true,
+        cinematicHead: true,
       });
 
       if (!reducedMotion) frame = requestAnimationFrame(paint);
