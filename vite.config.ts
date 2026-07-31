@@ -95,6 +95,7 @@ export default defineConfig(({ mode }) => {
         multiplayer: page("multiplayer.html"),
         pirateTreasure: page("pirate-treasure.html"),
         guides: page("guides.html"),
+        devlogCaptainCenteredLauncher: page("devlog-captain-centered-launcher.html"),
         wormifiVsSnakeIo: page("wormifi-vs-snake-io.html"),
         snakeIoVsSlitherIo: page("snake-io-vs-slither-io.html"),
         wormifiVsWormate: page("wormifi-vs-wormate.html"),

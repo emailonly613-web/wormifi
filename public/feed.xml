@@ -7,6 +7,13 @@
     <description>Building a browser worm arena in public: design laws, trade-offs, and the shipping record.</description>
     <language>en-us</language>
     <item>
+      <title>A launcher about your captain, not our menus</title>
+      <link>https://wormifi.com/devlog-captain-centered-launcher.html</link>
+      <guid isPermaLink="true">https://wormifi.com/devlog-captain-centered-launcher.html</guid>
+      <pubDate>Fri, 31 Jul 2026 02:30:00 GMT</pubDate>
+      <description>The launcher redesign: one captain front and center, settings in the Captain's Quarters, visible turbo reserve with arena pickups, and the earnable Legend Voyage.</description>
+    </item>
+    <item>
       <title>Why one server decides every collision</title>
       <link>https://wormifi.com/devlog-one-server-authority.html</link>
       <guid isPermaLink="true">https://wormifi.com/devlog-one-server-authority.html</guid>

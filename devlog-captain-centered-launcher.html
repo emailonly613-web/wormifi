@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071326" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="application-name" content="Wormifi" />
+    <meta name="apple-mobile-web-app-title" content="Wormifi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="description" content="Wormifi devlog: the launcher redesign — one captain front and center, settings moved to the Captain's Quarters, turbo you can see, and an earnable legend route." />
+    <meta property="og:title" content="Devlog: A Launcher About Your Captain, Not Our Menus" />
+    <meta property="og:description" content="Wormifi devlog: the launcher redesign — one captain front and center, settings moved to the Captain's Quarters, turbo you can see, and an ea" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://wormifi.com/devlog-captain-centered-launcher.html" />
+    <meta property="og:site_name" content="Wormifi" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:secure_url" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Devlog: A Launcher About Your Captain, Not Our Menus" />
+    <meta name="twitter:description" content="Wormifi devlog: the launcher redesign — one captain front and center, settings moved to the Captain's Quarters, turbo you can see, and an ea" />
+    <meta name="twitter:image" content="https://wormifi.com/og-wormifi-sea-serpent-v2.png" />
+    <meta name="twitter:image:alt" content="Wormifi pirate arena with treasure and a thick living sea-serpent crew." />
+    <link rel="canonical" href="https://wormifi.com/devlog-captain-centered-launcher.html" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/wormifi-180.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Article",
+            "@id": "https://wormifi.com/devlog-captain-centered-launcher.html#main",
+            "headline": "A launcher about your captain, not our menus",
+            "description": "Wormifi devlog: the launcher redesign \u2014 one captain front and center, settings moved to the Captain's Quarters, turbo yo",
+            "url": "https://wormifi.com/devlog-captain-centered-launcher.html",
+            "image": "https://wormifi.com/og-wormifi-sea-serpent-v2.png",
+            "datePublished": "2026-07-30",
+            "dateModified": "2026-07-30",
+            "author": {
+              "@type": "Organization",
+              "name": "Wormifi",
+              "url": "https://wormifi.com/"
+            },
+            "publisher": {
+              "@id": "https://wormifi.com/#organization"
+            },
+            "isPartOf": {
+              "@id": "https://wormifi.com/#website"
+            },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Wormifi",
+                "item": "https://wormifi.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Devlog",
+                "item": "https://wormifi.com/devlog.html"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "A launcher about your captain, not our menus",
+                "item": "https://wormifi.com/devlog-captain-centered-launcher.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <title>Devlog: A Launcher About Your Captain, Not Our Menus</title>
+    <link rel="alternate" type="application/rss+xml" title="Wormifi Devlog" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <a class="seo-skip-link" href="#main-content">Skip to main content</a>
+    <header class="seo-shell seo-header">
+      <a class="seo-brand" href="/">WORMIFI</a>
+      <nav class="seo-nav" aria-label="Main navigation">
+        <a href="/how-to-play.html">How to play</a>
+        <a href="/guides.html">Guides</a>
+        <a href="/devlog.html" aria-current="page">Devlog</a>
+        <a href="/multiplayer.html">Multiplayer</a>
+        <a href="/install.html">Install</a>
+        <a href="/privacy.html">Privacy</a>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <section class="seo-shell seo-hero">
+        <span class="seo-kicker">Devlog · design</span>
+        <h1>A launcher about your captain, not our menus</h1>
+        <p class="seo-lede">Our launcher had grown into a control panel: boards, paces, helms, rooms — all good features, all shouting at once. Tonight's redesign picks a side: the screen belongs to your captain.</p>
+      </section>
+      <div class="seo-shell seo-content">
+        <section>
+          <h2>What changed on the front door</h2>
+          <p>The main screen now shows the thing you actually care about — your captain, wearing your look — with PLAY LIVE, the 90-second solo, and practice one tap away. Everything configurable moved into the Captain's Quarters: one SETTINGS panel holding look and controls, room rules (board and pace), and the play-together tools — friend room codes, CHALLENGE A FRIEND, and your live room's share link. Nothing was removed; everything was ranked. The screen you see most now says play, not configure.</p>
+        </section>
+        <section>
+          <h2>Turbo you can read at a glance</h2>
+          <p>Sprint's economics were always honest — 2.0× speed for size drained per second — but honesty you can't see mid-fight is trivia. Turbo now lives as a visible reserve inside your worm, with ⚡ pickups in the arena feeding it, so the question "can I afford this chase?" is answered by looking at your own body instead of doing arithmetic during a knife fight. The <a href="/devlog-conserved-mass.html">conserved-mass law</a> still applies: spent turbo trails behind you as loot someone else can eat.</p>
+        </section>
+        <section>
+          <h2>The Legend Voyage — earning, not buying</h2>
+          <p>The Quarters also introduces a captain level and the Legend Voyage: a permanent cosmetic route through the three most elaborate looks in the game, earned by playing — labeled in the interface itself as <em>not for sale yet</em>. When a store does open it will obey the <a href="/devlog-skins-stay-cosmetic.html">cosmetics-only line</a>; until then, the route is proof the wardrobe's top shelf can be reached with playtime alone.</p>
+        </section>
+        <section class="seo-note">
+          <h2>Under the hood tonight</h2>
+          <p>The same run of work aligned pointer steering exactly with the visible head — what you point at is what the worm answers to — and began profiling rooms toward a much higher seat ceiling. When those numbers survive testing they'll reach the <a href="/changelog.html">changelog</a> like everything else. The <a href="/roadmap.html">roadmap</a> keeps the honest split.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="seo-shell seo-footer">
+      <span>Wormifi · devlog</span>
+      <a href="/privacy.html">Privacy and analytics choices</a>
+    </footer>
+    <script type="module" src="/src/seo-page.ts"></script>
+  </body>
+</html>

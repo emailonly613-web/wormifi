@@ -9,6 +9,7 @@ const pages = [
   ["multiplayer.html", "https://wormifi.com/multiplayer.html"],
   ["pirate-treasure.html", "https://wormifi.com/pirate-treasure.html"],
   ["guides.html", "https://wormifi.com/guides.html"],
+  ["devlog-captain-centered-launcher.html", "https://wormifi.com/devlog-captain-centered-launcher.html"],
   ["wormifi-vs-snake-io.html", "https://wormifi.com/wormifi-vs-snake-io.html"],
   ["snake-io-vs-slither-io.html", "https://wormifi.com/snake-io-vs-slither-io.html"],
   ["wormifi-vs-wormate.html", "https://wormifi.com/wormifi-vs-wormate.html"],
