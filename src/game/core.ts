@@ -458,7 +458,7 @@ export function spawnDrop(
     (resolvedRelicKind === "gilded-ledger" && !isTreasureMultiplierTier(options.relicTier)) ||
     (resolvedRelicKind !== "gilded-ledger" && options.relicTier !== undefined)
   ) {
-    throw new Error("Only Gilded Ledger may declare an x1-x5 or rare x10 tier");
+    throw new Error("Only a Treasure Multiplier may declare a 2×, 5×, or rare 10× tier");
   }
   const isSpecialistPickup = resolvedRelicKind !== undefined;
   const bankedMass = options.bankedMass ?? 0;
@@ -1258,7 +1258,7 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
         ? Math.min(storedMass, state.config.deathDropTargetMass)
         : storedMass;
     const bankRemainder = storedMass - collectedMass;
-    const treasureMultiplier = drop.source === "arena" && collectedMass > 0
+    const treasureMultiplier = collectedMass > 0
       ? getTreasureMassMultiplier(collector.specialist, state.tick)
       : 1;
     const awardedMass = collectedMass * treasureMultiplier;

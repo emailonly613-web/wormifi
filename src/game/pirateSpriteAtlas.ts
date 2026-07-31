@@ -401,24 +401,30 @@ export interface GroundTreasureSpriteItem {
   seed: number;
   /** Authoritative phase opacity for treasure relocation. */
   opacity?: number;
-  /** Constant pickup reward signal shown beside every visible treasure. */
-  points?: number;
   /** Optional caller-projected coordinates avoid a second allocation/transform. */
   screenX?: number;
   screenY?: number;
 }
 
-export function drawTreasurePointLabel(
+/** Brief reward feedback drawn only after a pickup has been collected. */
+export function drawPickupRewardPopup(
   context: CanvasRenderingContext2D,
   points: number,
   x: number,
   y: number,
-  treasureSize: number,
+  referenceSize: number,
+  lifeRatio: number,
 ): void {
   if (!Number.isFinite(points) || points <= 0) return;
-  const fontSize = Math.max(8, Math.min(12, treasureSize * 0.19));
+  const safeLifeRatio = Math.max(0, Math.min(1, lifeRatio));
+  if (safeLifeRatio <= 0) return;
+  const ageRatio = 1 - safeLifeRatio;
+  const popScale = 1 + Math.sin(Math.min(1, ageRatio * 4) * Math.PI) * 0.18;
+  const fontSize = Math.max(14, Math.min(26, referenceSize * 0.64)) * popScale;
   const label = `+${Math.round(points)}`;
   context.save();
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha *= Math.min(1, safeLifeRatio * 2.8);
   context.font = `950 ${fontSize}px Inter, system-ui, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -426,9 +432,9 @@ export function drawTreasurePointLabel(
   context.lineWidth = Math.max(2.5, fontSize * 0.34);
   context.strokeStyle = "rgba(2, 12, 25, 0.94)";
   context.strokeText(label, x, y);
-  context.fillStyle = points >= 30 ? "#ffe071" : "#edfff9";
-  context.shadowColor = points >= 30 ? "#ffbd36" : "#4fffd8";
-  context.shadowBlur = points >= 30 ? 7 : 3;
+  context.fillStyle = points >= 100 ? "#ffc8ff" : points >= 30 ? "#ffe071" : "#edfff9";
+  context.shadowColor = points >= 100 ? "#d65cff" : points >= 30 ? "#ffbd36" : "#4fffd8";
+  context.shadowBlur = points >= 100 ? 13 : points >= 30 ? 9 : 5;
   context.fillText(label, x, y);
   context.restore();
 }
@@ -562,13 +568,6 @@ export function drawGroundTreasureSpriteField(
         );
         context.globalAlpha = previousGlobalAlpha * itemOpacity;
       }
-      drawTreasurePointLabel(
-        context,
-        item.points ?? 0,
-        spriteOptions.x,
-        screenY + size * 0.48,
-        size,
-      );
       context.globalAlpha = previousGlobalAlpha;
     }
   } finally {

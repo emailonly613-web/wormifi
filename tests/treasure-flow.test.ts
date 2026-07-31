@@ -54,10 +54,11 @@ describe("living ambient treasure field", () => {
     expect(state.drops.map((drop) => drop.id).sort()).toEqual(["death-echo", "relic"]);
   });
 
-  it("shows a constant positive point value and scales it with treasure multipliers", () => {
+  it("calculates the final positive pickup popup after any multiplier", () => {
     expect(treasurePointValue(0.2)).toBe(2);
     expect(treasurePointValue(0.6)).toBe(7);
     expect(treasurePointValue(3.5)).toBe(42);
-    expect(treasurePointValue(3.5, 10)).toBe(420);
+    expect(treasurePointValue(3.5 * 10)).toBe(420);
+    expect(treasurePointValue(0.6 * 5)).toBe(36);
   });
 });

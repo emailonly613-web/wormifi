@@ -17,8 +17,9 @@ This is a product hypothesis until external-player retention data supports it.
   pickups before gaining its first additional follower.
 - Rare treasure chests award 3.5 size. Charging rewards and Rival Echoes remain
   larger strategic gains.
-- Gilded Ledger multiplies neutral treasure only. A x5 interval accelerates the
-  run visibly but never duplicates crash loot, Sprint Echoes or banked mass.
+- Treasure Multiplier multiplies every visible positive-mass pickup eaten while
+  active at 2×, 5× or rare 10×. Stored Echo-bank mass remains conserved; only
+  the collected portion receives the multiplier.
 - Ordinary pickup density stays satisfying. Slower progression is achieved by
   smaller truthful rewards, not by starving the field or hiding collection.
 - Relative to the prior 0.35–1.25 / 20-size candidate, ordinary body-length

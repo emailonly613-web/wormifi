@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createActiveRelicCanvasModel,
   createGroundRelicCanvasModel,
+  drawGroundRelicPickup,
   groundRelicLabelLocalOffsetX,
   groundRelicLabelOffsetX,
 } from "../src/game/relicCanvasRender";
@@ -41,17 +42,48 @@ describe("Relic canvas presentation", () => {
     expect(cutlass?.label).not.toContain("COMPASS");
   });
 
-  it("publishes every multiplier tier clearly, including the rare x10", () => {
-    for (const tier of [1, 2, 3, 4, 5, 10] as const) {
+  it("publishes only 2x, 5x, and rare 10x multiplier tiers", () => {
+    for (const tier of [2, 5, 10] as const) {
       expect(createGroundRelicCanvasModel({
         relicKind: "gilded-ledger",
         relicTier: tier,
         relicDurationTicks: 80,
       }, 0.1, 1_000)).toMatchObject({
-        label: `GILDED LEDGER x${tier} · 8S`,
-        effectText: `x${tier} NEUTRAL TREASURE`,
+        label: `${tier}× TREASURE MULTIPLIER · 8S`,
+        effectText: `${tier}× ALL TREASURE`,
       });
     }
+  });
+
+  it("draws the ground multiplier as a bare floating number with no coin image", () => {
+    const text: string[] = [];
+    let imageDraws = 0;
+    const gradient = { addColorStop() {} };
+    const context = new Proxy({} as CanvasRenderingContext2D, {
+      get(_target, key) {
+        if (key === "fillText" || key === "strokeText") {
+          return (value: string) => text.push(value);
+        }
+        if (key === "drawImage") return () => { imageDraws += 1; };
+        if (key === "createLinearGradient") return () => gradient;
+        return () => undefined;
+      },
+      set() { return true; },
+    });
+
+    drawGroundRelicPickup(context, {
+      relicKind: "gilded-ledger",
+      relicTier: 10,
+      relicDurationTicks: 80,
+    }, {
+      beaconRadius: 24,
+      zoom: 1,
+      now: 1_000,
+      fixedStepSeconds: 0.1,
+    });
+
+    expect(text).toContain("10×");
+    expect(imageDraws).toBe(0);
   });
 
   it("maps only the legacy Collector ground envelope to Loot Compass", () => {

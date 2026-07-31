@@ -123,7 +123,7 @@ older baseline does not provide:
 - Fair Relics add route and timing decisions without pay-to-win, hostile input
   control, hidden immunity or unreadable collision exceptions.
 - The required launch power set covers temporary attraction, speed, any-angle
-  quick turning, camera pullback and bounded x2/x3/x5 neutral-treasure growth,
+  quick turning, camera pullback and bounded 2×/5×/rare-10× pickup growth,
   all redesigned as disclosed pirate powers under
   `PIRATE-POWER-PARITY-CONTRACT.md`.
 

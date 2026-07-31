@@ -69,7 +69,7 @@ import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
-  drawTreasurePointLabel,
+  drawPickupRewardPopup,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
   GROUND_TREASURE_RADIUS_SCALE,
   type GroundTreasureSpriteItem,
@@ -87,7 +87,6 @@ import {
   resolveRelicPresentation,
 } from "../game/relicPresentation";
 import {
-  getTreasureMassMultiplier,
   getSpyglassDangerBearings,
   type SpyglassDangerBearing,
 } from "../game/relics";
@@ -203,6 +202,7 @@ interface Particle {
   maxLife: number;
   radius: number;
   color: string;
+  rewardPoints?: number;
 }
 
 interface ArenaRenderRuntime {
@@ -230,6 +230,7 @@ interface ArenaRuntime extends ArenaRenderRuntime {
   runEnded: boolean;
   pickupCombo: number;
   lastPickupTick: number;
+  preStepChestIds: Set<string>;
   recording: LocalRunDraft;
 }
 
@@ -601,6 +602,7 @@ export function ArenaCanvas({
       runEnded: false,
       pickupCombo: 0,
       lastPickupTick: -10_000,
+      preStepChestIds: new Set(),
       impactUntil: 0,
       shakeUntil: 0,
       reducedMotion,
@@ -717,7 +719,11 @@ export function ArenaCanvas({
       if (!runtime.reducedMotion) navigator.vibrate?.([35, 25, 80]);
     };
 
-    const handleEvents = (runtime: ArenaRuntime, events: readonly GameEvent[]) => {
+    const handleEvents = (
+      runtime: ArenaRuntime,
+      events: readonly GameEvent[],
+      collectedChestIds: ReadonlySet<string>,
+    ) => {
       const player = runtime.state.players[PLAYER_ID];
       for (const event of events) {
         if (
@@ -732,6 +738,7 @@ export function ArenaCanvas({
             : 1;
           runtime.lastPickupTick = runtime.state.tick;
           const color = foodColors[runtime.pickupCombo % foodColors.length];
+          const collectedPopCluster = collectedChestIds.has(event.dropId);
           if (!runtime.reducedMotion) {
             const particleCount = event.mass >= RARE_TREASURE_CHEST_MASS ? 9 : 5;
             for (let index = 0; index < particleCount; index += 1) {
@@ -747,21 +754,24 @@ export function ArenaCanvas({
                 color,
               });
             }
-            runtime.particles.push({
-              x: player.position.x,
-              y: player.position.y,
-              vx: 0,
-              vy: -44,
-              life: 0.72,
-              maxLife: 0.72,
-              radius: event.mass >= RARE_TREASURE_CHEST_MASS ? 10 : 6,
-              color: event.mass >= RARE_TREASURE_CHEST_MASS ? "#fff1a1" : "#eafffb",
-            });
           }
+          const rewardLife = runtime.reducedMotion ? 0.55 : 0.78;
+          runtime.particles.push({
+            x: player.position.x,
+            y: player.position.y,
+            vx: 0,
+            vy: runtime.reducedMotion ? 0 : -44,
+            life: rewardLife,
+            maxLife: rewardLife,
+            radius: collectedPopCluster ? 34 : 26,
+            color: collectedPopCluster ? "#fff1a1" : "#eafffb",
+            // dropCollected.mass is the final authoritative award, including
+            // an active 2x, 5x, or rare 10x Treasure Multiplier.
+            rewardPoints: treasurePointValue(event.mass),
+          });
           if (runtime.pickupCombo <= 5 || runtime.pickupCombo === 8) {
             playTone(280 + runtime.pickupCombo * 55, 0.055, 0.022);
           }
-          const collectedPopCluster = event.mass >= RARE_TREASURE_CHEST_MASS;
           if (collectedPopCluster && runtime.pickupCombo !== 6 && runtime.pickupCombo !== 8) {
             if (!runtime.reducedMotion) navigator.vibrate?.(12);
             setActionCallout("TREASURE CHEST · JACKPOT");
@@ -997,12 +1007,19 @@ export function ArenaCanvas({
             player.direction,
           );
           if (running) runtime.recording.inputs.push(input);
+          const collectedChestIds = runtime.preStepChestIds;
+          collectedChestIds.clear();
+          for (const drop of runtime.state.drops) {
+            if (drop.source === "arena" && drop.mass >= RARE_TREASURE_CHEST_MASS) {
+              collectedChestIds.add(drop.id);
+            }
+          }
           const step = stepLocalArena(runtime, input);
           runtime.accumulatorSeconds -= fixedStep;
           if (Math.abs(runtime.accumulatorSeconds) < 1e-9) {
             runtime.accumulatorSeconds = 0;
           }
-          handleEvents(runtime, step.events);
+          handleEvents(runtime, step.events, collectedChestIds);
           if (tutorial.stageRef.current === "spark") {
             const target = runtime.state.drops.find((drop) => drop.id === runtime.tutorialSparkId);
             let issue = tutorialTargetIssue(runtime.state, player, target);
@@ -1880,7 +1897,17 @@ function renderArena(
     ) continue;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
     context.globalAlpha = alpha;
-    // Each pickup stays a nonverbal glint; no reward sentence covers play.
+    if (particle.rewardPoints !== undefined) {
+      drawPickupRewardPopup(
+        context,
+        particle.rewardPoints,
+        screen.x,
+        screen.y,
+        Math.max(24, particle.radius * zoom),
+        alpha,
+      );
+      continue;
+    }
     context.shadowBlur = 0;
     drawTreasureShard(
       context,
@@ -1958,10 +1985,6 @@ function drawDrops(
   now: number,
   tutorialSparkId?: string,
 ) {
-  const treasureMultiplier = getTreasureMassMultiplier(
-    state.players[PLAYER_ID]?.specialist,
-    state.tick,
-  );
   // Reuse both the list and each stable ground-item descriptor. Practice can
   // hold 1,050 drops, so rebuilding these objects every frame creates GC
   // pauses even when the actual Canvas callback is inexpensive.
@@ -2006,7 +2029,6 @@ function drawDrops(
     item.position = drop.position;
     item.radius = drop.radius;
     item.opacity = ambientTreasureOpacity(drop, state.tick, state.config.fixedStepSeconds);
-    item.points = treasurePointValue(drop.mass, treasureMultiplier);
     item.screenX = screenX;
     item.screenY = screenY;
     fieldItems.push(item);
@@ -2106,13 +2128,6 @@ function drawDrops(
     if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
       // One authoritative collider is rendered as a high-value treasure chest.
       drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
-      drawTreasurePointLabel(
-        context,
-        treasurePointValue(drop.mass, treasureMultiplier),
-        0,
-        radius * 1.9,
-        radius * GROUND_TREASURE_RADIUS_SCALE,
-      );
       context.restore();
       continue;
     }
@@ -2128,13 +2143,6 @@ function drawDrops(
     })) {
       drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
     }
-    drawTreasurePointLabel(
-      context,
-      treasurePointValue(drop.mass, treasureMultiplier),
-      0,
-      radius * 2,
-      radius * GROUND_TREASURE_RADIUS_SCALE,
-    );
     context.restore();
   }
 }

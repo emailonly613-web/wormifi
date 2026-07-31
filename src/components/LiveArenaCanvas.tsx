@@ -67,7 +67,7 @@ import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
-  drawTreasurePointLabel,
+  drawPickupRewardPopup,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
   GROUND_TREASURE_RADIUS_SCALE,
   type GroundTreasureSpriteItem,
@@ -88,7 +88,6 @@ import {
 } from "../game/relicPresentation";
 import {
   getSpyglassDangerBearings,
-  getTreasureMassMultiplier,
   isTreasureMultiplierTier,
   type SpyglassDangerBearing,
 } from "../game/relics";
@@ -256,6 +255,7 @@ interface LiveParticle {
   radius: number;
   color: string;
   streak?: boolean;
+  rewardPoints?: number;
 }
 
 const palettes = [
@@ -1362,7 +1362,8 @@ export function LiveArenaCanvas({
               tutorial.collectedSpark(gameEvent.dropId, tutorialSparkIdRef.current);
               const ownPlayer = competitiveSnapshot.players.find((player) => player.id === handshake.playerId);
               const collectedDrop = removedDrops.get(gameEvent.dropId);
-              const collectedPopCluster = (collectedDrop?.mass ?? 0) >= RARE_TREASURE_CHEST_MASS;
+              const collectedPopCluster = collectedDrop?.source === "arena" &&
+                collectedDrop.mass >= RARE_TREASURE_CHEST_MASS;
               const combo = message.tick - pickupComboRef.current.lastTick < 21
                 ? Math.min(8, pickupComboRef.current.count + 1)
                 : 1;
@@ -1397,16 +1398,20 @@ export function LiveArenaCanvas({
                     0.72,
                   );
                 }
-                if (!reducedMotionRef.current && gameEvent.mass > 0) {
+                if (gameEvent.mass > 0) {
+                  const rewardLife = reducedMotionRef.current ? 0.55 : 0.78;
                   particlesRef.current.push({
                     x: ownPlayer.position.x,
                     y: ownPlayer.position.y,
                     vx: 0,
-                    vy: -44,
-                    life: 0.72,
-                    maxLife: 0.72,
-                    radius: collectedPopCluster ? 10 : 6,
+                    vy: reducedMotionRef.current ? 0 : -44,
+                    life: rewardLife,
+                    maxLife: rewardLife,
+                    radius: collectedPopCluster ? 34 : 26,
                     color: collectedPopCluster ? "#fff1a1" : "#eafffb",
+                    // The server sends the final award after any active
+                    // Treasure Multiplier, so the popup never double-counts.
+                    rewardPoints: treasurePointValue(gameEvent.mass),
                   });
                 }
               }
@@ -2246,7 +2251,17 @@ function drawLiveParticles(
     if (screen.x < -40 || screen.y < -40 || screen.x > width + 40 || screen.y > height + 40) continue;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
     context.globalAlpha = alpha;
-    // Each pickup stays a nonverbal glint; no reward sentence covers play.
+    if (particle.rewardPoints !== undefined) {
+      drawPickupRewardPopup(
+        context,
+        particle.rewardPoints,
+        screen.x,
+        screen.y,
+        Math.max(24, particle.radius * zoom),
+        alpha,
+      );
+      continue;
+    }
     if (particle.streak) {
       context.strokeStyle = particle.color;
       context.lineWidth = Math.max(1.2, particle.radius * zoom * alpha);
@@ -2336,8 +2351,6 @@ function renderLiveArena(
     context.fillText("WAITING FOR AN AUTHORITATIVE SNAPSHOT", width / 2, height / 2);
     return;
   }
-  const treasureMultiplier = getTreasureMassMultiplier(ownPlayer?.specialist, snapshot.tick);
-
   if (world.heatRing) {
     drawHeatRingTelegraph(
       context,
@@ -2406,7 +2419,6 @@ function renderLiveArena(
     item.radius = drop.radius;
     item.seed = seed;
     item.opacity = ambientTreasureOpacity(drop, snapshot.tick, world.fixedStepSeconds);
-    item.points = treasurePointValue(drop.mass, treasureMultiplier);
     item.screenX = screen.x;
     item.screenY = screen.y;
     fieldItems[fieldItemCount] = item;
@@ -2443,7 +2455,6 @@ function renderLiveArena(
       now,
       world.fixedStepSeconds,
       drop.id === tutorialSparkId,
-      treasureMultiplier,
     );
     context.restore();
   }
@@ -2546,7 +2557,6 @@ function drawNetworkDrop(
   now: number,
   fixedStepSeconds: number,
   tutorialTarget: boolean,
-  treasureMultiplier: number,
 ) {
   const screen = worldToScreen(drop.position);
   const pulse = 0.92 + Math.sin(now * 0.004 + stableNumber(drop.id)) * 0.08;
@@ -2624,13 +2634,6 @@ function drawNetworkDrop(
   if (drop.mass >= RARE_TREASURE_CHEST_MASS) {
     // High-value neutral mass is one authoritative treasure chest collider.
     drawTreasureChest(context, radius, color, now, stableNumber(drop.id));
-    drawTreasurePointLabel(
-      context,
-      treasurePointValue(drop.mass, treasureMultiplier),
-      0,
-      radius * 1.9,
-      radius * GROUND_TREASURE_RADIUS_SCALE,
-    );
     context.restore();
     return;
   }
@@ -2646,13 +2649,6 @@ function drawNetworkDrop(
   })) {
     drawFacetedGem(context, radius, color, now, stableNumber(drop.id));
   }
-  drawTreasurePointLabel(
-    context,
-    treasurePointValue(drop.mass, treasureMultiplier),
-    0,
-    radius * 2,
-    radius * GROUND_TREASURE_RADIUS_SCALE,
-  );
   context.restore();
 }
 

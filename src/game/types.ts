@@ -15,7 +15,7 @@ export type PirateRelicKind =
   | "gale-pennant"
   | "maelstrom-wheel"
   | "gilded-ledger";
-export type TreasureMultiplierTier = 1 | 2 | 3 | 4 | 5 | 10;
+export type TreasureMultiplierTier = 2 | 5 | 10;
 export type ChargingStationKind = "capstan" | "harbor";
 
 /**
@@ -91,7 +91,7 @@ export interface ActiveSpecialist {
    * clients can safely retain the single timed-slot envelope.
    */
   relicKind?: PirateRelicKind;
-  /** Present only for an active Gilded Ledger. */
+  /** Present only for an active Treasure Multiplier. */
   relicTier?: TreasureMultiplierTier;
   activatedAtTick: number;
   expiresAtTick: number;
@@ -165,7 +165,7 @@ export interface DropState {
   /** New named Relics use additive fields old protocol-v5 clients ignore. */
   relicKind?: PirateRelicKind;
   relicDurationTicks?: number;
-  /** Present only for a Gilded Ledger ground item. */
+  /** Present only for a Treasure Multiplier ground item. */
   relicTier?: TreasureMultiplierTier;
   /** Collector range may affect neutral motes, the producer only, or nobody. */
   collectorReachPolicy: "neutral" | "owner" | "none";

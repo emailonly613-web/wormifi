@@ -31,6 +31,9 @@ export function RelicStatus({
   if (!model) return null;
 
   const relic = model.presentation;
+  const multiplierGlyph = relic.relicKind === "gilded-ledger" && active?.relicTier
+    ? `${active.relicTier}×`
+    : undefined;
   const classes = ["relic-status", `relic-status--${relic.relicKind}`, className]
     .filter(Boolean)
     .join(" ");
@@ -43,6 +46,7 @@ export function RelicStatus({
       data-carrier-tone={relic.carrierTone}
       data-carrier-accent={relic.carrierAccent}
       data-ground-sprite={relic.ground.spriteName}
+      data-relic-tier={active?.relicTier}
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-motion={reducedMotion ? "static" : relic.ground.motion}
       data-timer-ratio={model.timerRatio.toFixed(4)}
@@ -55,12 +59,16 @@ export function RelicStatus({
         aria-atomic="true"
         aria-label={`${relic.label}. ${model.effectText}. ${model.rivalDisclosure}.`}
       >
-        <img
-          className="relic-status__icon"
-          src={relic.ground.assetPath}
-          alt=""
-          aria-hidden="true"
-        />
+        {multiplierGlyph ? (
+          <span className="relic-status__multiplier" aria-hidden="true">{multiplierGlyph}</span>
+        ) : (
+          <img
+            className="relic-status__icon"
+            src={relic.ground.assetPath}
+            alt=""
+            aria-hidden="true"
+          />
+        )}
       </div>
       <time
         className="relic-status__time"

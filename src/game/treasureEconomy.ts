@@ -5,11 +5,10 @@ export const RARE_TREASURE_CHEST_SIGNAL = 0.965;
 export const STARTER_TREASURE_MASS = 0.4;
 export const MASS_PER_BODY_SEGMENT = 30;
 
-/** Immediate score signal for a neutral pickup while growth is advancing. */
-export function treasurePointValue(mass: number, multiplier = 1): number {
+/** Immediate score signal calculated from the final awarded pickup mass. */
+export function treasurePointValue(mass: number): number {
   if (!Number.isFinite(mass) || mass <= 0) return 0;
-  const safeMultiplier = Number.isFinite(multiplier) ? Math.max(1, multiplier) : 1;
-  return Math.max(1, Math.round(mass * safeMultiplier * 12));
+  return Math.max(1, Math.round(mass * 12));
 }
 
 function unitSignal(value: number): number {

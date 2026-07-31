@@ -35,6 +35,7 @@ export interface GroundRelicCanvasModel {
 export interface ActiveRelicCanvasModel {
   presentation: RelicPresentation;
   timerRatio: number;
+  relicTier?: TreasureMultiplierTier;
 }
 
 export interface GroundRelicDrawOptions {
@@ -123,14 +124,16 @@ export function createGroundRelicCanvasModel(
   const safeNow = Number.isFinite(now) ? now : 0;
   const effectText = getRelicEffectText(presentation, drop.relicTier);
   const tierLabel = presentation.relicKind === "gilded-ledger" && drop.relicTier
-    ? ` x${drop.relicTier}`
+    ? `${drop.relicTier}×`
     : "";
 
   return {
     presentation,
     durationSeconds,
     durationLabel: displaySeconds(durationSeconds),
-    label: `${presentation.label.toUpperCase()}${tierLabel} · ${displaySeconds(durationSeconds)}`,
+    label: presentation.relicKind === "gilded-ledger" && tierLabel
+      ? `${tierLabel} TREASURE MULTIPLIER · ${displaySeconds(durationSeconds)}`
+      : `${presentation.label.toUpperCase()} · ${displaySeconds(durationSeconds)}`,
     effectText,
     spriteRotation: spriteRotation(presentation.relicKind, safeNow),
     orbitRotation: safeNow * (
@@ -167,6 +170,7 @@ export function createActiveRelicCanvasModel(
       0,
       1,
     ),
+    ...(active.relicTier ? { relicTier: active.relicTier } : {}),
   };
 }
 
@@ -194,91 +198,80 @@ function drawRelicFallback(
 
 function drawGildedMultiplierPickup(
   context: CanvasRenderingContext2D,
-  model: Readonly<GroundRelicCanvasModel>,
   tier: TreasureMultiplierTier,
   beaconRadius: number,
   now: number,
 ) {
-  beaconRadius = Math.max(15, beaconRadius * 1.35);
+  // Wormate's useful hierarchy lesson is proportion, not art direction:
+  // boosters stay close to the food scale so the field remains readable.
+  // Wormifi keeps its own bare, extruded number language at that compact size.
+  beaconRadius = Math.max(12, beaconRadius * 0.86);
   const rare = tier === 10;
-  const lift = (Math.sin(now * 0.0042 + tier) + 1) * beaconRadius * 0.16;
-  const spriteY = -beaconRadius * 0.35 - lift;
-  const spriteSize = Math.max(44, beaconRadius * 4.5);
-  const medalRadius = Math.max(8, beaconRadius * (rare ? 0.94 : 0.78));
-  const medalX = beaconRadius * 1.15;
-  const medalY = beaconRadius * 0.42 - lift;
+  const strong = tier === 5;
+  const lift = (Math.sin(now * 0.0042 + tier) + 1) * beaconRadius * 0.1;
+  const glyphY = -beaconRadius * 0.2 - lift;
+  const glyph = `${tier}×`;
+  const fontSize = Math.max(24, beaconRadius * (tier === 10 ? 1.28 : 1.46));
 
-  // Detached shadow preserves the same floating-object language as treasure.
-  context.globalAlpha = 0.4;
+  // A detached floor shadow makes the bare number feel physically suspended.
+  // There is deliberately no coin, medallion, square, card, or sprite behind it.
+  context.globalAlpha = 0.28;
   context.fillStyle = "#020611";
   context.beginPath();
-  context.ellipse(0, beaconRadius * 1.05, beaconRadius * 1.55, beaconRadius * 0.52, 0, 0, Math.PI * 2);
+  context.ellipse(
+    0,
+    beaconRadius * 0.72,
+    beaconRadius * 0.72,
+    beaconRadius * 0.2,
+    0,
+    0,
+    Math.PI * 2,
+  );
   context.fill();
-
-  context.globalAlpha = 0.82;
-  context.strokeStyle = rare ? "#f5a8ff" : "#ffe16b";
-  context.shadowColor = rare ? "#c760ff" : "#ffca3c";
-  context.shadowBlur = rare ? 22 : 14;
-  context.lineWidth = Math.max(1.5, beaconRadius * 0.12);
-  context.setLineDash([beaconRadius * 0.62, beaconRadius * 0.3]);
-  context.lineDashOffset = -model.orbitRotation * beaconRadius * 12;
-  context.beginPath();
-  context.arc(0, 0, beaconRadius * (rare ? 2.12 : 1.82), 0, Math.PI * 2);
-  context.stroke();
-  context.setLineDash([]);
-  context.lineDashOffset = 0;
-  context.shadowBlur = 0;
 
   context.globalAlpha = 1;
-  if (!drawPirateAtlasSprite(context, model.presentation.ground.spriteName, {
-    x: 0,
-    y: spriteY,
-    size: spriteSize,
-    rotation: model.spriteRotation * 0.38,
-  })) {
-    drawRelicFallback(context, model.presentation, beaconRadius * 1.25);
-  }
-
-  const medal = context.createRadialGradient(
-    medalX - medalRadius * 0.35,
-    medalY - medalRadius * 0.4,
-    1,
-    medalX,
-    medalY,
-    medalRadius,
-  );
-  medal.addColorStop(0, "#ffffff");
-  medal.addColorStop(0.14, rare ? "#f8c9ff" : "#fff2a6");
-  medal.addColorStop(0.48, rare ? "#a447df" : "#e89b18");
-  medal.addColorStop(1, rare ? "#2a0b58" : "#6f3408");
-  context.fillStyle = medal;
-  context.strokeStyle = rare ? "#ffffff" : "#ffe58a";
-  context.lineWidth = Math.max(1.5, medalRadius * 0.16);
-  context.shadowColor = rare ? "#e977ff" : "#ffd45f";
-  context.shadowBlur = rare ? 18 : 10;
-  context.beginPath();
-  context.arc(medalX, medalY, medalRadius, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-
-  context.shadowColor = "rgba(0, 0, 0, 0.78)";
-  context.shadowBlur = 3;
-  context.fillStyle = "#151022";
-  context.font = `950 ${Math.max(10, medalRadius * (tier === 10 ? 1.05 : 1.2))}px "Baloo 2", Inter, sans-serif`;
+  context.font = `950 ${fontSize}px "Baloo 2", Inter, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(`×${tier}`, medalX, medalY + 0.5);
+  context.lineJoin = "round";
+
+  // Offset dark-to-bright layers form an actual extruded edge instead of a
+  // flat emoji or coin-stamped label.
+  const depth = Math.max(2, Math.round(beaconRadius * 0.2));
+  for (let layer = depth; layer >= 1; layer -= 1) {
+    const ratio = layer / depth;
+    context.fillStyle = rare
+      ? `rgba(${Math.round(37 + ratio * 45)}, 12, ${Math.round(82 + ratio * 50)}, 0.98)`
+      : strong
+        ? `rgba(3, ${Math.round(68 + ratio * 42)}, ${Math.round(75 + ratio * 48)}, 0.98)`
+        : `rgba(${Math.round(83 + ratio * 38)}, ${Math.round(39 + ratio * 28)}, 3, 0.98)`;
+    context.fillText(glyph, layer * 0.42, glyphY + layer * 0.5);
+  }
+
+  context.strokeStyle = rare ? "#fff3ff" : strong ? "#d9fff4" : "#fff0a2";
+  context.lineWidth = Math.max(1.5, fontSize * 0.075);
+  context.shadowColor = rare ? "#e978ff" : strong ? "#42f3cf" : "#ffd75e";
+  context.shadowBlur = rare ? 12 : 8;
+  context.strokeText(glyph, 0, glyphY);
+  const face = context.createLinearGradient(0, glyphY - fontSize * 0.55, 0, glyphY + fontSize * 0.45);
+  face.addColorStop(0, "#ffffff");
+  face.addColorStop(0.18, rare ? "#f2b9ff" : strong ? "#b9ffeb" : "#fff4a8");
+  face.addColorStop(0.58, rare ? "#ba57ef" : strong ? "#2bd6b1" : "#ffc739");
+  face.addColorStop(1, rare ? "#7423b5" : strong ? "#087d82" : "#e17a0b");
+  context.fillStyle = face;
+  context.fillText(glyph, 0, glyphY);
   context.shadowBlur = 0;
 
-  // White-gold glints keep the multiplier readable against every sea region.
+  // One restrained glint keeps the small type readable without rebuilding a
+  // circular potion, coin, or badge around it.
   const glintPhase = (Math.sin(now * 0.007 + tier * 1.7) + 1) / 2;
   context.globalAlpha = 0.42 + glintPhase * 0.58;
   context.fillStyle = "#ffffff";
-  context.shadowColor = rare ? "#f3a9ff" : "#fff0a8";
+  context.shadowColor = rare ? "#f3a9ff" : strong ? "#a9ffed" : "#fff0a8";
   context.shadowBlur = 9;
-  const glintX = -beaconRadius * 0.82;
-  const glintY = spriteY - beaconRadius * 0.85;
-  const glintSize = beaconRadius * (0.22 + glintPhase * 0.2);
+  const glintX = -beaconRadius * 0.64;
+  const glintY = glyphY - fontSize * 0.52;
+  const glintSize = beaconRadius * (0.12 + glintPhase * 0.1);
   context.beginPath();
   context.moveTo(glintX, glintY - glintSize);
   context.lineTo(glintX + glintSize * 0.3, glintY - glintSize * 0.25);
@@ -312,7 +305,6 @@ export function drawGroundRelicPickup(
   if (relic.relicKind === "gilded-ledger" && drop.relicTier) {
     drawGildedMultiplierPickup(
       context,
-      model,
       drop.relicTier,
       beaconRadius,
       options.now,
@@ -343,12 +335,15 @@ export function drawGroundRelicPickup(
   context.restore();
 
   const spriteSize = beaconRadius * 2 * relic.ground.scale;
-  if (!drawPirateAtlasSprite(context, relic.ground.spriteName, {
-    x: 0,
-    y: 0,
-    size: spriteSize,
-    rotation: model.spriteRotation,
-  })) {
+  if (
+    relic.ground.spriteName === "treasure-multiplier" ||
+    !drawPirateAtlasSprite(context, relic.ground.spriteName, {
+      x: 0,
+      y: 0,
+      size: spriteSize,
+      rotation: model.spriteRotation,
+    })
+  ) {
     drawRelicFallback(context, relic, beaconRadius * 0.78);
   }
 
@@ -378,7 +373,21 @@ export function drawRelicCarrierEffect(
   context.shadowColor = relic.carrierHalo;
   context.shadowBlur = 12;
 
-  if (relic.relicKind === "emerald-spyglass") {
+  if (relic.relicKind === "gilded-ledger" && model.relicTier) {
+    context.rotate(safeNow * 0.00055);
+    context.globalAlpha = 0.5;
+    context.font = `950 ${Math.max(9, headRadius * 0.56)}px "Baloo 2", Inter, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    for (let marker = 0; marker < 3; marker += 1) {
+      const angle = marker * (Math.PI * 2 / 3);
+      context.fillText(
+        `${model.relicTier}×`,
+        Math.cos(angle) * effectRadius * 0.82,
+        Math.sin(angle) * effectRadius * 0.82,
+      );
+    }
+  } else if (relic.relicKind === "emerald-spyglass") {
     context.rotate(safeNow * 0.00032);
     context.globalAlpha = 0.42;
     context.lineWidth = Math.max(1.2, headRadius * 0.09);
@@ -460,14 +469,30 @@ export function drawRelicCarrierBadge(
   );
   context.stroke();
 
-  const rotation = spriteRotation(relic.relicKind, safeNow) * 0.48;
-  if (!drawPirateAtlasSprite(context, relic.ground.spriteName, {
-    x: 0,
-    y: 0,
-    size: radius * 2.15,
-    rotation,
-  })) {
-    drawRelicFallback(context, relic, radius * 0.74, model.timerRatio);
+  if (relic.relicKind === "gilded-ledger" && model.relicTier) {
+    context.fillStyle = "#fff1a0";
+    context.strokeStyle = "rgba(28, 10, 4, 0.9)";
+    context.lineWidth = Math.max(1.5, radius * 0.16);
+    context.font = `950 ${Math.max(11, radius * 1.18)}px "Baloo 2", Inter, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineJoin = "round";
+    const glyph = `${model.relicTier}×`;
+    context.strokeText(glyph, 0, 0.5);
+    context.fillText(glyph, 0, 0.5);
+  } else {
+    const rotation = spriteRotation(relic.relicKind, safeNow) * 0.48;
+    if (
+      relic.ground.spriteName === "treasure-multiplier" ||
+      !drawPirateAtlasSprite(context, relic.ground.spriteName, {
+        x: 0,
+        y: 0,
+        size: radius * 2.15,
+        rotation,
+      })
+    ) {
+      drawRelicFallback(context, relic, radius * 0.74, model.timerRatio);
+    }
   }
   context.restore();
 }

@@ -121,6 +121,26 @@ describe("Relic presentation contract", () => {
     expect(markup).not.toContain("LOOT COMPASS");
   });
 
+  it("renders an active multiplier as a number, never a coin image", () => {
+    const markup = renderToStaticMarkup(createElement(RelicStatus, {
+      active: active("gilded-ledger", {
+        relicTier: 5,
+        activatedAtTick: 10,
+        expiresAtTick: 90,
+        durationTicks: 80,
+      }),
+      currentTick: 11,
+      fixedStepSeconds: 0.1,
+    }));
+
+    expect(markup).toContain("5×");
+    expect(markup).toContain("5× ALL TREASURE");
+    expect(markup).toContain('data-ground-sprite="treasure-multiplier"');
+    expect(markup).not.toContain("doubloon-stack");
+    expect(markup).not.toContain("doubloon-stack.png");
+    expect(markup).not.toContain("<img");
+  });
+
   it("uses a static high-contrast equivalent under reduced motion", () => {
     const markup = renderToStaticMarkup(createElement(RelicStatus, {
       active: active("emerald-spyglass"),

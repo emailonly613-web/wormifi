@@ -930,6 +930,12 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   background: linear-gradient(120deg, rgba(91, 35, 24, .92), rgba(42, 18, 30, .86));
 }
 
+.relic-status--gilded-ledger.specialist-status {
+  --relic-accent: #ffe16b;
+  border-color: rgba(255, 225, 107, .78);
+  background: linear-gradient(120deg, rgba(87, 52, 9, .92), rgba(34, 15, 51, .86));
+}
+
 .relic-status__identity {
   grid-area: identity;
   display: flex;
@@ -947,6 +953,28 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   border-radius: 50%;
   background: rgba(4, 20, 32, .84);
   box-shadow: 0 0 12px color-mix(in srgb, var(--relic-accent) 32%, transparent);
+}
+
+.relic-status__multiplier {
+  min-width: 32px;
+  color: #fff0a1;
+  font: 950 17px/1 "Baloo 2", Inter, sans-serif;
+  letter-spacing: -.04em;
+  text-align: center;
+  text-shadow:
+    0 1px 0 #d88913,
+    0 2px 0 #8b4406,
+    0 0 10px rgba(255, 214, 76, .82);
+}
+
+.relic-status[data-relic-tier="5"] .relic-status__multiplier {
+  color: #b9ffeb;
+  text-shadow: 0 2px 0 #07586a, 0 0 8px rgba(66, 243, 207, .76);
+}
+
+.relic-status[data-relic-tier="10"] .relic-status__multiplier {
+  color: #f2b9ff;
+  text-shadow: 0 2px 0 #54157d, 0 0 9px rgba(233, 120, 255, .82);
 }
 
 .relic-status__copy {
@@ -4800,6 +4828,8 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
     height: 22px;
     flex-basis: 22px;
   }
+
+  .relic-status__multiplier { min-width: 25px; font-size: 14px; }
 
   .relic-status__copy strong {
     font-size: 7.5px;

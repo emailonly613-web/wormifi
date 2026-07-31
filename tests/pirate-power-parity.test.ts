@@ -139,8 +139,8 @@ describe("owner-required pirate power parity", () => {
     expect(getCameraZoomMultiplier(spyglass, 100)).toBe(1);
   });
 
-  it("Gilded Ledger applies x1-x5 and rare x10 only to ordinary neutral treasure", () => {
-    for (const tier of [1, 2, 3, 4, 5, 10] as const) {
+  it("Treasure Multiplier applies 2x, 5x, and rare 10x to every positive-mass pickup", () => {
+    for (const tier of [2, 5, 10] as const) {
       const { state, player } = movementState(`ledger-${tier}`);
       state.config.baseSpeed = 0;
       state.config.boostSpeed = 0;
@@ -178,7 +178,7 @@ describe("owner-required pirate power parity", () => {
         originPlayerId: player.id,
       });
       stepGame(state);
-      expect(player.mass - startingMass).toBe(2);
+      expect(player.mass - startingMass).toBe(10);
       expect(state.drops).toHaveLength(1);
       expect(getDropStoredMass(state.drops[0])).toBe(8);
     }
@@ -193,14 +193,14 @@ describe("owner-required pirate power parity", () => {
       position: { ...player.position },
       mass: 0,
       relicKind: "gilded-ledger",
-    })).toThrow(/x1-x5 or rare x10/u);
+    })).toThrow(/2×, 5×, or rare 10×/u);
     expect(() => spawnDrop(state, {
       id: "wrong-owner",
       position: { ...player.position },
       mass: 0,
       relicKind: "gale-pennant",
       relicTier: 5,
-    })).toThrow(/Only Gilded Ledger/u);
+    })).toThrow(/Only a Treasure Multiplier/u);
 
     spawnDrop(state, {
       id: "ledger-x5",

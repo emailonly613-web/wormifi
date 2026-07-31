@@ -48,7 +48,7 @@ export const PIRATE_RELIC_SPECS: Readonly<Record<PirateRelicKind, PirateRelicSpe
     }),
     "gilded-ledger": Object.freeze({
       kind: "gilded-ledger",
-      name: "Gilded Ledger",
+      name: "Treasure Multiplier",
       durationSeconds: 8,
     }),
   });
@@ -57,23 +57,22 @@ export const PEPPER_CUTLASS_BOOST_COST_MULTIPLIER = 0.75;
 export const GALE_PENNANT_SPEED_MULTIPLIER = 1.18;
 export const SPYGLASS_CAMERA_ZOOM_MULTIPLIER = 0.8;
 export const GILDED_LEDGER_TIERS = Object.freeze([
-  1,
   2,
-  3,
-  4,
-  5,
   2,
-  3,
-  4,
+  2,
   5,
   10,
+  2,
+  2,
+  2,
+  5,
+  2,
 ] as const satisfies readonly TreasureMultiplierTier[]);
 
 export function isTreasureMultiplierTier(
   value: unknown,
 ): value is TreasureMultiplierTier {
-  return value === 1 || value === 2 || value === 3 || value === 4 ||
-    value === 5 || value === 10;
+  return value === 2 || value === 5 || value === 10;
 }
 
 export function getPirateRelicSpec(kind: PirateRelicKind): PirateRelicSpec {

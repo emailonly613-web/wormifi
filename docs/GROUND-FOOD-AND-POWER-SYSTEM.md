@@ -17,6 +17,10 @@ The stronger moat is a **pirate treasure ecology**:
 
 - common faceted Cut Gems give constant growth and musical combo feedback;
 - high-value Treasure Chests create visible route choices without changing the collision law;
+- standalone floating `2×`, `5×`, and rare `10×` number pickups temporarily
+  multiply every positive-mass treasure pickup the worm eats;
+- the field carries no permanent point labels; the final already-multiplied
+  `+amount` flashes only when collection happens;
 - defeated rivals erupt into mass-conserving, identity-bearing Rival Hoards;
 - rare Relics visibly join the chain and provide one readable,
   counterable power at a time;

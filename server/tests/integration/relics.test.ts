@@ -100,7 +100,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 1,
+        relicTier: 2,
       },
       {
         id: "gilded-ledger-relic-2",
@@ -116,7 +116,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 3,
+        relicTier: 2,
       },
       {
         id: "gilded-ledger-relic-4",
@@ -124,7 +124,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 4,
+        relicTier: 5,
       },
       {
         id: "gilded-ledger-relic-5",
@@ -132,7 +132,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 5,
+        relicTier: 10,
       },
     ]);
 
@@ -189,7 +189,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
           relicDurationTicks: 80,
           specialist: undefined,
           specialistDurationTicks: undefined,
-          relicTier: 1,
+          relicTier: 2,
         },
         {
           relicKind: "gilded-ledger",
@@ -203,14 +203,7 @@ test("rooms seed the complete Relic set deterministically without changing the v
           relicDurationTicks: 80,
           specialist: undefined,
           specialistDurationTicks: undefined,
-          relicTier: 3,
-        },
-        {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
-          specialist: undefined,
-          specialistDurationTicks: undefined,
-          relicTier: 4,
+          relicTier: 2,
         },
         {
           relicKind: "gilded-ledger",
@@ -218,6 +211,13 @@ test("rooms seed the complete Relic set deterministically without changing the v
           specialist: undefined,
           specialistDurationTicks: undefined,
           relicTier: 5,
+        },
+        {
+          relicKind: "gilded-ledger",
+          relicDurationTicks: 80,
+          specialist: undefined,
+          specialistDurationTicks: undefined,
+          relicTier: 10,
         },
       ],
     );

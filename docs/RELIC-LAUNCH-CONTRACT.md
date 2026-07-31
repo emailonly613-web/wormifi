@@ -12,7 +12,8 @@ original three-Relic candidate, but it no longer limits launch to three Relics.
 In particular, its former rule that Emerald Spyglass performs **no camera
 zoom** is explicitly withdrawn: the amended Spyglass must pull the camera back
 to show 25% farther while preserving coarse danger bearings. Gale Pennant,
-Maelstrom Wheel and tiered Gilded Ledger are also required before the power set
+Maelstrom Wheel and the tiered Treasure Multiplier (legacy internal identifier
+`gilded-ledger`) are also required before the power set
 can be called complete.
 
 Wormifi keeps the proven category value of readable temporary powers, but makes

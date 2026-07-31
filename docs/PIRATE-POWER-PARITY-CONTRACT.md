@@ -43,7 +43,7 @@ current one; durations and effects never stack.
 | **Gale Pennant** | 8 s | Raises the carrier's normal and sprint movement by 18% within the authoritative simulation | No teleport, immunity or collision change |
 | **Maelstrom Wheel** | 8 s | Grants repeated zero-clearance steering for the entire timer: every requested heading resolves in one fixed simulation step, so the carrier can reverse 180 degrees or draw consecutive tight 360-degree loops, including while sprinting | It is not a one-use flip; it does not turn automatically, alter rivals' input, remove sprint cost or skip collision along the travelled path |
 | **Emerald Spyglass** | 10 s | Pulls the camera back to show 25% farther in each screen direction and retains coarse off-screen danger bearings | No hidden exact coordinates, collision change or server-only information |
-| **Gilded Ledger** | 8 s | Activates a disclosed `x2`, `x3` or `x5` neutral-treasure growth tier; ordinary play is `x1` | Never multiplies crash loot, sprint Echoes, charging rewards, powers, kills or paid rewards |
+| **Treasure Multiplier** | 8 s | Activates a disclosed `2×`, `5×` or rare `10×` tier for every positive-mass treasure pickup eaten while active | Never multiplies charging-pad rewards, kills, power pickups, subscriptions or paid rewards |
 | **Pepper Cutlass** | 8 s | Reduces sprint mass cost by 25% | Never raises top speed, makes sprint free or grants immunity |
 
 The required functional baseline therefore covers temporary attraction, speed,
@@ -58,19 +58,29 @@ mass-dependent turn radius returns on the exact authoritative expiry tick.
 
 ## 3. Multiplier rules
 
-- `x1` is the default state. A Gilded Ledger ground item visibly declares one
-  server-chosen tier: `x2`, `x3` or `x5`.
+- Normal treasure is unmultiplied. A Treasure Multiplier ground item visibly
+  declares one server-chosen tier: `2×`, `5×` or rare `10×`.
 - The tier is part of the authoritative ground item, activation event, active
   slot and reconnect snapshot. A client never rolls or upgrades its own tier.
-- Only the visible mass of ordinary neutral `arena` treasure is multiplied.
-  Echo-bank conservation remains exact and entirely outside the multiplier.
-- The highest legal result is `x5`. A second Ledger replaces the active slot;
-  it does not multiply the first multiplier.
+- Every positive-mass pickup the carrier eats while active is multiplied,
+  including neutral treasure, Sprint Echoes and visible Rival Hoard jewels.
+  Stored Echo-bank mass remains exact; only each visible collected portion is
+  multiplied at collection time.
+- The highest legal result is the rare `10×`. A second multiplier replaces the
+  active slot; it does not stack with the first multiplier.
 
 ## 4. Presentation and comprehension
 
 - Every ground power has a distinct pirate name, silhouette or badge, color,
   short effect label and high-contrast fallback that does not rely on color.
+- Treasure Multipliers are standalone floating `2×`, `5×` and `10×` number
+  glyphs kept near the ordinary-treasure scale, with no coin, medallion,
+  square, card or treasure sprite behind them.
+- Tier color is redundant identification, not decoration alone: `2×` is gold,
+  `5×` is sea-green and rare `10×` is amethyst; the printed number remains the
+  authoritative cue for color-vision accessibility.
+- Treasure values are not printed across the arena. After a pickup is eaten,
+  its final already-multiplied `+amount` appears briefly at the worm and fades.
 - The carrier, rivals and HUD disclose the active advantage and remaining time.
 - Reduced-motion mode preserves the same information without pulsing or spin.
 - The first-use callout states the actual effect in plain language. External

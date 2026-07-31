@@ -25,8 +25,7 @@ export interface RelicGroundSilhouette {
     | "pepper-cutlass"
     | "shipwheel-shield"
     | "vortex-astrolabe"
-    | "doubloon-stack"
-  >;
+  > | "treasure-multiplier";
   assetPath: string;
   accessibleLabel: string;
   scale: number;
@@ -37,7 +36,7 @@ export interface RelicGroundSilhouette {
     | "ember-flicker"
     | "wind-stream"
     | "maelstrom-turn"
-    | "coin-shimmer";
+    | "multiplier-float";
   reducedMotionEquivalent: "static-high-contrast-outline";
 }
 
@@ -83,7 +82,9 @@ function presentation(
     ...values,
     ground: Object.freeze({
       ...values.ground,
-      assetPath: pirateSpritePath(values.ground.spriteName),
+      assetPath: values.ground.spriteName === "treasure-multiplier"
+        ? ""
+        : pirateSpritePath(values.ground.spriteName),
     }),
   });
 }
@@ -182,20 +183,20 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "gilded-ledger": presentation("gilded-ledger", {
-    label: "Gilded Ledger",
+    label: "Treasure Multiplier",
     shortLabel: "MULTIPLIER",
     publishedDurationSeconds: 8,
-    effectText: "x1–x5 OR RARE x10 NEUTRAL TREASURE",
+    effectText: "2×, 5×, OR RARE 10× ALL TREASURE",
     rivalDisclosure: "TREASURE MULTIPLIER ACTIVE",
     carrierTone: "gilded-fortune",
     carrierAccent: "#ffe16b",
     carrierHalo: "rgba(255, 198, 45, 0.52)",
     ground: {
-      spriteName: "doubloon-stack",
-      accessibleLabel: "Gilded Ledger Relic on the arena floor",
+      spriteName: "treasure-multiplier",
+      accessibleLabel: "Floating Treasure Multiplier on the arena floor",
       scale: 1.34,
       fallbackGlyph: "×",
-      motion: "coin-shimmer",
+      motion: "multiplier-float",
       reducedMotionEquivalent: "static-high-contrast-outline",
     },
   }),
@@ -215,7 +216,7 @@ export function getRelicEffectText(
   tier?: TreasureMultiplierTier,
 ): string {
   return relic.relicKind === "gilded-ledger" && tier
-    ? `x${tier} NEUTRAL TREASURE`
+    ? `${tier}× ALL TREASURE`
     : relic.effectText;
 }
 
@@ -224,7 +225,7 @@ export function getRelicRivalDisclosure(
   tier?: TreasureMultiplierTier,
 ): string {
   return relic.relicKind === "gilded-ledger" && tier
-    ? `x${tier} TREASURE ACTIVE`
+    ? `${tier}× TREASURE ACTIVE`
     : relic.rivalDisclosure;
 }
 

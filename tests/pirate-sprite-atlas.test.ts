@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   commonTreasureSprite,
   drawGroundTreasureSpriteField,
+  drawPickupRewardPopup,
   GROUND_TREASURE_COMPACT_MIN_LOGICAL_SIZE,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
   pirateSpritePath,
@@ -104,5 +105,52 @@ describe("original pirate sprite atlas", () => {
       0,
     );
     expect(projections).toBe(1);
+  });
+
+  it("never prints values on the ground and draws +points only when explicitly collected", () => {
+    const fieldText: string[] = [];
+    const fieldContext = new Proxy({} as CanvasRenderingContext2D, {
+      get(_target, key) {
+        if (key === "fillText" || key === "strokeText") {
+          return (value: string) => fieldText.push(value);
+        }
+        return undefined;
+      },
+      set() { return true; },
+    });
+    drawGroundTreasureSpriteField(
+      fieldContext,
+      [{
+        id: "ground-with-legacy-value",
+        position: { x: 0, y: 0 },
+        radius: 8,
+        seed: 2,
+        screenX: 50,
+        screenY: 50,
+        points: 420,
+      } as never],
+      () => ({ x: 50, y: 50 }),
+      1,
+      100,
+      100,
+      0,
+    );
+    expect(fieldText).toEqual([]);
+
+    const pickupText: string[] = [];
+    const popupContext = new Proxy({ globalAlpha: 1 } as CanvasRenderingContext2D, {
+      get(target, key) {
+        if (key === "fillText" || key === "strokeText") {
+          return (value: string) => pickupText.push(value);
+        }
+        if (key === "save" || key === "restore") return () => undefined;
+        return Reflect.get(target, key);
+      },
+      set(target, key, value) {
+        return Reflect.set(target, key, value);
+      },
+    });
+    drawPickupRewardPopup(popupContext, 420, 50, 40, 30, 0.8);
+    expect(pickupText).toEqual(["+420", "+420"]);
   });
 });
