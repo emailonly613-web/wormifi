@@ -4,6 +4,7 @@ import {
 } from "./wormMaterialPatterns";
 
 const HEAD_ROOT = `${import.meta.env.BASE_URL}art/cinematic-heads/`;
+const PORTRAIT_ROOT = `${import.meta.env.BASE_URL}art/captain-portraits/`;
 
 /**
  * Production cutouts for the cinematic head layer. The PNGs contain alpha and
@@ -42,4 +43,15 @@ export function cinematicHeadSource(pattern: WormMaterialPattern): string {
   const head = HEAD_BY_PATTERN.get(pattern);
   if (!head) throw new Error(`Missing cinematic head for ${pattern}`);
   return `${HEAD_ROOT}${head.file}`;
+}
+
+/**
+ * Lightweight launcher portrait derived from the same authored head used in
+ * play. Keeping the file mapping shared prevents the menu avatar from drifting
+ * away from the captain the player actually equipped.
+ */
+export function captainPortraitSource(pattern: WormMaterialPattern): string {
+  const head = HEAD_BY_PATTERN.get(pattern);
+  if (!head) throw new Error(`Missing captain portrait for ${pattern}`);
+  return `${PORTRAIT_ROOT}${head.file.replace(/\.png$/u, ".webp")}`;
 }

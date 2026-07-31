@@ -1,10 +1,11 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import {
   CINEMATIC_HEAD_CATALOG,
+  captainPortraitSource,
   cinematicHeadSource,
 } from "../src/game/cinematicHeads";
 import { WORM_MATERIAL_PATTERNS } from "../src/game/wormMaterialPatterns";
@@ -83,6 +84,17 @@ describe("cinematic creature heads", () => {
       const alpha = countAlphaPixels(bytes);
       expect(alpha.transparent, `${head.id} transparent pixels`).toBeGreaterThan(10_000);
       expect(alpha.visible, `${head.id} visible pixels`).toBeGreaterThan(10_000);
+    }
+  });
+
+  it("ships a lightweight launcher portrait for every authored head", () => {
+    for (const head of CINEMATIC_HEAD_CATALOG) {
+      const source = captainPortraitSource(head.pattern);
+      const path = resolve(`public${source}`);
+      const bytes = readFileSync(path);
+      expect(bytes.subarray(0, 4).toString("ascii"), head.id).toBe("RIFF");
+      expect(bytes.subarray(8, 12).toString("ascii"), head.id).toBe("WEBP");
+      expect(statSync(path).size, `${head.id} launcher payload`).toBeLessThan(40_000);
     }
   });
 });

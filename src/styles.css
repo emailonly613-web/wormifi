@@ -4689,9 +4689,96 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 
 .quick-start {
   display: grid;
-  width: min(530px, 100%);
+  width: min(580px, 100%);
   margin: 0 auto;
   gap: 9px;
+}
+
+.captain-launch-profile {
+  display: grid;
+  grid-template-columns: 102px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  padding: 9px 12px;
+  border: 1px solid rgba(126, 221, 235, .24);
+  border-radius: 19px;
+  background:
+    radial-gradient(circle at 12% 24%, rgba(65, 236, 216, .12), transparent 48%),
+    rgba(4, 17, 36, .64);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+
+.captain-launch-profile__portrait-control,
+.captain-launch-profile__identity,
+.captain-launch-profile__selected {
+  display: grid;
+}
+
+.captain-launch-profile__portrait-control {
+  justify-items: center;
+  gap: 4px;
+}
+
+.captain-launch-profile__portrait {
+  width: 84px;
+  height: 84px;
+  overflow: hidden;
+  border: 2px solid rgba(113, 255, 224, .54);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(96, 226, 225, .25), transparent 62%),
+    #061a33;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .32), inset 0 0 0 3px rgba(255, 255, 255, .05);
+}
+
+.captain-launch-profile__portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.04);
+}
+
+.captain-launch-profile__choose {
+  min-width: 94px;
+  min-height: 27px;
+  padding: 5px 8px;
+  border: 1px solid rgba(157, 223, 246, .34);
+  border-radius: 9px;
+  color: #dff7ff;
+  background: rgba(9, 31, 56, .88);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .09em;
+  cursor: pointer;
+}
+
+.captain-launch-profile__choose:hover {
+  border-color: rgba(105, 246, 224, .75);
+  color: #fff;
+}
+
+.captain-launch-profile__identity {
+  align-content: center;
+  gap: 9px;
+}
+
+.captain-launch-profile__selected {
+  gap: 1px;
+}
+
+.captain-launch-profile__selected small {
+  color: #79eadb;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.captain-launch-profile__selected strong {
+  color: #fff0a8;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: .05em;
 }
 
 .nickname-field--quick {
@@ -4712,12 +4799,12 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 }
 
 .play-button--primary {
-  min-height: 82px;
+  min-height: 94px;
   border-radius: 21px;
 }
 
 .play-button--primary span {
-  font-size: 31px;
+  font-size: 36px;
 }
 
 .quick-play-row {
@@ -4973,14 +5060,25 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 
   .quick-start { gap: 6px; }
 
+  .captain-launch-profile {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .captain-launch-profile__portrait { width: 62px; height: 62px; }
+  .captain-launch-profile__choose { min-width: 72px; min-height: 23px; padding: 3px 5px; font-size: 6px; }
+  .captain-launch-profile__identity { gap: 5px; }
+  .captain-launch-profile__selected strong { font-size: 12px; }
+
   .nickname-field--quick {
     grid-template-columns: 96px minmax(0, 1fr);
     gap: 7px;
   }
 
   .nickname-field--quick input { height: 33px; }
-  .play-button--primary { min-height: 60px; padding: 7px 14px; }
-  .play-button--primary span { font-size: 24px; }
+  .play-button--primary { min-height: 68px; padding: 7px 14px; }
+  .play-button--primary span { font-size: 27px; }
   .play-button--primary small { font-size: 7px; }
   .quick-play-button { min-height: 38px; padding: 4px 8px; }
   .friend-room-card--quick .friend-challenge-button { min-height: 40px; }
@@ -5014,10 +5112,16 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   .launcher-settings-button svg { width: 17px; height: 17px; }
   .launch-five-second-promise span { display: none; }
   .launch-five-second-promise strong { font-size: 7px; }
+  .captain-launch-profile { grid-template-columns: 62px minmax(0, 1fr); padding: 3px 7px; gap: 7px; }
+  .captain-launch-profile__portrait { width: 48px; height: 48px; }
+  .captain-launch-profile__choose { min-width: 58px; min-height: 19px; padding: 2px 3px; font-size: 5px; }
+  .captain-launch-profile__identity { gap: 3px; }
+  .captain-launch-profile__selected small { font-size: 5px; }
+  .captain-launch-profile__selected strong { font-size: 9px; }
   .nickname-field--quick input { height: 27px; }
   .nickname-field--quick > span { font-size: 6px; }
-  .play-button--primary { min-height: 48px; }
-  .play-button--primary span { font-size: 20px; }
+  .play-button--primary { min-height: 60px; }
+  .play-button--primary span { font-size: 24px; }
   .play-button--primary small { font-size: 6px; }
   .quick-play-button { min-height: 31px; }
   .quick-play-button b { font-size: 8px; }

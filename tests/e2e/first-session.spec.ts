@@ -49,11 +49,20 @@ async function steerToHighlightedSpark(page: Page) {
 
 async function expectLauncher(page: Page) {
   await expect(page.getByRole("heading", { name: "WORMIFI" })).toBeVisible();
+  await expect(page.getByTestId("launcher-captain-profile")).toHaveAttribute("data-theme-id", "tideglass-corsair");
+  await expect(page.getByRole("img", { name: "TIDEGLASS CORSAIR captain portrait" })).toHaveAttribute(
+    "src",
+    /captain-portraits\/tidal-navigator-v1\.webp$/u,
+  );
+  await expect(page.getByTestId("launcher-selected-look")).toHaveText("TIDEGLASS CORSAIR");
+  await expect(page.getByTestId("launcher-choose-look")).toBeVisible();
   await expect(page.getByLabel("Your arena name")).toBeEditable();
   await expect(page.getByRole("button", { name: /play live/i })).toBeVisible();
   await expect(page.getByTestId("solo-run-button")).toBeVisible();
   await expect(page.getByTestId("settings-button")).toBeVisible();
   await expect(page.getByTestId("settings-panel")).toHaveCount(0);
+  await expect(page.getByTestId("board-picker")).toHaveCount(0);
+  await expect(page.getByTestId("pace-picker")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /practice with labeled bots/i }),
   ).toBeVisible();
@@ -74,6 +83,23 @@ async function expectLauncher(page: Page) {
   expect(launcherFit.scrollHeight).toBeLessThanOrEqual(launcherFit.clientHeight + 1);
   expect(launcherFit.top).toBeGreaterThanOrEqual(0);
   expect(launcherFit.bottom).toBeLessThanOrEqual(launcherFit.viewportHeight);
+
+  const actionHierarchy = await page.evaluate(() => {
+    const play = document.querySelector<HTMLElement>(".play-button--primary");
+    const playLabel = play?.querySelector<HTMLElement>("span");
+    const choose = document.querySelector<HTMLElement>(".captain-launch-profile__choose");
+    if (!play || !playLabel || !choose) throw new Error("Launcher hierarchy controls are missing.");
+    const playBox = play.getBoundingClientRect();
+    const chooseBox = choose.getBoundingClientRect();
+    return {
+      playArea: playBox.width * playBox.height,
+      chooseArea: chooseBox.width * chooseBox.height,
+      playFontSize: Number.parseFloat(getComputedStyle(playLabel).fontSize),
+      chooseFontSize: Number.parseFloat(getComputedStyle(choose).fontSize),
+    };
+  });
+  expect(actionHierarchy.playArea).toBeGreaterThan(actionHierarchy.chooseArea * 4);
+  expect(actionHierarchy.playFontSize).toBeGreaterThan(actionHierarchy.chooseFontSize * 2);
 }
 
 async function expectActiveArena(page: Page) {
@@ -169,6 +195,22 @@ test.describe("first Wormifi session", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+  });
+
+  test("keeps the equipped captain portrait visible and returns from Choose Look to the launcher", async ({ page }) => {
+    await expectLauncher(page);
+    await page.getByTestId("launcher-choose-look").click();
+    await expect(page.getByTestId("skin-studio")).toBeVisible();
+    await page.getByRole("radio", { name: /coral signal/i }).check();
+    await page.getByRole("button", { name: "Close Photo Skin Studio" }).click();
+
+    await expect(page.getByTestId("settings-panel")).toHaveCount(0);
+    await expect(page.getByTestId("launcher-captain-profile")).toHaveAttribute("data-theme-id", "coral-signal");
+    await expect(page.getByTestId("launcher-selected-look")).toHaveText("CORAL SIGNAL");
+    await expect(page.getByRole("img", { name: "CORAL SIGNAL captain portrait" })).toHaveAttribute(
+      "src",
+      /captain-portraits\/coral-signal-v1\.webp$/u,
+    );
   });
 
   test("starts Rush as a guest through accessible controls", async ({ page }) => {

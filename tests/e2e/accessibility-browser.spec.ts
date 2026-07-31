@@ -123,8 +123,12 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(settings).toBeFocused();
 
     const nickname = page.getByRole("textbox", { name: "Your arena name" });
+    const chooseLook = page.getByTestId("launcher-choose-look");
     const live = page.getByRole("button", { name: /play live/i });
     const play = page.getByTestId("solo-run-button");
+    await page.keyboard.press("Tab");
+    await expect(chooseLook).toBeFocused();
+    await expectVisibleFocus(chooseLook);
     await page.keyboard.press("Tab");
     await expect(nickname).toBeFocused();
     await page.keyboard.press("ControlOrMeta+A");

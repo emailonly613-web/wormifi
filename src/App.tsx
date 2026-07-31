@@ -60,6 +60,7 @@ import { DEFAULT_COSMETIC_THEME_ID, isPremiumCosmeticThemeId } from "./game/cosm
 import {
   isFounderPackUnlocked,
 } from "./game/premiumSkins";
+import { captainPortraitSource } from "./game/cinematicHeads";
 import {
   awardCaptainRun,
   captainLevelProgress,
@@ -230,6 +231,7 @@ export function App() {
   const [immersiveNoticeOpen, setImmersiveNoticeOpen] = useState(false);
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const skinStudioReturnToSettingsRef = useRef(true);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
   const gameOwnsFullscreenRef = useRef(false);
@@ -706,6 +708,7 @@ export function App() {
               setSettingsOpen(true);
             }}
             onOpenSkinStudio={() => {
+              skinStudioReturnToSettingsRef.current = true;
               setLegendVoyageOpen(false);
               setSkinStudioOpen(true);
             }}
@@ -716,7 +719,7 @@ export function App() {
             onStateChange={setPhotoSkinState}
             onClose={() => {
               setSkinStudioOpen(false);
-              setSettingsOpen(true);
+              setSettingsOpen(skinStudioReturnToSettingsRef.current);
             }}
           />
         ) : currencyStoreOpen && currencyStoreMenuEnabled ? (
@@ -755,6 +758,7 @@ export function App() {
                   className="live-lab-button skin-studio-launch"
                   data-testid="skin-studio-launch"
                   onClick={() => {
+                    skinStudioReturnToSettingsRef.current = true;
                     setSettingsOpen(false);
                     setSkinStudioOpen(true);
                   }}
@@ -966,15 +970,51 @@ export function App() {
           </div>
 
           <div className="quick-start">
-            <label className="nickname-field nickname-field--quick">
-              <span>YOUR ARENA NAME</span>
-              <input
-                value={name}
-                maxLength={18}
-                onChange={(event) => setName(event.target.value.replace(/[^a-z0-9 _-]/gi, ""))}
-                aria-label="Your arena name"
-              />
-            </label>
+            <div
+              className="captain-launch-profile"
+              data-testid="launcher-captain-profile"
+              data-theme-id={photoSkinRenderPlan.theme.id}
+            >
+              <div className="captain-launch-profile__portrait-control">
+                <div className="captain-launch-profile__portrait">
+                  <img
+                    src={captainPortraitSource(photoSkinRenderPlan.theme.pattern)}
+                    alt={`${photoSkinRenderPlan.theme.label} captain portrait`}
+                    width="320"
+                    height="320"
+                    decoding="async"
+                  />
+                </div>
+                {!isCrazyGamesDistribution && <button
+                  type="button"
+                  className="captain-launch-profile__choose"
+                  data-testid="launcher-choose-look"
+                  aria-label={`Choose your captain look. Current look: ${photoSkinRenderPlan.theme.label}`}
+                  onClick={() => {
+                    skinStudioReturnToSettingsRef.current = false;
+                    setSkinStudioOpen(true);
+                  }}
+                >
+                  CHOOSE LOOK
+                </button>}
+              </div>
+
+              <div className="captain-launch-profile__identity">
+                <span className="captain-launch-profile__selected">
+                  <small>YOUR CAPTAIN</small>
+                  <strong data-testid="launcher-selected-look">{photoSkinRenderPlan.theme.label}</strong>
+                </span>
+                <label className="nickname-field nickname-field--quick">
+                  <span>YOUR ARENA NAME</span>
+                  <input
+                    value={name}
+                    maxLength={18}
+                    onChange={(event) => setName(event.target.value.replace(/[^a-z0-9 _-]/gi, ""))}
+                    aria-label="Your arena name"
+                  />
+                </label>
+              </div>
+            </div>
 
             {challenge && (
               <div className="incoming-challenge" data-testid="incoming-challenge">
