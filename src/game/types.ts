@@ -262,6 +262,8 @@ export interface BotInputContext {
   self: Readonly<PlayerState>;
   players: readonly Readonly<PlayerState>[];
   drops: readonly Readonly<DropState>[];
+  /** Deterministic capped-pressure target; absent for every unassigned bot. */
+  assignedHumanTargetId?: PlayerId;
 }
 
 /**

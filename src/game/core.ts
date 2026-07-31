@@ -41,6 +41,7 @@ import type {
   SpecialistKind,
   Vec2,
 } from "./types";
+import { selectHumanHunterAssignments } from "./botPressure";
 
 const EPSILON = 1e-9;
 const TAU = Math.PI * 2;
@@ -623,6 +624,7 @@ function buildBotContext(
   state: GameState,
   player: PlayerState,
   players: readonly Readonly<PlayerState>[],
+  assignedHumanTargetId?: string,
 ): BotInputContext {
   return {
     tick: state.tick,
@@ -631,6 +633,7 @@ function buildBotContext(
     self: player,
     players,
     drops: state.drops,
+    assignedHumanTargetId,
   };
 }
 
@@ -1733,6 +1736,11 @@ export function stepGame(
   expireSpecialists(state, events);
   const playerIds = Object.keys(state.players).sort();
   const playerRefs = playerIds.map((playerId) => state.players[playerId]);
+  const humanHunterAssignments = selectHumanHunterAssignments(
+    playerRefs,
+    state.tick,
+    state.config.fixedStepSeconds,
+  );
 
   for (const playerId of playerIds) {
     const player = state.players[playerId];
@@ -1740,7 +1748,12 @@ export function stepGame(
 
     const botInput =
       !inputs[playerId] && player.kind === "bot"
-        ? botProviders[playerId]?.nextInput(buildBotContext(state, player, playerRefs))
+        ? botProviders[playerId]?.nextInput(buildBotContext(
+            state,
+            player,
+            playerRefs,
+            humanHunterAssignments.get(playerId),
+          ))
         : undefined;
     acceptInput(player, inputs[playerId] ?? botInput);
   }

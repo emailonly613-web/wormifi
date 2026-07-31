@@ -220,8 +220,38 @@ class DeterministicBot implements BotInputProvider {
       };
     }
 
+    const assignedHuman = context.assignedHumanTargetId
+      ? context.players.find((player) =>
+          player.id === context.assignedHumanTargetId &&
+          player.kind === "human" &&
+          player.alive
+        )
+      : undefined;
+    if (assignedHuman) {
+      const assignedDistance = Math.sqrt(distanceSquared(self.position, assignedHuman.position));
+      const favorsCutOff = this.personality.interception > this.personality.aggression;
+      if (favorsCutOff) {
+        const lead = Math.min(360, Math.max(80, assignedDistance * 0.36));
+        return {
+          state: "cut-off",
+          direction: toward(self.position, {
+            x: assignedHuman.position.x + assignedHuman.direction.x * lead,
+            y: assignedHuman.position.y + assignedHuman.direction.y * lead,
+          }),
+          boost: assignedDistance > 520,
+        };
+      }
+      return {
+        state: "hunt",
+        direction: toward(self.position, assignedHuman.position),
+        boost: assignedDistance > 620 && this.personality.aggression >= 0.7,
+      };
+    }
+
     const deathDrop = bestDrop(context, "death", visionSquared);
-    const prey = choosePrey(self, rivals);
+    // Human pursuit is owned exclusively by the capped rotating assignment.
+    // Unassigned bots may still hunt one another through the ordinary prey law.
+    const prey = choosePrey(self, rivals.filter((rival) => rival.kind === "bot"));
     const deathUtility = deathDrop
       ? this.personality.scavenging * deathDrop.mass /
         (Math.sqrt(distanceSquared(self.position, deathDrop.position)) + 40)
