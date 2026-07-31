@@ -3,6 +3,17 @@ import { expect, test } from "@playwright/test";
 test("Legend Voyage proves value without exposing checkout", async ({ page }) => {
   await page.goto("/");
 
+  // The deployed owned site has a GA measurement ID and therefore shows the
+  // optional consent choice; local builds intentionally do not invent one.
+  // Prove the complete journey after declining, so interest remains usable
+  // without granting analytics consent.
+  const declineAnalytics = page
+    .getByRole("dialog", { name: "Optional analytics choice" })
+    .getByRole("button", { name: "NO THANKS" });
+  if (await declineAnalytics.isVisible({ timeout: 1_500 }).catch(() => false)) {
+    await declineAnalytics.click();
+  }
+
   const launch = page.getByTestId("legend-voyage-launch");
   await expect(launch).toBeVisible();
   await expect(launch).toContainText("CAPTAIN LEVEL");
