@@ -256,6 +256,29 @@ function installFunnelTracking() {
       }
       return;
     }
+    if (testId === "legend-voyage-launch") {
+      sendEvent("legend_voyage_opened", {
+        content_type: "cosmetic_progression_preview",
+        item_id: "legend_voyage_one",
+      });
+      return;
+    }
+    const legendTheme = target.dataset.legendTheme;
+    if (legendTheme && ["krakens-ink", "phoenix-wake", "leviathan-scale"].includes(legendTheme)) {
+      sendEvent("legend_theme_previewed", {
+        content_type: "cosmetic_theme_preview",
+        item_id: legendTheme,
+      });
+      return;
+    }
+    if (testId === "legend-voyage-interest") {
+      sendEvent("legend_voyage_interest", {
+        currency: "USD",
+        value: 4.99,
+        item_id: "legend_voyage_one",
+      });
+      return;
+    }
     if (testId === "watch-local-replay") {
       sendEvent("replay_viewed", { game_mode: lastLaunchMode });
       return;

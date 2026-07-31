@@ -42,10 +42,8 @@ import {
 } from "../game/cosmeticThemes";
 import {
   FOUNDER_PACK,
-  STORE_API_BASE,
   canEquipTheme,
   isFounderPackUnlocked,
-  isFounderStoreVisible,
 } from "../game/premiumSkins";
 
 const MOTION_LEVEL_COPY: Record<MaterialMotionLevel, { label: string; detail: string }> = {
@@ -97,11 +95,11 @@ export function SkinStudio({
 
   const [state, setState] = useState<PhotoSkinState>(loadedRef.current.state);
   const [renderPrefs, setRenderPrefs] = useState<RenderPreferences>(() => readRenderPreferences());
-  const [founderUnlocked, setFounderUnlocked] = useState(() => isFounderPackUnlocked());
+  const [founderUnlocked] = useState(() => isFounderPackUnlocked());
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const founderStoreVisible = founderUnlocked ||
-    (typeof window !== "undefined" && isFounderStoreVisible(window.location.search));
+  // Historic test grants remain usable, but the public Skin Studio no longer
+  // exposes any checkout or query-string purchase preview.
+  const founderStoreVisible = founderUnlocked;
   const reducedMotionRef = useRef(
     typeof window !== "undefined" &&
     (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false),
@@ -411,42 +409,7 @@ export function SkinStudio({
               );
             })}
           </div>
-          {founderUnlocked ? (
-            <small className="skin-founder-owned">FOUNDER'S PACK UNLOCKED ON THIS DEVICE · pick any legend above.</small>
-          ) : (
-            <div className="skin-founder-buy">
-              <button
-                type="button"
-                className="skin-founder-unlock"
-                data-testid="founder-unlock-button"
-                disabled={checkoutBusy}
-                onClick={() => {
-                  setCheckoutBusy(true);
-                  setStatus("Opening secure Stripe checkout…");
-                  void fetch(`${STORE_API_BASE}/checkout`, { method: "POST" })
-                    .then(async (response) => {
-                      const body = await response.json().catch(() => ({}));
-                      if (response.ok && typeof body.url === "string") {
-                        window.location.assign(body.url);
-                        return;
-                      }
-                      throw new Error(typeof body.error === "string" ? body.error : "Checkout is unavailable right now.");
-                    })
-                    .catch((checkoutError: unknown) => {
-                      setCheckoutBusy(false);
-                      setError(checkoutError instanceof Error ? checkoutError.message : "Checkout is unavailable right now.");
-                      setStatus("Nothing was charged.");
-                    });
-                }}
-              >
-                {checkoutBusy ? "OPENING CHECKOUT…" : `UNLOCK ALL THREE · ${FOUNDER_PACK.priceLabel}`}
-              </button>
-              <small>
-                One-time purchase through Stripe's secure checkout. Unlocks on this device;
-                keep your receipt email to restore. Every other theme stays free forever.
-              </small>
-            </div>
-          )}
+          <small className="skin-founder-owned">HISTORIC TEST GRANT ACTIVE ON THIS DEVICE · pick any legend above.</small>
         </fieldset>
       )}
 

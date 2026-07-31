@@ -131,6 +131,7 @@ import {
   pointerSteeringDirection,
   type CameraMotionState,
 } from "../game/cameraMotion";
+import type { CaptainRunSummary } from "../game/captainProgression";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
@@ -157,6 +158,7 @@ interface LiveArenaCanvasProps {
   controlScheme: ControlScheme;
   onBoardResolved?: (boardId: GameBoardId) => void;
   onPaceResolved?: (paceId: GamePaceId) => void;
+  onLifeEnded?: (summary: CaptainRunSummary) => void;
   onExit: () => void;
 }
 
@@ -735,6 +737,7 @@ export function LiveArenaCanvas({
   controlScheme,
   onBoardResolved,
   onPaceResolved,
+  onLifeEnded,
   onExit,
 }: LiveArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -746,6 +749,8 @@ export function LiveArenaCanvas({
   const handshakeRef = useRef<AuthorityHandshake | null>(null);
   const photoSkinRef = useRef(photoSkin);
   photoSkinRef.current = photoSkin;
+  const onLifeEndedRef = useRef(onLifeEnded);
+  onLifeEndedRef.current = onLifeEnded;
   const directionRef = useRef<Vec2>({ x: 1, y: 0 });
   const boostRef = useRef(false);
   const sprintStartedAtRef = useRef<number | undefined>(undefined);
@@ -768,6 +773,7 @@ export function LiveArenaCanvas({
   const particlesRef = useRef<LiveParticle[]>([]);
   const previousFrameAtRef = useRef<number | undefined>(undefined);
   const pickupComboRef = useRef({ count: 0, lastTick: Number.NEGATIVE_INFINITY });
+  const lastAwardedDeathTickRef = useRef(-1);
   const collectorPullEventsRef = useRef(0);
   const heatRingUiRef = useRef<HeatRingUiState>({
     phase: "idle",
@@ -1399,6 +1405,19 @@ export function LiveArenaCanvas({
                 );
                 playTone(125, 0.2, 0.065);
                 if (!reducedMotionRef.current) navigator.vibrate?.([35, 25, 80]);
+                if (victim && lastAwardedDeathTickRef.current !== message.tick) {
+                  lastAwardedDeathTickRef.current = message.tick;
+                  const ranked = [...message.players]
+                    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
+                  const rank = Math.max(1, ranked.findIndex((player) => player.id === victim.id) + 1);
+                  onLifeEndedRef.current?.({
+                    source: "live",
+                    score: victim.score,
+                    kills: victim.kills,
+                    rank,
+                    peakMass: victim.mass,
+                  });
+                }
               }
             }
             if (

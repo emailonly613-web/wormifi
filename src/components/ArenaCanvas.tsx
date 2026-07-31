@@ -128,6 +128,7 @@ import {
   snapCameraMotion,
   type CameraMotionState,
 } from "../game/cameraMotion";
+import type { CaptainRunSummary } from "../game/captainProgression";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -162,7 +163,7 @@ interface ArenaCanvasProps {
   controlScheme: ControlScheme;
   onExit: () => void;
   onRestart: () => void;
-  onRunEnded: () => void;
+  onRunEnded: (summary: CaptainRunSummary) => void;
 }
 
 interface HudState {
@@ -701,7 +702,13 @@ export function ArenaCanvas({
           : `RUN FINISH · ${cause}`,
         recording,
       });
-      onRunEndedRef.current();
+      onRunEndedRef.current({
+        source: mode,
+        score,
+        kills: player.stats.kills,
+        rank,
+        peakMass: player.stats.peakMass,
+      });
       if (sprintReleaseTimerRef.current !== undefined) {
         window.clearTimeout(sprintReleaseTimerRef.current);
         sprintReleaseTimerRef.current = undefined;

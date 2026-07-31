@@ -3,6 +3,7 @@ import { ArenaCanvas } from "./components/ArenaCanvas";
 import { LiveArenaCanvas } from "./components/LiveArenaCanvas";
 import { PwaStatus } from "./components/PwaStatus";
 import { SkinStudio } from "./components/SkinStudio";
+import { LegendVoyage } from "./components/LegendVoyage";
 import { BoardPicker } from "./components/BoardPicker";
 import { PacePicker } from "./components/PacePicker";
 import { buildVersionLabel, readBuildRevision } from "./buildRevision";
@@ -57,11 +58,14 @@ import {
 } from "./game/photoSkin";
 import { DEFAULT_COSMETIC_THEME_ID, isPremiumCosmeticThemeId } from "./game/cosmeticThemes";
 import {
-  STORE_API_BASE,
   isFounderPackUnlocked,
-  normalizeFounderPackGrant,
-  storeFounderPackGrant,
 } from "./game/premiumSkins";
+import {
+  awardCaptainRun,
+  captainLevelProgress,
+  readCaptainProgression,
+  type CaptainRunSummary,
+} from "./game/captainProgression";
 import type { PhotoSkinCanvasAppearance } from "./game/photoSkinCanvas";
 import {
   readDoubloons,
@@ -151,6 +155,8 @@ export function App() {
   const [authoritativePaceId, setAuthoritativePaceId] = useState<GamePaceId | undefined>();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [skinStudioOpen, setSkinStudioOpen] = useState(false);
+  const [legendVoyageOpen, setLegendVoyageOpen] = useState(false);
+  const [captainProgression, setCaptainProgression] = useState(readCaptainProgression);
   const [photoSkinState, setPhotoSkinState] = useState<PhotoSkinState>(() => readPhotoSkinState().state);
   const [decodedPhotoImages, setDecodedPhotoImages] = useState<ReadonlyMap<string, CanvasImageSource>>(() => new Map());
   const [copyStatus, setCopyStatus] = useState("");
@@ -180,6 +186,10 @@ export function App() {
   const paceSelection = useMemo(
     () => resolveRoomPacePreference(requestedPaceId, authoritativePaceId),
     [authoritativePaceId, requestedPaceId],
+  );
+  const captainLevel = useMemo(
+    () => captainLevelProgress(captainProgression.xp),
+    [captainProgression.xp],
   );
   const photoSkinRenderPlan = useMemo(
     () => createPhotoSkinRenderPlan(photoSkinState),
@@ -254,37 +264,6 @@ export function App() {
   }, [photoSkinRenderPlan]);
 
   useEffect(() => {
-    // Returning from Stripe: ?founder_session=cs_… means checkout finished.
-    // The grant is minted only after the store re-confirms the session as paid
-    // with Stripe, so a hand-typed session id cannot unlock anything.
-    if (isCrazyGamesDistribution) return;
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("founder_session");
-    if (!sessionId) return;
-    params.delete("founder_session");
-    const cleanQuery = params.toString();
-    window.history.replaceState(null, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`);
-    void fetch(`${STORE_API_BASE}/verify?session_id=${encodeURIComponent(sessionId)}`)
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!body?.granted) return;
-        const grant = normalizeFounderPackGrant({
-          sessionId: body.sessionId,
-          token: body.token,
-          grantedAtMs: Date.now(),
-        });
-        if (grant && storeFounderPackGrant(grant)) {
-          // Land the buyer in the studio with the pack already unlocked.
-          setSkinStudioOpen(true);
-        }
-      })
-      .catch(() => {
-        // The purchase stays restorable: verify re-runs on the next visit
-        // with the same session id from the Stripe receipt.
-      });
-  }, []);
-
-  useEffect(() => {
     // A premium theme id without an unlock on this device (cleared storage,
     // copied URL, another browser) falls back to the free default.
     if (isPremiumCosmeticThemeId(photoSkinState.themeId) && !isFounderPackUnlocked()) {
@@ -328,6 +307,7 @@ export function App() {
   const beginStart = useCallback((nextMode: LaunchMode) => {
     if (nextMode === "live") prepareRoom();
     setCurrencyStoreOpen(false);
+    setLegendVoyageOpen(false);
     setMode(nextMode);
     setSession((value) => value + 1);
     runStartedAtRef.current = performance.now();
@@ -373,13 +353,21 @@ export function App() {
     }
   }, []);
 
+  const recordCaptainRun = useCallback((summary: CaptainRunSummary) => {
+    setCaptainProgression((current) => awardCaptainRun(summary, current));
+  }, []);
+
   const start = useCallback((nextMode: LaunchMode = mode) => {
-    requestImmersiveGameplay();
     if (isPortraitTouchViewport()) {
+      // Do not trap a portrait phone in a fullscreen window that cannot resize
+      // into the landscape gate. Landscape/desktop launches still use the Play
+      // gesture for fullscreen; portrait users rotate before gameplay begins.
+      void requestLandscapeOrientation();
       setPortraitTouchViewport(true);
       setPendingLandscapeLaunch(nextMode);
       return;
     }
+    requestImmersiveGameplay();
     setPendingLandscapeLaunch(null);
     beginStart(nextMode);
   }, [beginStart, mode, requestImmersiveGameplay]);
@@ -519,6 +507,7 @@ export function App() {
           controlScheme={controlScheme}
           onBoardResolved={setAuthoritativeBoardId}
           onPaceResolved={setAuthoritativePaceId}
+          onLifeEnded={recordCaptainRun}
           onExit={() => {
             setPlaying(false);
             setMode("rush");
@@ -542,7 +531,10 @@ export function App() {
             releaseGameFullscreen();
           }}
           onRestart={() => start(mode === "live" ? "rush" : mode)}
-          onRunEnded={requestPostRunAd}
+          onRunEnded={(summary) => {
+            recordCaptainRun(summary);
+            requestPostRunAd();
+          }}
         />
       )}
 
@@ -555,7 +547,16 @@ export function App() {
       )}
 
       {!playing && (
-        skinStudioOpen && !isCrazyGamesDistribution ? (
+        legendVoyageOpen && !isCrazyGamesDistribution ? (
+          <LegendVoyage
+            progression={captainProgression}
+            onClose={() => setLegendVoyageOpen(false)}
+            onOpenSkinStudio={() => {
+              setLegendVoyageOpen(false);
+              setSkinStudioOpen(true);
+            }}
+          />
+        ) : skinStudioOpen && !isCrazyGamesDistribution ? (
           <SkinStudio
             initialState={photoSkinState}
             onStateChange={setPhotoSkinState}
@@ -603,6 +604,27 @@ export function App() {
               >
                 <b>CUSTOMIZE SKIN</b>
                 <small>PRIVATE PHOTO SKINS · YOUR PHOTOS STAY ON THIS DEVICE</small>
+              </button>}
+
+              {!isCrazyGamesDistribution && <button
+                type="button"
+                className="captain-progress-launch"
+                data-testid="legend-voyage-launch"
+                onClick={() => setLegendVoyageOpen(true)}
+                aria-label={`Captain Level ${captainLevel.level}. Open Legend Voyage research preview.`}
+              >
+                <span className="captain-progress-launch__level">
+                  <small>CAPTAIN LEVEL</small>
+                  <strong>{captainLevel.level}</strong>
+                </span>
+                <span className="captain-progress-launch__copy">
+                  <b>LEGEND VOYAGE · TRY ALL 3</b>
+                  <small>PERMANENT COSMETIC ROUTE · NOT FOR SALE YET</small>
+                  <i><span style={{ width: `${captainLevel.percent}%` }} /></i>
+                </span>
+                {captainProgression.lastAwardXp > 0 && (
+                  <em>LAST RUN +{captainProgression.lastAwardXp} XP</em>
+                )}
               </button>}
 
               <div className="control-picker" role="group" aria-label="Mobile helm position">

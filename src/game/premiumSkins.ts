@@ -26,8 +26,6 @@ export const FOUNDER_PACK = {
 } as const;
 
 export const FOUNDER_PACK_STORAGE_KEY = "wormifi.founder-pack.v1";
-/** Same-origin base for the store service; the ingress routes /store to it. */
-export const STORE_API_BASE = "/store";
 
 export interface FounderPackGrant {
   sessionId: string;
@@ -123,20 +121,6 @@ export function canEquipTheme(
   storage: StorageLike | undefined = browserStorage(),
 ): boolean {
   return !isPremiumCosmeticThemeId(themeId) || isFounderPackUnlocked(storage);
-}
-
-/**
- * Whether the storefront surface may render at all. Ships hidden: the panel
- * appears only for ?store=preview (the proof walk) until the payment chain is
- * proven end-to-end and the build flips VITE_FOUNDER_STORE=live.
- */
-export function isFounderStoreVisible(search: string): boolean {
-  if (import.meta.env?.VITE_FOUNDER_STORE === "live") return true;
-  try {
-    return new URLSearchParams(search).get("store") === "preview";
-  } catch {
-    return false;
-  }
 }
 
 /** Test seam mirroring the render-preferences module. */
