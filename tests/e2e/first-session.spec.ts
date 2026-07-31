@@ -104,6 +104,14 @@ test.describe("first Wormifi session", () => {
   });
 
   test("does not silently claim fullscreen when the host browser blocks it", async ({ page }) => {
+    await page.addInitScript(() => {
+      // Some embedded desktop hosts expose Apple's non-standard flag even
+      // though their own tabs remain visible. It is trustworthy only on iOS.
+      Object.defineProperty(navigator, "standalone", {
+        configurable: true,
+        value: true,
+      });
+    });
     await page.goto("/");
     await page.evaluate(() => {
       Object.defineProperty(document.documentElement, "requestFullscreen", {
