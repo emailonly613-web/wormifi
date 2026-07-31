@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOT_NAMES, spawnBotRoster } from "../src/game/bots";
+import { BOT_NAMES, botNameForIndex, spawnBotRoster } from "../src/game/bots";
 import { createGameState, spawnDrop, stepGame } from "../src/game/core";
 import type {
   BotInputContext,
@@ -39,6 +39,20 @@ describe("deterministic legal bot roster", () => {
       expect(Math.hypot(input?.direction.x ?? 0, input?.direction.y ?? 0)).toBeCloseTo(1, 8);
       expect(typeof input?.boost).toBe("boolean");
     }
+  });
+
+  it("fills a 200-seat room with distinct deterministic bot identities", () => {
+    const state = createGameState("two-hundred-roster");
+    const roster = spawnBotRoster(state, 200);
+    const players = roster.ids.map((id) => state.players[id]);
+
+    expect(roster.ids).toHaveLength(200);
+    expect(new Set(roster.ids).size).toBe(200);
+    expect(roster.ids.at(-1)).toBe("bot-200");
+    expect(new Set(players.map((player) => player.name)).size).toBe(200);
+    expect(players[0].name).toBe(BOT_NAMES[0]);
+    expect(players[32].name).toBe(`${BOT_NAMES[0]} 2`);
+    expect(botNameForIndex(199)).toBe(players[199].name);
   });
 
   it("replays the same seeded 24-bot match exactly", () => {

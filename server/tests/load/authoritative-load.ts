@@ -1089,16 +1089,16 @@ async function main(): Promise<void> {
     assert.ok(metrics.collectorBeaconWorlds > 0, "load clients must observe authoritative Collector metadata");
     assert.ok(metrics.echoOriginDropsSeen > 0, "load snapshots must expose at least one producer-owned Echo");
     assert.equal(metrics.groundLoopMetadataViolations, 0, "ground-loop metadata must remain coherent");
-    assert.equal(groundLoopBandwidthPass, true, "Collector metadata exceeded the bounded payload budget");
     const minimumTargetRatio = 0.98;
     const fixedStepTargetRatio = tickRate.p50 / configuration.fixedStepHz;
     const snapshotTargetRatio = snapshotsPerClientSecond / configuration.snapshotHz;
     const capacityGatePass =
       fixedStepTargetRatio >= minimumTargetRatio &&
       snapshotTargetRatio >= minimumTargetRatio;
+    const releaseGatePass = capacityGatePass && groundLoopBandwidthPass;
     const machineCpus = cpus();
     const report: Report = {
-      verdict: capacityGatePass
+      verdict: releaseGatePass
         ? "LOCAL_CAPACITY_GATE_PASS"
         : "LOCAL_CAPACITY_GATE_MISS",
       claim: "bounded-local-authoritative-network-proof-only",
@@ -1201,7 +1201,9 @@ async function main(): Promise<void> {
         "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",
         "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured.",
         "Collector metadata plus concrete-producer or explicit mixed-cache Echo identity stayed coherent under room load.",
-        "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget.",
+        groundLoopBandwidthPass
+          ? "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget."
+          : "PAYLOAD GATE MISS: world, snapshot, or estimated snapshot-wire traffic exceeded its published regression budget.",
         capacityGatePass
           ? "Observed simulation and snapshot delivery both reached at least 98% of their configured local targets."
           : "CAPACITY GATE MISS: observed simulation or snapshot delivery fell below 98% of its configured local target.",
@@ -1223,11 +1225,11 @@ async function main(): Promise<void> {
     await writeFile(configuration.reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     console.info(JSON.stringify(report, null, 2));
     console.info(`\nWrote non-production load report: ${configuration.reportPath}`);
-    if (!capacityGatePass && !configuration.allowCapacityMiss) {
+    if (!releaseGatePass && !configuration.allowCapacityMiss) {
       process.exitCode = 2;
       console.error(
-        "\nCapacity gate missed. The report was written, but this command fails until " +
-          "both tick and snapshot delivery reach 98% of configured targets. " +
+        "\nCapacity or payload gate missed. The report was written, but this command fails until " +
+          "tick and snapshot delivery reach 98% of configured targets and payload budgets pass. " +
           "Set WORMIFI_LOAD_ALLOW_CAPACITY_MISS=1 only for diagnostic profiling.",
       );
     }

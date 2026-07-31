@@ -20,6 +20,18 @@ export const BOT_NAMES = Object.freeze([
   "Seadog Sage", "Mizzen Max", "Corsair Clover", "Whirlpool Wren",
 ]) as readonly string[];
 
+/**
+ * Keeps every server-simulated captain visibly distinct when a room grows
+ * beyond the authored base-name set. The first 32 preserve their familiar
+ * names; later crews receive a deterministic fleet number.
+ */
+export function botNameForIndex(index: number): string {
+  const safeIndex = Math.max(0, Math.floor(index));
+  const baseName = BOT_NAMES[safeIndex % BOT_NAMES.length];
+  const fleet = Math.floor(safeIndex / BOT_NAMES.length) + 1;
+  return fleet === 1 ? baseName : `${baseName} ${fleet}`;
+}
+
 export const BOT_PERSONALITY_IDS = Object.freeze([
   "forager", "survivor", "hunter", "interceptor", "scavenger",
 ]) as readonly BotPersonalityId[];
@@ -259,14 +271,14 @@ export function spawnBotRoster(
   state: GameState,
   count: number,
 ): { providers: BotInputProviderMap; ids: string[] } {
-  const safeCount = Math.max(0, Math.min(BOT_NAMES.length, Math.floor(count)));
+  const safeCount = Math.max(0, Math.floor(count));
   const providers: Record<string, BotInputProvider> = {};
   const ids: string[] = [];
 
   for (let index = 0; index < safeCount; index += 1) {
     const id = `bot-${String(index + 1).padStart(2, "0")}`;
     const personalityId = BOT_PERSONALITY_IDS[index % BOT_PERSONALITY_IDS.length];
-    spawnPlayer(state, { id, name: BOT_NAMES[index], kind: "bot" });
+    spawnPlayer(state, { id, name: botNameForIndex(index), kind: "bot" });
     providers[id] = new DeterministicBot(id, BOT_PERSONALITIES[personalityId], state.initialSeed);
     ids.push(id);
   }

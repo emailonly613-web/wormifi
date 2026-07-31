@@ -43,11 +43,12 @@ The JSON report is written to:
 server/proof/load/authoritative-load-latest.json
 ```
 
-The command enforces a local cadence gate: both observed simulation ticks and
-snapshots per client-second must reach at least 98% of their configured target.
-It writes the report and exits non-zero when that gate misses. For diagnostic
-profiling only, `WORMIFI_LOAD_ALLOW_CAPACITY_MISS=1` preserves the failed
-verdict in the JSON while allowing the command to return successfully.
+The command enforces local cadence and payload gates: observed simulation ticks
+and snapshots per client-second must reach at least 98% of their configured
+target, and the published world/snapshot/traffic budgets must pass. It writes
+the report and exits non-zero when any gate misses. For diagnostic profiling
+only, `WORMIFI_LOAD_ALLOW_CAPACITY_MISS=1` preserves the failed verdict and
+individual gate values in JSON while allowing the command to return successfully.
 
 Run the isolated timer/payload/serialization profile with:
 
