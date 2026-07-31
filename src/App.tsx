@@ -150,11 +150,7 @@ function fullscreenElement(): Element | null {
 }
 
 function isInstalledDisplayMode(): boolean {
-  const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
-  const isIosLike = /iPad|iPhone|iPod/.test(standaloneNavigator.userAgent) ||
-    (/Macintosh/.test(standaloneNavigator.userAgent) && standaloneNavigator.maxTouchPoints > 1);
-  return (isIosLike && standaloneNavigator.standalone === true) ||
-    window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
+  return window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
     window.matchMedia?.("(display-mode: standalone)").matches === true;
 }
 
