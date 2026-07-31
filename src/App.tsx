@@ -113,6 +113,16 @@ const CaptainRooms = lazy(async () => {
 export type GameMode = "rush" | "endless" | "practice";
 type LaunchMode = GameMode | "live";
 type ImmersiveState = "active" | "available" | "denied" | "unsupported";
+type MobilePlatform = "ios" | "android" | "touch";
+
+interface MobileWebEnvironment {
+  touch: boolean;
+  installed: boolean;
+  platform: MobilePlatform;
+  deviceLabel: string;
+  browserLabel: string;
+  inAppBrowser: boolean;
+}
 
 type WebkitFullscreenDocument = Document & {
   webkitExitFullscreen?: () => Promise<void> | void;
@@ -124,6 +134,38 @@ type WebkitFullscreenElement = HTMLElement & {
 };
 
 const guestNames = ["Skipper", "Coral", "Cutlass", "Galleon", "Pearl", "Riptide", "Anchor", "Mariner"];
+
+function detectMobileWebEnvironment(): MobileWebEnvironment {
+  const userAgent = navigator.userAgent ?? "";
+  const ios = /iPad|iPhone|iPod/iu.test(userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const android = /Android/iu.test(userAgent);
+  const touchHardware = navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+  const touch = ios || android || (touchHardware && /Mobile|Tablet/iu.test(userAgent));
+  const installed = window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const inAppBrowser = /FBAN|FBAV|Instagram|LinkedInApp|Line\/|; wv\)|\bwv\b/iu.test(userAgent);
+  const platform: MobilePlatform = ios ? "ios" : android ? "android" : "touch";
+  const browserLabel = inAppBrowser
+    ? "in-app browser"
+    : /SamsungBrowser/iu.test(userAgent)
+      ? "Samsung Internet"
+      : ios
+        ? "Safari or an iPhone browser"
+        : /Chrome|CriOS/iu.test(userAgent)
+          ? "Chrome"
+          : "mobile browser";
+  return {
+    touch,
+    installed,
+    platform,
+    deviceLabel: ios ? "iPhone or iPad" : android ? "Android phone or tablet" : "touch device",
+    browserLabel,
+    inAppBrowser,
+  };
+}
 
 function makeGuestName() {
   const name = guestNames[Math.floor(Math.random() * guestNames.length)];
@@ -185,11 +227,8 @@ async function requestLandscapeOrientation(): Promise<void> {
 const MOBILE_BROWSER_GAME_CLASS = "mobile-browser-game";
 
 function requestMobileBrowserChromeCollapse(): void {
-  const touchCapable = navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.("(pointer: coarse)").matches === true;
-  const installed = window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
-    window.matchMedia?.("(display-mode: standalone)").matches === true;
-  if (!touchCapable || installed) return;
+  const environment = detectMobileWebEnvironment();
+  if (!environment.touch || environment.installed) return;
 
   const root = document.documentElement;
   root.classList.add(MOBILE_BROWSER_GAME_CLASS);
@@ -233,6 +272,7 @@ export function App() {
   const buildRevision = useMemo(readBuildRevision, []);
   const initialName = useMemo(makeGuestName, []);
   const initialChallenge = useMemo(readChallenge, []);
+  const mobileWebEnvironment = useMemo(detectMobileWebEnvironment, []);
   const initialCaptainRoomInvite = useMemo(
     () => captainRoomTierFromRoomId(readRoomId()),
     [],
@@ -283,8 +323,19 @@ export function App() {
   const [publicMatchmaking, setPublicMatchmaking] = useState(readPublicMatchmaking);
   const [immersiveState, setImmersiveState] = useState<ImmersiveState>(browserImmersiveState);
   const [immersiveNoticeOpen, setImmersiveNoticeOpen] = useState(false);
+  const [mobilePlayAssistOpen, setMobilePlayAssistOpen] = useState(
+    () => mobileWebEnvironment.touch &&
+      !mobileWebEnvironment.installed &&
+      Boolean(initialCaptainRoomInvite),
+  );
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileAssistContinueRef = useRef<HTMLButtonElement>(null);
+  const mobileAssistSeenRef = useRef(
+    mobileWebEnvironment.touch &&
+      !mobileWebEnvironment.installed &&
+      Boolean(initialCaptainRoomInvite),
+  );
   const skinStudioReturnToSettingsRef = useRef(true);
   const passportReturnToSettingsRef = useRef(false);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
@@ -376,6 +427,27 @@ export function App() {
     const timeout = window.setTimeout(() => setImmersiveNoticeOpen(false), 6_000);
     return () => window.clearTimeout(timeout);
   }, [immersiveNoticeOpen]);
+
+  useEffect(() => {
+    if (immersiveState === "active") setMobilePlayAssistOpen(false);
+  }, [immersiveState]);
+
+  useEffect(() => {
+    if (!mobilePlayAssistOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      mobileAssistContinueRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobilePlayAssistOpen]);
+
+  useEffect(() => {
+    if (!playing || mobilePlayAssistOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (document.querySelector('[aria-modal="true"]')) return;
+      document.querySelector<HTMLElement>(".arena-stage")?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobilePlayAssistOpen, playing]);
 
   useEffect(() => {
     let active = true;
@@ -481,8 +553,13 @@ export function App() {
     setMode(nextMode);
     setSession((value) => value + 1);
     runStartedAtRef.current = performance.now();
+    const shouldShowMobileAssist = mobileWebEnvironment.touch &&
+      !mobileWebEnvironment.installed &&
+      !mobileAssistSeenRef.current;
+    if (shouldShowMobileAssist) mobileAssistSeenRef.current = true;
+    setMobilePlayAssistOpen(shouldShowMobileAssist);
     setPlaying(true);
-  }, [prepareRoom, roomId]);
+  }, [mobileWebEnvironment, prepareRoom, roomId]);
 
   const handleLiveRoomResolved = useCallback((resolvedRoomId: string) => {
     setResolvedLiveRoomId(resolvedRoomId);
@@ -859,6 +936,78 @@ export function App() {
           <button type="button" aria-label="Dismiss fullscreen message" onClick={() => setImmersiveNoticeOpen(false)}>×</button>
         </aside>
       )}
+
+      {playing &&
+        !landscapeBlocked &&
+        mobilePlayAssistOpen &&
+        mobileWebEnvironment.touch &&
+        !mobileWebEnvironment.installed && (
+          <section
+            className="mobile-play-assist"
+            data-testid="mobile-play-assist"
+            data-platform={mobileWebEnvironment.platform}
+            data-browser={mobileWebEnvironment.inAppBrowser ? "in-app" : "browser"}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-play-assist-title"
+          >
+            <div className="mobile-play-assist__card">
+              <small>{mobileWebEnvironment.deviceLabel.toUpperCase()} · {mobileWebEnvironment.browserLabel.toUpperCase()}</small>
+              <h2 id="mobile-play-assist-title">MAKE ROOM FOR THE ARENA</h2>
+              <p>
+                {mobileWebEnvironment.platform === "ios"
+                  ? "iPhone browser bars cannot always be removed by a website. Wormifi can still run in a compact view, but the Home Screen version gives the largest reliable playfield."
+                  : mobileWebEnvironment.inAppBrowser
+                    ? "This app's built-in browser may keep its own header. Open this Wormifi link in Chrome or Safari for a larger, safer playfield."
+                    : "Your browser may keep part of its address bar until fullscreen is allowed. Wormifi can try full view or continue with the compact phone controls."}
+              </p>
+              <ol>
+                <li>Turn the phone sideways.</li>
+                <li>
+                  {mobileWebEnvironment.platform === "ios"
+                    ? "For the best view: Safari Share → Add to Home Screen → open Wormifi from its icon."
+                    : "For the best view: browser menu → Install app or Add to Home screen → open Wormifi from its icon."}
+                </li>
+                <li>Map and Top 10 stay folded until you ask for them.</li>
+              </ol>
+              <div className="mobile-play-assist__actions">
+                {immersiveState !== "unsupported" && (
+                  <button
+                    type="button"
+                    data-testid="mobile-web-fullscreen"
+                    onClick={() => {
+                      setMobilePlayAssistOpen(false);
+                      requestImmersiveGameplay(true);
+                    }}
+                  >
+                    TRY FULL VIEW
+                  </button>
+                )}
+                <button
+                  type="button"
+                  ref={mobileAssistContinueRef}
+                  data-testid="mobile-web-continue"
+                  onClick={() => setMobilePlayAssistOpen(false)}
+                >
+                  CONTINUE COMPACT
+                </button>
+                <a href="/install.html">HOW TO ADD WORMIFI</a>
+                <button
+                  type="button"
+                  className="mobile-play-assist__exit"
+                  onClick={() => {
+                    setMobilePlayAssistOpen(false);
+                    setPlaying(false);
+                    setMode("rush");
+                    releaseGameFullscreen();
+                  }}
+                >
+                  BACK TO HARBOR
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
       {!playing && (
         captainRoomsOpen && !isCrazyGamesDistribution ? (

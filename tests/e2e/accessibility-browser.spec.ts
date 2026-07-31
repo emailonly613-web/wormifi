@@ -51,6 +51,21 @@ async function expectVisibleFocus(locator: Locator) {
   expect(focus.outlineWidth).toBeGreaterThanOrEqual(3);
 }
 
+async function continuePastMobileAssist(page: Page) {
+  const assist = page.getByTestId("mobile-play-assist");
+  if (!await assist.isVisible().catch(() => false)) return;
+  const continueButton = assist.getByTestId("mobile-web-continue");
+  await expect.poll(async () => {
+    if (!await assist.isVisible().catch(() => false)) return "closed";
+    return await continueButton.evaluate((element) => element === document.activeElement)
+      ? "focused"
+      : "waiting";
+  }).not.toBe("waiting");
+  if (!await assist.isVisible().catch(() => false)) return;
+  await page.keyboard.press("Enter");
+  await expect(assist).toHaveCount(0);
+}
+
 test.describe("Wormifi accessibility and browser resilience", () => {
   test("keyboard-only launch, settings, tutorial, and exit preserve visible focus", async ({ page }, testInfo) => {
     await page.goto("/");
@@ -164,6 +179,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(play).toBeFocused();
     await expectVisibleFocus(play);
     await page.keyboard.press("Enter");
+    await continuePastMobileAssist(page);
 
     const arena = page.getByRole("region", { name: "Active Wormifi pirate sea-serpent arena" });
     await expect(arena).toBeFocused();
@@ -171,9 +187,15 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(arena).toHaveAttribute("aria-describedby", "arena-keyboard-help");
     await expect(page.getByTestId("room-identity")).toHaveText(/SOLO RUN — NO LIVE ROOM/u);
     await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Steer to start.");
-    await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/rank \d+ of \d+/i);
-    await expect(page.getByTestId("hud-score")).toHaveAccessibleName(/score \d+/i);
-    await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
+    if (testInfo.project.name.includes("mobile")) {
+      await expect(page.getByTestId("mobile-map-toggle")).toHaveAccessibleName(
+        /rank \d+ of \d+, score \d+, size \d+/i,
+      );
+    } else {
+      await expect(page.getByTestId("hud-rank")).toHaveAccessibleName(/rank \d+ of \d+/i);
+      await expect(page.getByTestId("hud-score")).toHaveAccessibleName(/score \d+/i);
+      await expect(page.getByTestId("hud-length")).toHaveAccessibleName(/size \d+/i);
+    }
     await expect(page.getByRole("timer")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /exit to wormifi menu/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /sprint.*costs 4 size/i })).toBeVisible();
@@ -182,6 +204,16 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
     await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Collect the ringed gem.");
     await page.keyboard.press("Tab");
+    if (testInfo.project.name.includes("mobile")) {
+      const map = page.getByTestId("mobile-map-toggle");
+      const scores = page.getByTestId("mobile-scores-toggle");
+      await expect(map).toBeFocused();
+      await expectVisibleFocus(map);
+      await page.keyboard.press("Tab");
+      await expect(scores).toBeFocused();
+      await expectVisibleFocus(scores);
+      await page.keyboard.press("Tab");
+    }
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
     await expect(exit).toBeFocused();
     await expectVisibleFocus(exit);
@@ -198,6 +230,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const play = page.getByTestId("solo-run-button");
     await play.focus();
     await page.keyboard.press("Enter");
+    await continuePastMobileAssist(page);
 
     const arena = page.getByRole("region", { name: "Active Wormifi pirate sea-serpent arena" });
     await expect(arena).toBeFocused();
@@ -254,6 +287,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const soloRun = page.getByTestId("solo-run-button");
     await soloRun.focus();
     await page.keyboard.press("Enter");
+    await continuePastMobileAssist(page);
     await expect(arena).toHaveAttribute("data-reduced-motion", "true");
     const startY = Number(await arena.getAttribute("data-player-y"));
     await page.keyboard.press("ArrowDown");
@@ -265,6 +299,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     const playLive = page.getByRole("button", { name: /play live/i });
     await playLive.focus();
     await page.keyboard.press("Enter");
+    await continuePastMobileAssist(page);
     const liveArena = page.getByRole("region", { name: "Server-authoritative Wormifi live arena" });
     await expect(liveArena).toBeFocused();
     await expect(liveArena).toHaveAttribute("data-reduced-motion", "true");
@@ -316,6 +351,7 @@ test.describe("Wormifi accessibility and browser resilience", () => {
       await page.setViewportSize({ width: 568, height: 320 });
       await expect(landscapeGate).toHaveCount(0);
     }
+    await continuePastMobileAssist(page);
     const exit = page.getByRole("button", { name: "Exit to Wormifi menu" });
     const sprint = page.getByRole("button", { name: /sprint.*costs 4 size/i });
     await expectWithinViewport(exit, page);

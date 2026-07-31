@@ -30,6 +30,18 @@ test.afterAll(async () => {
   await arenaServer.stop();
 });
 
+test("a free Captain Room accepts its server-owned board and reaches live authority", async ({ page }) => {
+  const room = "captain-10-0123456789abcdefabcd";
+  await page.goto(`/?room=${room}&arena_ws=${encodeURIComponent(arenaUrl)}`);
+
+  const arena = page.getByTestId("live-arena-canvas");
+  await expect(arena).toHaveAttribute("data-authority", "server-confirmed");
+  await expect(arena).toHaveAttribute("data-board-id", "captain-cove-10");
+  await expect(arena).toHaveAttribute("data-player-count", "1");
+  await expect(page.getByTestId("live-human-count")).toContainText("1 HUMAN");
+  await expect(page.getByTestId("captain-passport")).toHaveCount(0);
+});
+
 test("two browser sessions share a confirmed server-owned room", async ({ browser }) => {
   const firstContext = await browser.newContext();
   const secondContext = await browser.newContext();

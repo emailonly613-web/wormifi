@@ -160,9 +160,47 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId("player-chain")).toBeVisible();
   });
 
+  test("identifies iPhone web play and gives truthful Safari and compact-view choices", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "userAgent", {
+        configurable: true,
+        value: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+      });
+      Object.defineProperty(navigator, "maxTouchPoints", {
+        configurable: true,
+        value: 5,
+      });
+    });
+    await page.goto("/");
+    await page.evaluate(() => {
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(document.documentElement, "webkitRequestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+    });
+
+    await page.getByTestId("solo-run-button").click();
+    const assist = page.getByTestId("mobile-play-assist");
+    await expect(assist).toBeVisible();
+    await expect(assist).toHaveAttribute("data-platform", "ios");
+    await expect(assist).toContainText("iPhone browser bars cannot always be removed by a website");
+    await expect(assist).toContainText("Safari Share → Add to Home Screen");
+    await assist.getByTestId("mobile-web-continue").click();
+    await expect(assist).toHaveCount(0);
+    await expect(page.getByTestId("player-chain")).toBeVisible();
+  });
+
   test("independently collapses regular mobile-browser chrome without moving the arena", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
+      Object.defineProperty(navigator, "userAgent", {
+        configurable: true,
+        value: "Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
+      });
       Object.defineProperty(navigator, "maxTouchPoints", {
         configurable: true,
         value: 5,
@@ -186,6 +224,12 @@ test.describe("first Wormifi session", () => {
     await expect(page.locator("html")).toHaveAttribute("data-mobile-browser-collapse", "true");
     await expect(page.locator("html")).toHaveAttribute("data-last-requested-scroll-y", "96");
     await expect(page.getByTestId("player-chain")).toBeVisible();
+
+    const assist = page.getByTestId("mobile-play-assist");
+    if (await assist.isVisible().catch(() => false)) {
+      await assist.getByTestId("mobile-web-continue").click();
+      await expect(assist).toHaveCount(0);
+    }
 
     await page.getByTestId("exit-button").click();
     await expect(page.locator("html")).not.toHaveClass(/mobile-browser-game/);
@@ -213,7 +257,7 @@ test.describe("first Wormifi session", () => {
     );
   });
 
-  test("starts Rush as a guest through accessible controls", async ({ page }) => {
+  test("starts Rush as a guest through accessible controls", async ({ page }, testInfo) => {
     test.setTimeout(30_000);
     const browserErrors: string[] = [];
     page.on("console", (message) => {
@@ -237,6 +281,10 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId(gameContract.tutorial)).toBeVisible();
     const arena = page.getByTestId(gameContract.arena);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
+    if (testInfo.project.name.includes("mobile")) {
+      await expect(page.getByTestId("mobile-map-toggle")).toHaveAccessibleName(/rank 29 of 29/i);
+      await page.getByTestId("mobile-map-toggle").click();
+    }
     await expect(page.getByTestId(gameContract.rank)).toContainText("PLACE");
     await expect(page.getByTestId(gameContract.rank)).toHaveAccessibleName(/rank 29 of 29/i);
     await expect(page.getByTestId(gameContract.length)).toContainText("SIZE");
@@ -319,6 +367,9 @@ test.describe("first Wormifi session", () => {
     await page.getByRole("button", { name: /practice with labeled bots/i }).click();
 
     await expectActiveArena(page);
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByTestId("mobile-scores-toggle").click();
+    }
     const leaderboard = page.getByLabel("AI size leaderboard");
     await expect(leaderboard).toBeVisible();
     await expect(leaderboard.getByRole("heading", { name: "TOP 10 · SIZE" })).toBeVisible();
@@ -328,6 +379,9 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId("room-identity")).toHaveText(/PRACTICE — NO LIVE ROOM/u);
     await expect(page.getByTestId("room-identity")).toHaveAttribute("data-scope", "practice");
     const radar = page.getByTestId("pirate-radar");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByTestId("mobile-map-toggle").click();
+    }
     await expect(radar).toBeVisible();
     await expect(radar).toHaveAttribute("data-room-id", "none");
     await expect(radar).toHaveAttribute("data-human-player-count", "0");

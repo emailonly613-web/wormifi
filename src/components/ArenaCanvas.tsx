@@ -195,7 +195,7 @@ const ArenaLeaderboard = memo(function ArenaLeaderboard({
   rankTotal,
 }: ArenaLeaderboardProps) {
   return (
-    <aside className="leaderboard" aria-label="AI size leaderboard">
+    <aside className="leaderboard mobile-intel-leaderboard" aria-label="AI size leaderboard">
       <h2>TOP 10 · SIZE</h2>
       <ol>
         {entries.map((entry, index) => (
@@ -498,6 +498,7 @@ export function ArenaCanvas({
   const [touchGuide, setTouchGuide] = useState<TouchGuide | null>(null);
   const [actionCallout, setActionCallout] = useState<string | null>(null);
   const [localReplay, setLocalReplay] = useState<LocalReplayUiState | null>(null);
+  const [mobileIntelPanel, setMobileIntelPanel] = useState<"none" | "map" | "scores">("none");
   const [reducedMotion, setReducedMotion] = useState(
     () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
   );
@@ -517,11 +518,27 @@ export function ArenaCanvas({
 
   useEffect(() => {
     if (!running) return;
-    const frame = window.requestAnimationFrame(() => {
-      stageRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    let frame = 0;
+    const focusStage = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (document.querySelector('[aria-modal="true"]')) return;
+        stageRef.current?.focus({ preventScroll: true });
+      });
+    };
+    focusStage();
+    document.addEventListener("fullscreenchange", focusStage);
+    document.addEventListener("webkitfullscreenchange", focusStage);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("fullscreenchange", focusStage);
+      document.removeEventListener("webkitfullscreenchange", focusStage);
+    };
   }, [running, session]);
+
+  useEffect(() => {
+    setMobileIntelPanel("none");
+  }, [session]);
 
   useEffect(() => {
     if (!result || localReplay) return;
@@ -530,6 +547,15 @@ export function ArenaCanvas({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [localReplay, result]);
+
+  useEffect(() => {
+    if (result || !running) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (document.querySelector('[aria-modal="true"]')) return;
+      stageRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [result, running]);
 
   const ensureAudio = useCallback(() => {
     if (!running || paused) return;
@@ -1521,6 +1547,7 @@ export function ArenaCanvas({
       data-turbo-reserve={turboReserveRatio.toFixed(3)}
       data-turbo-seconds={turboSecondsRemaining.toFixed(2)}
       data-player-length={hud.length}
+      data-mobile-intel={mobileIntelPanel}
       data-boosting={boosting ? "true" : "false"}
       data-relic-kind={relicStatus?.presentation.relicKind ?? ""}
       data-relic-seconds={relicStatus?.remainingSeconds.toFixed(1) ?? "0.0"}
@@ -1550,6 +1577,35 @@ export function ArenaCanvas({
       onPointerCancel={releasePointer}
     >
       <canvas ref={canvasRef} aria-hidden="true" />
+      {running && (
+        <nav
+          className="mobile-intel-dock"
+          aria-label="Phone arena panels"
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            data-testid="mobile-map-toggle"
+            aria-label={`Map and standings. Rank ${hud.rank} of ${hud.rankTotal}, score ${hud.score}, size ${hud.mass}.`}
+            aria-pressed={mobileIntelPanel === "map"}
+            onClick={() => setMobileIntelPanel((current) => current === "map" ? "none" : "map")}
+          >
+            MAP
+          </button>
+          <button
+            type="button"
+            data-testid="mobile-scores-toggle"
+            aria-label={`${mobileIntelPanel === "scores" ? "Close" : "Open"} Top 10 size leaderboard`}
+            aria-pressed={mobileIntelPanel === "scores"}
+            onClick={() => setMobileIntelPanel((current) => current === "scores" ? "none" : "scores")}
+          >
+            TOP 10
+          </button>
+        </nav>
+      )}
       {running && radarRuntime && radarPlayer && (
         <PirateRadar
           scopeLabel={mode === "practice" ? "PRACTICE" : challenge ? "RIVALRY" : "SOLO"}

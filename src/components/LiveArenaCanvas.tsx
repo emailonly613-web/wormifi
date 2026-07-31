@@ -104,6 +104,7 @@ import {
   type ControlScheme,
 } from "../game/controlScheme";
 import { roomIdentityLabel } from "../game/roomIdentity";
+import { captainRoomTierFromRoomId } from "../game/captainRooms";
 import {
   isGameBoardId,
   type GameBoardId,
@@ -705,9 +706,13 @@ export function mergeSnapshotWithPresence(
   return { ...snapshot, players };
 }
 
-function isPublicBoard(value: unknown): value is NonNullable<WorldMessage["board"]> {
+function isPublicBoard(
+  value: unknown,
+  roomId: unknown,
+): value is NonNullable<WorldMessage["board"]> {
   return isRecord(value) &&
-    isGameBoardId(value.id) &&
+    typeof roomId === "string" &&
+    (isGameBoardId(value.id) || captainRoomTierFromRoomId(roomId)?.boardId === value.id) &&
     typeof value.name === "string" &&
     Array.isArray(value.chargingStations);
 }
@@ -735,7 +740,7 @@ function isWorld(value: unknown): value is WorldMessage {
     typeof collisionRadii.massRadiusFactor === "number" && Number.isFinite(collisionRadii.massRadiusFactor) && collisionRadii.massRadiusFactor >= 0 &&
     typeof collisionRadii.bodyRadiusFactor === "number" && Number.isFinite(collisionRadii.bodyRadiusFactor) && collisionRadii.bodyRadiusFactor > 0 &&
     Array.isArray(value.drops) && value.drops.every(isPublicDrop) &&
-    (value.board === undefined || isPublicBoard(value.board)) &&
+    (value.board === undefined || isPublicBoard(value.board, value.roomId)) &&
     (value.pace === undefined || isPublicPace(value.pace)) &&
     (value.heatRing === undefined || isPublicHeatRing(value.heatRing));
 }
@@ -849,6 +854,7 @@ export function LiveArenaCanvas({
   const [deathNotice, setDeathNotice] = useState<string | null>(null);
   const [actionCallout, setActionCallout] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(reducedMotionRef.current);
+  const [mobileIntelPanel, setMobileIntelPanel] = useState<"none" | "map" | "scores">("none");
   const arenaUrl = configuredArenaUrl();
   const [ui, setUi] = useState<LiveUiState>(() => initialUi(roomId));
   const tutorial = useArenaTutorial(running, `${session}:${roomId}`);
@@ -866,12 +872,27 @@ export function LiveArenaCanvas({
 
   useEffect(() => {
     cameraRef.current = createCameraMotionState();
+    setMobileIntelPanel("none");
   }, [roomId, session]);
 
   useEffect(() => {
     if (!running) return;
-    const frame = window.requestAnimationFrame(() => stageRef.current?.focus({ preventScroll: true }));
-    return () => window.cancelAnimationFrame(frame);
+    let frame = 0;
+    const focusStage = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (document.querySelector('[aria-modal="true"]')) return;
+        stageRef.current?.focus({ preventScroll: true });
+      });
+    };
+    focusStage();
+    document.addEventListener("fullscreenchange", focusStage);
+    document.addEventListener("webkitfullscreenchange", focusStage);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("fullscreenchange", focusStage);
+      document.removeEventListener("webkitfullscreenchange", focusStage);
+    };
   }, [running, session]);
 
   const ensureAudio = useCallback(() => {
@@ -1953,6 +1974,7 @@ export function LiveArenaCanvas({
       data-turbo-reserve={turboReserveRatio.toFixed(3)}
       data-turbo-seconds={turboSecondsRemaining.toFixed(2)}
       data-player-length={ui.length}
+      data-mobile-intel={mobileIntelPanel}
       data-collision-head-radius={ui.collisionHeadRadius.toFixed(3)}
       data-collision-body-radius={ui.collisionBodyRadius.toFixed(3)}
       data-collision-base-radius={ui.collisionRadii.baseRadius}
@@ -2000,6 +2022,33 @@ export function LiveArenaCanvas({
       onPointerCancel={releasePointer}
     >
       <canvas ref={canvasRef} aria-hidden="true" />
+      <nav
+        className="mobile-intel-dock"
+        aria-label="Phone arena panels"
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          data-testid="mobile-map-toggle"
+          aria-label={`Map and standings. Rank ${ui.rank} of ${ui.rankTotal}, score ${ui.score}, size ${ui.mass}.`}
+          aria-pressed={mobileIntelPanel === "map"}
+          onClick={() => setMobileIntelPanel((current) => current === "map" ? "none" : "map")}
+        >
+          MAP
+        </button>
+        <button
+          type="button"
+          data-testid="mobile-scores-toggle"
+          aria-label={`${mobileIntelPanel === "scores" ? "Close" : "Open"} Top 10 size leaderboard`}
+          aria-pressed={mobileIntelPanel === "scores"}
+          onClick={() => setMobileIntelPanel((current) => current === "scores" ? "none" : "scores")}
+        >
+          TOP 10
+        </button>
+      </nav>
       {radarWorld && (
         <PirateRadar
           scopeLabel={roomIdentityLabel(ui.roomId)}
@@ -2043,7 +2092,7 @@ export function LiveArenaCanvas({
       </div>
 
       <div className="game-hud live-game-hud">
-        <aside className="leaderboard live-leaderboard" aria-label="Live score leaderboard">
+        <aside className="leaderboard live-leaderboard mobile-intel-leaderboard" aria-label="Live score leaderboard">
           <h2>TOP 10 · LIVE RUN SCORE</h2>
           <p className="leaderboard-rule">NAMES · SCORE · YOUR PLACE IN THE FIELD</p>
           <ol>

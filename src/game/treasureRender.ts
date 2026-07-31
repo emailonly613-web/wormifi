@@ -925,16 +925,37 @@ function drawFloatingCinematicHead(
   context.restore();
 }
 
-function traceWormCenterline(
+function traceSmoothedPolyline(
   context: CanvasRenderingContext2D,
   points: readonly Vec2[],
 ) {
   context.beginPath();
   context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    context.lineTo(points[index].x, points[index].y);
+  if (points.length === 2) {
+    context.lineTo(points[1].x, points[1].y);
+    return;
   }
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const current = points[index];
+    const next = points[index + 1];
+    context.quadraticCurveTo(
+      current.x,
+      current.y,
+      (current.x + next.x) * 0.5,
+      (current.y + next.y) * 0.5,
+    );
+  }
+  context.lineTo(points.at(-1)!.x, points.at(-1)!.y);
 }
+
+function traceWormCenterline(
+  context: CanvasRenderingContext2D,
+  points: readonly Vec2[],
+) {
+  traceSmoothedPolyline(context, points);
+}
+
+const offsetPathScratch: Vec2[] = [];
 
 function traceOffsetWormCenterline(
   context: CanvasRenderingContext2D,
@@ -945,7 +966,7 @@ function traceOffsetWormCenterline(
   const fallbackLength = Math.hypot(fallbackDirection.x, fallbackDirection.y);
   const fallbackX = fallbackLength > 0.0001 ? fallbackDirection.x / fallbackLength : 1;
   const fallbackY = fallbackLength > 0.0001 ? fallbackDirection.y / fallbackLength : 0;
-  context.beginPath();
+  offsetPathScratch.length = points.length;
   for (let index = 0; index < points.length; index += 1) {
     const from = points[Math.max(0, index - 1)];
     const to = points[Math.min(points.length - 1, index + 1)];
@@ -954,11 +975,12 @@ function traceOffsetWormCenterline(
     const length = Math.hypot(deltaX, deltaY);
     const tangentX = length > 0.0001 ? deltaX / length : fallbackX;
     const tangentY = length > 0.0001 ? deltaY / length : fallbackY;
-    const x = points[index].x - tangentY * offset;
-    const y = points[index].y + tangentX * offset;
-    if (index === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
+    const scratchPoint = offsetPathScratch[index] ?? { x: 0, y: 0 };
+    scratchPoint.x = points[index].x - tangentY * offset;
+    scratchPoint.y = points[index].y + tangentX * offset;
+    offsetPathScratch[index] = scratchPoint;
   }
+  traceSmoothedPolyline(context, offsetPathScratch);
 }
 
 /**
@@ -1430,9 +1452,9 @@ export function drawContinuousPirateWorm(
   // builds stacked several narrow center strokes here, which made large worms
   // look like outlined roads. Only the first stroke reaches the exact collider
   // edge; the soft volume passes remain inset.
-  // Trace the moving centerline once, then repaint that same path at each
-  // nested width. Rebuilding an identical path four times per player was a
-  // large avoidable command stream in crowded 29-chain scenes.
+  // Trace one softly interpolated centerline, then repaint that same path at
+  // each nested width. The curve stays inside adjacent point spans, removing
+  // visible elbows without widening the authoritative collision silhouette.
   traceWormCenterline(context, points);
   context.globalAlpha = 1;
   context.strokeStyle = "#052532";
@@ -1459,32 +1481,9 @@ export function drawContinuousPirateWorm(
   context.lineWidth = Math.max(1.3, bodyRadius * 0.27);
   context.stroke();
 
-  // Sparse embossed seams keep the surface tactile at giant sizes while the
-  // subdued contrast preserves a sleek basic skin at normal play scale.
-  context.globalAlpha = 0.2;
-  context.strokeStyle = "rgba(4,31,41,0.92)";
-  context.lineWidth = Math.max(0.7, bodyRadius * 0.07);
-  let hasChevronPath = false;
-  for (let index = 1 + (Math.abs(identity) % 2); index < points.length - 1; index += 2) {
-    const tangent = unitVector(points[index - 1], points[index + 1], direction);
-    const normal = { x: -tangent.y, y: tangent.x };
-    const center = points[index];
-    if (!hasChevronPath) {
-      context.beginPath();
-      hasChevronPath = true;
-    }
-    context.moveTo(
-      center.x - normal.x * bodyRadius * 0.43 - tangent.x * bodyRadius * 0.17,
-      center.y - normal.y * bodyRadius * 0.43 - tangent.y * bodyRadius * 0.17,
-    );
-    context.quadraticCurveTo(
-      center.x + tangent.x * bodyRadius * 0.28,
-      center.y + tangent.y * bodyRadius * 0.28,
-      center.x + normal.x * bodyRadius * 0.43 - tangent.x * bodyRadius * 0.17,
-      center.y + normal.y * bodyRadius * 0.43 - tangent.y * bodyRadius * 0.17,
-    );
-  }
-  if (hasChevronPath) context.stroke();
+  // Do not draw per-point ribs or joint seams. Those marks exposed simulation
+  // spacing on tight turns and made the continuous animal look bony. Authored
+  // materials provide surface detail without dividing the silhouette.
   context.restore();
 
   // The theme's animated material rides on top of the plain surface and stays

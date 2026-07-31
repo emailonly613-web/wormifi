@@ -131,7 +131,7 @@ describe("pirate treasure visual contract", () => {
   });
 
   it("falls back synchronously to one collider-width worm surface", () => {
-    const { context, strokeWidths, strokeBeginPathCounts } = recordingContext();
+    const { context, strokeWidths, strokeBeginPathCounts, strokeRecords } = recordingContext();
     drawContinuousPirateWorm(context, {
       points: [
         { x: 40, y: 20 },
@@ -152,9 +152,12 @@ describe("pirate treasure visual contract", () => {
     expect(strokeWidths).toContain(12 * 1.92);
     expect(strokeWidths).toContain(12 * 1.72);
     expect(strokeBeginPathCounts.slice(0, 3)).toEqual([1, 1, 1]);
+    expect(strokeRecords.slice(0, 3).every((record) =>
+      record.quadraticCurveToCount === 2 && record.lineToCount === 1
+    )).toBe(true);
   });
 
-  it("batches every scale chevron into one unchanged styled stroke", () => {
+  it("keeps tight turns continuous without visible rib or joint seams", () => {
     const { context, strokeRecords } = recordingContext();
     drawContinuousPirateWorm(context, {
       points: Array.from({ length: 10 }, (_, index) => ({
@@ -170,16 +173,13 @@ describe("pirate treasure visual contract", () => {
       now: 1_000,
     });
 
-    const chevronStrokes = strokeRecords.filter(
+    const jointSeamStrokes = strokeRecords.filter(
       (record) => record.strokeStyle === "rgba(4,31,41,0.92)",
     );
-    expect(chevronStrokes).toHaveLength(1);
-    expect(chevronStrokes[0]).toMatchObject({
-      lineWidth: 12 * 0.07,
-      globalAlpha: 0.2,
-      moveToCount: 4,
-      quadraticCurveToCount: 4,
-    });
+    expect(jointSeamStrokes).toHaveLength(0);
+    expect(strokeRecords.slice(0, 3).every((record) =>
+      record.quadraticCurveToCount > 0
+    )).toBe(true);
   });
 
   it("adds two broad inset volume bands without changing the collider-width silhouette", () => {
@@ -207,7 +207,11 @@ describe("pirate treasure visual contract", () => {
       (record) => record.strokeStyle === "#a0fff0" && record.lineWidth === 12 * 0.27,
     );
     expect(shadowRail).toHaveLength(1);
-    expect(shadowRail[0]).toMatchObject({ lineWidth: 12 * 0.42, lineToCount: 3 });
+    expect(shadowRail[0]).toMatchObject({
+      lineWidth: 12 * 0.42,
+      lineToCount: 1,
+      quadraticCurveToCount: 2,
+    });
     expect(highlightRails).toHaveLength(1);
     expect(Math.max(...strokeWidths)).toBe(24);
   });
@@ -244,11 +248,11 @@ describe("pirate treasure visual contract", () => {
 
     const sprintRails = strokeRecords.filter((record) =>
       record.lineDash.length === 2 &&
-      record.lineToCount === 3 &&
+      record.quadraticCurveToCount === 2 &&
       (record.lineWidth === 12 * 0.17 || record.lineWidth === 12 * 0.11)
     );
     expect(sprintRails).toHaveLength(2);
-    expect(sprintRails.every((record) => record.lineToCount === 3)).toBe(true);
+    expect(sprintRails.every((record) => record.lineToCount === 1)).toBe(true);
     expect(Math.max(...strokeWidths)).toBe(24);
   });
 

@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import {
   PROTOCOL_VERSION,
   packSnapshotTupleForWire,
@@ -20,10 +20,25 @@ async function expectInsideViewport(locator: Locator, page: Page) {
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 }
 
-test("keeps honest local identity and the pirate chart through play, results, and replay", async ({ page }) => {
+async function openPhoneMap(page: Page, testInfo: TestInfo) {
+  if (!testInfo.project.name.includes("mobile")) return;
+  const assist = page.getByTestId("mobile-play-assist");
+  const continueButton = assist.getByTestId("mobile-web-continue");
+  if (await continueButton.isVisible().catch(() => false)) {
+    try {
+      await continueButton.click({ timeout: 1_500 });
+    } catch (error) {
+      if (await assist.isVisible().catch(() => false)) throw error;
+    }
+  }
+  await page.getByTestId("mobile-map-toggle").click();
+}
+
+test("keeps honest local identity and the pirate chart through play, results, and replay", async ({ page }, testInfo) => {
   test.setTimeout(50_000);
   await page.goto("/");
   await page.getByTestId("solo-run-button").click();
+  await openPhoneMap(page, testInfo);
 
   const roomIdentity = page.getByTestId("room-identity");
   const radar = page.getByTestId("pirate-radar");
@@ -169,7 +184,7 @@ test("ordinary Play Live accepts the assigned public arena while friend links st
   expect(invite.searchParams.has("match")).toBe(false);
 });
 
-test("maps authoritative crews and Heat Ring geometry on desktop and mobile death states", async ({ page }) => {
+test("maps authoritative crews and Heat Ring geometry on desktop and mobile death states", async ({ page }, testInfo) => {
   const roomId = "radar-proof-room";
   const playerId = "human-radar-self";
   let tick = 100;
@@ -319,6 +334,7 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
 
   await page.goto(`/?room=${roomId}`);
   await page.getByTestId("live-lab-button").click();
+  await openPhoneMap(page, testInfo);
   const arena = page.getByTestId("live-arena-canvas");
   const roomIdentity = page.getByTestId("room-identity");
   const radar = page.getByTestId("pirate-radar");

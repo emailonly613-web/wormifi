@@ -41,6 +41,16 @@ for (const viewport of [
     test.skip(!testInfo.project.name.includes("mobile"), "Orientation proof requires a touch-capable phone profile.");
     await page.setViewportSize(viewport.portrait);
     await page.goto("/?mobile-hud-proof=1");
+    await page.evaluate(() => {
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(document.documentElement, "webkitRequestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+    });
     await page.getByTestId("solo-run-button").click();
     const landscapeGate = page.getByTestId("landscape-gate");
     await expect(landscapeGate).toBeVisible();
@@ -55,13 +65,28 @@ for (const viewport of [
     await page.setViewportSize(viewport.landscape);
     await expect(landscapeGate).toHaveCount(0);
     await expect(page.getByTestId("arena-canvas")).toBeVisible();
+    const mobileAssist = page.getByTestId("mobile-play-assist");
+    await expect(mobileAssist).toBeVisible();
+    await expect(mobileAssist).toHaveAttribute("data-platform", "android");
+    await expect(mobileAssist).toContainText("Map and Top 10 stay folded");
+    await mobileAssist.getByTestId("mobile-web-continue").click();
+    await expect(mobileAssist).toHaveCount(0);
     await expect(page.getByTestId("tutorial-coach")).toHaveAttribute("data-stage", "steer");
     await page.waitForTimeout(300);
 
     const room = await expectInsideViewport(page.getByTestId("room-identity"), page);
     const hud = await expectInsideViewport(page.locator(".hud-top"), page);
     const exit = await expectInsideViewport(page.getByRole("button", { name: "Exit to Wormifi menu" }), page);
+    const intelDock = await expectInsideViewport(page.locator(".mobile-intel-dock"), page);
+    await expect(page.getByTestId("pirate-radar")).toBeHidden();
+    await expect(page.locator(".mobile-intel-leaderboard")).toBeHidden();
+    await page.getByTestId("mobile-map-toggle").click();
     const radar = await expectInsideViewport(page.getByTestId("pirate-radar"), page);
+    await page.getByTestId("mobile-scores-toggle").click();
+    await expect(page.getByTestId("pirate-radar")).toBeHidden();
+    await expectInsideViewport(page.locator(".mobile-intel-leaderboard"), page);
+    await page.getByTestId("mobile-map-toggle").click();
+    await expect(page.locator(".mobile-intel-leaderboard")).toBeHidden();
     const tutorial = await expectInsideViewport(page.getByTestId("tutorial-coach"), page);
     const sprint = await expectInsideViewport(page.getByRole("button", { name: /sprint.*costs 4 size/i }), page);
 
@@ -69,6 +94,7 @@ for (const viewport of [
     expect(exit.height).toBeGreaterThanOrEqual(44);
     expect(sprint.width).toBeGreaterThanOrEqual(44);
     expect(sprint.height).toBeGreaterThanOrEqual(44);
+    expect(intelDock.height).toBeGreaterThanOrEqual(44);
     expect(overlapArea(room, hud)).toBe(0);
     expect(overlapArea(radar, tutorial)).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.landscape.width);

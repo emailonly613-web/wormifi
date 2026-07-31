@@ -255,6 +255,11 @@ test("binds the selected board and private Photo Skin to play without putting ph
   await expect(page.getByTestId("live-charging-station-status")).toHaveAttribute("data-owned", "true");
   await expect(page.getByTestId("live-charging-station-status")).toHaveAccessibleName(/YOUR CHARGE/u);
   await expect(page.getByTestId("pirate-radar")).toHaveAttribute("data-station-count", "2");
+  if (testInfo.project.name.includes("mobile")) {
+    await expect(page.locator(".mobile-intel-dock")).toBeVisible();
+    await expect(page.getByTestId("pirate-radar")).toBeHidden();
+    await expect(page.locator(".mobile-intel-leaderboard")).toBeHidden();
+  }
 
   expect(joinMessage).toMatchObject({
     type: "join",
@@ -269,13 +274,21 @@ test("binds the selected board and private Photo Skin to play without putting ph
 
   const proofPath = `proof/browser/moat-${testInfo.project.name}-live.png`;
   try {
-    await page.screenshot({ path: proofPath, fullPage: true, timeout: 15_000 });
+    await page.screenshot({
+      path: proofPath,
+      fullPage: !testInfo.project.name.includes("mobile"),
+      timeout: 15_000,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!/unknown error, open/iu.test(message)) throw error;
 
     const fallbackPath = proofPath.replace(/\.png$/u, `-${process.pid}-${Date.now()}.png`);
-    await page.screenshot({ path: fallbackPath, fullPage: true, timeout: 15_000 });
+    await page.screenshot({
+      path: fallbackPath,
+      fullPage: !testInfo.project.name.includes("mobile"),
+      timeout: 15_000,
+    });
     testInfo.annotations.push({
       type: "proof-fallback",
       description: `Canonical proof was locked; current capture: ${fallbackPath}`,
