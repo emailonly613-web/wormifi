@@ -84,6 +84,16 @@ import {
 
 export type GameMode = "rush" | "endless" | "practice";
 type LaunchMode = GameMode | "live";
+type ImmersiveState = "active" | "available" | "denied" | "unsupported";
+
+type WebkitFullscreenDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void> | void;
+  webkitFullscreenElement?: Element | null;
+};
+
+type WebkitFullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
 
 const guestNames = ["Skipper", "Coral", "Cutlass", "Galleon", "Pearl", "Riptide", "Anchor", "Mariner"];
 
@@ -133,6 +143,28 @@ async function requestLandscapeOrientation(): Promise<void> {
   }
 }
 
+function fullscreenElement(): Element | null {
+  return document.fullscreenElement ??
+    (document as WebkitFullscreenDocument).webkitFullscreenElement ??
+    null;
+}
+
+function isInstalledDisplayMode(): boolean {
+  const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
+  return standaloneNavigator.standalone === true ||
+    window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
+    window.matchMedia?.("(display-mode: standalone)").matches === true;
+}
+
+function browserImmersiveState(): ImmersiveState {
+  if (fullscreenElement() || isInstalledDisplayMode()) return "active";
+  const root = document.documentElement as WebkitFullscreenElement;
+  return typeof root.requestFullscreen === "function" ||
+    typeof root.webkitRequestFullscreen === "function"
+    ? "available"
+    : "unsupported";
+}
+
 export function App() {
   const buildRevision = useMemo(readBuildRevision, []);
   const initialName = useMemo(makeGuestName, []);
@@ -168,6 +200,8 @@ export function App() {
   const [currencyStoreOpen, setCurrencyStoreOpen] = useState(false);
   const [portraitTouchViewport, setPortraitTouchViewport] = useState(isPortraitTouchViewport);
   const [pendingLandscapeLaunch, setPendingLandscapeLaunch] = useState<LaunchMode | null>(null);
+  const [immersiveState, setImmersiveState] = useState<ImmersiveState>(browserImmersiveState);
+  const [immersiveNoticeOpen, setImmersiveNoticeOpen] = useState(false);
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
@@ -228,11 +262,23 @@ export function App() {
 
   useEffect(() => {
     const synchronizeFullscreen = () => {
-      if (!document.fullscreenElement) gameOwnsFullscreenRef.current = false;
+      const activeElement = fullscreenElement();
+      if (!activeElement) gameOwnsFullscreenRef.current = false;
+      setImmersiveState(browserImmersiveState());
     };
     document.addEventListener("fullscreenchange", synchronizeFullscreen);
-    return () => document.removeEventListener("fullscreenchange", synchronizeFullscreen);
+    document.addEventListener("webkitfullscreenchange", synchronizeFullscreen);
+    return () => {
+      document.removeEventListener("fullscreenchange", synchronizeFullscreen);
+      document.removeEventListener("webkitfullscreenchange", synchronizeFullscreen);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!immersiveNoticeOpen) return;
+    const timeout = window.setTimeout(() => setImmersiveNoticeOpen(false), 6_000);
+    return () => window.clearTimeout(timeout);
+  }, [immersiveNoticeOpen]);
 
   useEffect(() => {
     let active = true;
@@ -314,26 +360,47 @@ export function App() {
     setPlaying(true);
   }, [prepareRoom]);
 
-  const requestImmersiveGameplay = useCallback(() => {
+  const requestImmersiveGameplay = useCallback((explainFailure = false) => {
     // Portals own their container and fullscreen contract. The owned Wormifi
     // site can use the initiating Play tap to remove browser chrome safely.
     if (isCrazyGamesDistribution) {
       void requestLandscapeOrientation();
       return;
     }
-    const root = document.documentElement;
-    if (document.fullscreenElement || typeof root.requestFullscreen !== "function") {
+    const root = document.documentElement as WebkitFullscreenElement;
+    if (fullscreenElement() || isInstalledDisplayMode()) {
+      setImmersiveState("active");
       void requestLandscapeOrientation();
       return;
     }
-    void root.requestFullscreen({ navigationUI: "hide" })
+    const request = typeof root.requestFullscreen === "function"
+      ? () => root.requestFullscreen({ navigationUI: "hide" })
+      : typeof root.webkitRequestFullscreen === "function"
+        ? () => root.webkitRequestFullscreen?.()
+        : null;
+    if (!request) {
+      setImmersiveState("unsupported");
+      if (explainFailure) setImmersiveNoticeOpen(true);
+      void requestLandscapeOrientation();
+      return;
+    }
+    let result: Promise<void> | void;
+    try {
+      result = request();
+    } catch {
+      setImmersiveState("denied");
+      if (explainFailure) setImmersiveNoticeOpen(true);
+      void requestLandscapeOrientation();
+      return;
+    }
+    void Promise.resolve(result)
       .then(() => {
-        gameOwnsFullscreenRef.current = document.fullscreenElement === root;
+        gameOwnsFullscreenRef.current = fullscreenElement() === root;
+        setImmersiveState(browserImmersiveState());
       })
       .catch(() => {
-        // iOS/browser policy may deny element fullscreen. Installed Wormifi
-        // still uses the manifest's fullscreen display mode; an ordinary tab
-        // simply retains the browser-controlled safe viewport.
+        setImmersiveState("denied");
+        if (explainFailure) setImmersiveNoticeOpen(true);
       })
       .finally(() => {
         void requestLandscapeOrientation();
@@ -343,11 +410,19 @@ export function App() {
   const releaseGameFullscreen = useCallback(() => {
     if (!gameOwnsFullscreenRef.current) return;
     gameOwnsFullscreenRef.current = false;
+    const fullscreenDocument = document as WebkitFullscreenDocument;
     if (
-      document.fullscreenElement === document.documentElement &&
+      fullscreenElement() === document.documentElement &&
       typeof document.exitFullscreen === "function"
     ) {
       void document.exitFullscreen().catch(() => {
+        // The user or browser may have already ended fullscreen.
+      });
+    } else if (
+      fullscreenElement() === document.documentElement &&
+      typeof fullscreenDocument.webkitExitFullscreen === "function"
+    ) {
+      void Promise.resolve(fullscreenDocument.webkitExitFullscreen()).catch(() => {
         // The user or browser may have already ended fullscreen.
       });
     }
@@ -544,6 +619,41 @@ export function App() {
           roomId={roomId}
           onInvite={roomScope === "live" ? openInvite : undefined}
         />
+      )}
+
+      {playing && !landscapeBlocked && !isCrazyGamesDistribution && immersiveState !== "active" && (
+        <button
+          type="button"
+          className="immersive-button"
+          data-testid="immersive-button"
+          data-state={immersiveState}
+          aria-label={immersiveState === "unsupported"
+            ? "Fullscreen unavailable in this browser"
+            : "Enter true fullscreen"}
+          title={immersiveState === "unsupported"
+            ? "This browser keeps its own tabs"
+            : "Enter true fullscreen"}
+          onClick={() => requestImmersiveGameplay(true)}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" />
+            {immersiveState === "unsupported" && <path d="M5 5l14 14" />}
+          </svg>
+        </button>
+      )}
+
+      {playing && !landscapeBlocked && immersiveNoticeOpen && (
+        <aside className="immersive-notice" data-testid="immersive-notice" role="status">
+          <div>
+            <b>{immersiveState === "unsupported"
+              ? "THIS BROWSER BLOCKS TRUE FULLSCREEN"
+              : "FULLSCREEN WAS BLOCKED"}</b>
+            <span>{immersiveState === "unsupported"
+              ? "Desktop: press F11. Phone: install Wormifi, then launch it from its icon."
+              : "Tap the fullscreen control again and allow fullscreen."}</span>
+          </div>
+          <button type="button" aria-label="Dismiss fullscreen message" onClick={() => setImmersiveNoticeOpen(false)}>×</button>
+        </aside>
       )}
 
       {!playing && (

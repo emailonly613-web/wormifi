@@ -1896,6 +1896,84 @@ html:fullscreen .app-shell {
   cursor: pointer;
 }
 
+.immersive-button {
+  position: absolute;
+  z-index: 19;
+  left: calc(max(18px, env(safe-area-inset-left)) + 50px);
+  top: calc(max(14px, env(safe-area-inset-top)) + 68px);
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  place-items: center;
+  border: 1px solid rgba(124, 239, 255, .42);
+  border-radius: 13px;
+  color: #d9fbff;
+  background: rgba(4, 13, 30, .74);
+  box-shadow: 0 0 18px rgba(51, 216, 255, .13);
+  cursor: pointer;
+}
+
+.immersive-button[data-state="unsupported"] {
+  color: #ffd878;
+  border-color: rgba(255, 205, 96, .44);
+}
+
+.immersive-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.immersive-notice {
+  position: fixed;
+  z-index: 45;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  width: min(520px, calc(100% - 24px));
+  padding: 10px 10px 10px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 211, 104, .52);
+  border-radius: 15px;
+  color: #fff7d0;
+  background: rgba(4, 13, 30, .94);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, .5);
+  transform: translateX(-50%);
+}
+
+.immersive-notice div {
+  display: grid;
+  gap: 2px;
+}
+
+.immersive-notice b {
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.immersive-notice span {
+  color: #dbe9f3;
+  font-size: 10px;
+}
+
+.immersive-notice button {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .08);
+  cursor: pointer;
+}
+
 .results-backdrop {
   position: absolute;
   z-index: 30;
@@ -2378,6 +2456,7 @@ html:fullscreen .app-shell {
   .hud-pill { min-width: 62px; padding: 6px 8px; }
   .rush-clock { min-width: 52px; }
   .exit-button { left: 9px; top: calc(max(9px, env(safe-area-inset-top)) + 96px); }
+  .immersive-button { left: 59px; top: calc(max(9px, env(safe-area-inset-top)) + 96px); }
   .pirate-radar {
     top: calc(max(9px, env(safe-area-inset-top)) + 96px);
     right: 9px;
@@ -4224,6 +4303,13 @@ html:fullscreen .app-shell {
   .exit-button {
     top: calc(max(6px, env(safe-area-inset-top)) + 97px);
     left: max(8px, env(safe-area-inset-left));
+    width: 44px;
+    height: 44px;
+  }
+
+  .immersive-button {
+    top: calc(max(6px, env(safe-area-inset-top)) + 97px);
+    left: calc(max(8px, env(safe-area-inset-left)) + 52px);
     width: 44px;
     height: 44px;
   }

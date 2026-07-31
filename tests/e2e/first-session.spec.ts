@@ -103,6 +103,29 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId("player-chain")).toBeVisible();
   });
 
+  test("does not silently claim fullscreen when the host browser blocks it", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(document.documentElement, "webkitRequestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+    });
+
+    await page.getByTestId("solo-run-button").click();
+    const fullscreenControl = page.getByTestId("immersive-button");
+    await expect(fullscreenControl).toBeVisible();
+    await expect(fullscreenControl).toHaveAttribute("data-state", "unsupported");
+
+    await fullscreenControl.click();
+    await expect(page.getByTestId("immersive-notice")).toContainText("THIS BROWSER BLOCKS TRUE FULLSCREEN");
+    await expect(page.getByTestId("player-chain")).toBeVisible();
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });
