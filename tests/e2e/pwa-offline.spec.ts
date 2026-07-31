@@ -8,10 +8,12 @@ test("reopens the built shell offline, enters Practice, and never fakes multipla
     const response = await fetch("/manifest.webmanifest");
     return await response.json() as {
       display: string;
+      display_override: string[];
       icons: Array<{ sizes: string; purpose: string; type: string }>;
     };
   });
-  expect(manifest.display).toBe("standalone");
+  expect(manifest.display).toBe("fullscreen");
+  expect(manifest.display_override).toEqual(["fullscreen", "standalone"]);
   expect(manifest.icons).toEqual(expect.arrayContaining([
     expect.objectContaining({ sizes: "192x192", purpose: "any", type: "image/png" }),
     expect.objectContaining({ sizes: "512x512", purpose: "any", type: "image/png" }),
@@ -54,7 +56,8 @@ test("reopens the built shell offline, enters Practice, and never fakes multipla
 
   await page.getByRole("button", { name: /practice with labeled bots/i }).click();
   await expect(page.getByTestId("player-chain")).toBeVisible();
-  await expect(page.getByText("PRACTICE · LABELED BOTS", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("room-identity")).toHaveAttribute("data-scope", "practice");
+  await expect(page.getByTestId("room-identity")).toHaveAttribute("data-room-id", "none");
 
   await page.getByTestId("exit-button").click();
   await page.getByTestId("live-lab-button").click();

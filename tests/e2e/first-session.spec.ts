@@ -87,6 +87,22 @@ async function expectActiveArena(page: Page) {
 }
 
 test.describe("first Wormifi session", () => {
+  test("uses the Play gesture to request browser-chrome-free fullscreen", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: async (options?: FullscreenOptions) => {
+          document.documentElement.dataset.fullscreenRequest = options?.navigationUI ?? "missing";
+        },
+      });
+    });
+
+    await page.getByTestId("solo-run-button").click();
+    await expect(page.locator("html")).toHaveAttribute("data-fullscreen-request", "hide");
+    await expect(page.getByTestId("player-chain")).toBeVisible();
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });

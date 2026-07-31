@@ -165,6 +165,7 @@ export function App() {
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
+  const gameOwnsFullscreenRef = useRef(false);
   const runStartedAtRef = useRef(0);
   const eligibleGameplaySecondsRef = useRef(0);
 
@@ -213,6 +214,14 @@ export function App() {
       window.removeEventListener("resize", synchronizeOrientation);
       screen.orientation?.removeEventListener("change", synchronizeOrientation);
     };
+  }, []);
+
+  useEffect(() => {
+    const synchronizeFullscreen = () => {
+      if (!document.fullscreenElement) gameOwnsFullscreenRef.current = false;
+    };
+    document.addEventListener("fullscreenchange", synchronizeFullscreen);
+    return () => document.removeEventListener("fullscreenchange", synchronizeFullscreen);
   }, []);
 
   useEffect(() => {
@@ -325,16 +334,55 @@ export function App() {
     setPlaying(true);
   }, [prepareRoom]);
 
+  const requestImmersiveGameplay = useCallback(() => {
+    // Portals own their container and fullscreen contract. The owned Wormifi
+    // site can use the initiating Play tap to remove browser chrome safely.
+    if (isCrazyGamesDistribution) {
+      void requestLandscapeOrientation();
+      return;
+    }
+    const root = document.documentElement;
+    if (document.fullscreenElement || typeof root.requestFullscreen !== "function") {
+      void requestLandscapeOrientation();
+      return;
+    }
+    void root.requestFullscreen({ navigationUI: "hide" })
+      .then(() => {
+        gameOwnsFullscreenRef.current = document.fullscreenElement === root;
+      })
+      .catch(() => {
+        // iOS/browser policy may deny element fullscreen. Installed Wormifi
+        // still uses the manifest's fullscreen display mode; an ordinary tab
+        // simply retains the browser-controlled safe viewport.
+      })
+      .finally(() => {
+        void requestLandscapeOrientation();
+      });
+  }, []);
+
+  const releaseGameFullscreen = useCallback(() => {
+    if (!gameOwnsFullscreenRef.current) return;
+    gameOwnsFullscreenRef.current = false;
+    if (
+      document.fullscreenElement === document.documentElement &&
+      typeof document.exitFullscreen === "function"
+    ) {
+      void document.exitFullscreen().catch(() => {
+        // The user or browser may have already ended fullscreen.
+      });
+    }
+  }, []);
+
   const start = useCallback((nextMode: LaunchMode = mode) => {
+    requestImmersiveGameplay();
     if (isPortraitTouchViewport()) {
       setPortraitTouchViewport(true);
       setPendingLandscapeLaunch(nextMode);
-      void requestLandscapeOrientation();
       return;
     }
     setPendingLandscapeLaunch(null);
     beginStart(nextMode);
-  }, [beginStart, mode]);
+  }, [beginStart, mode, requestImmersiveGameplay]);
 
   useEffect(() => {
     if (!pendingLandscapeLaunch || portraitTouchViewport) return;
@@ -456,6 +504,7 @@ export function App() {
       className="app-shell"
       aria-busy={adRequestPending || adActive}
       data-landscape-blocked={landscapeBlocked ? "true" : "false"}
+      data-playing={playing ? "true" : "false"}
     >
       {playing && mode === "live" ? (
         landscapeBlocked ? null : <LiveArenaCanvas
@@ -473,6 +522,7 @@ export function App() {
           onExit={() => {
             setPlaying(false);
             setMode("rush");
+            releaseGameFullscreen();
           }}
         />
       ) : (
@@ -487,7 +537,10 @@ export function App() {
           paceId={paceSelection.paceId}
           photoSkin={localPhotoSkinAppearance}
           controlScheme={controlScheme}
-          onExit={() => setPlaying(false)}
+          onExit={() => {
+            setPlaying(false);
+            releaseGameFullscreen();
+          }}
           onRestart={() => start(mode === "live" ? "rush" : mode)}
           onRunEnded={requestPostRunAd}
         />
@@ -822,6 +875,7 @@ export function App() {
                   setPlaying(false);
                   setMode("rush");
                 }
+                releaseGameFullscreen();
               }}
             >
               {playing ? "EXIT TO HARBOR" : "BACK TO HARBOR"}
