@@ -290,6 +290,11 @@ export class ArenaRoom {
     this.sessionsByPlayer.clear();
   }
 
+  /** Reconnect-grace reservations count as occupied human seats. */
+  canAcceptNewHuman(): boolean {
+    return this.sessionsByToken.size < this.maxHumanPlayers;
+  }
+
   join(socket: WebSocket, message: JoinMessage): JoinResult {
     if (message.reconnectToken) {
       const existing = this.sessionsByToken.get(message.reconnectToken);

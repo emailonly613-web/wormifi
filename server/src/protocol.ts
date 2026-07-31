@@ -37,6 +37,8 @@ export interface JoinMessage {
   themeId?: CosmeticThemeId;
   /** Opt-in capability: client can merge compact full-room presence with nearby bodies. */
   presenceV1?: true;
+  /** Opt-in public matchmaking. Shared and manually entered rooms never set this. */
+  matchmakingV1?: true;
 }
 
 export interface InputMessage extends PlayerInput {
@@ -321,6 +323,7 @@ const JOIN_KEYS = new Set([
   "paceId",
   "themeId",
   "presenceV1",
+  "matchmakingV1",
 ]);
 const INPUT_KEYS = new Set(["type", "sequence", "clientTick", "direction", "boost"]);
 
@@ -574,7 +577,8 @@ export function parseJoinMessage(value: Record<string, unknown>):
     (value.paceId !== undefined &&
       (typeof value.paceId !== "string" || !ROOM_ID_PATTERN.test(value.paceId))) ||
     (themeId !== undefined && !isCosmeticThemeId(themeId)) ||
-    (value.presenceV1 !== undefined && value.presenceV1 !== true)
+    (value.presenceV1 !== undefined && value.presenceV1 !== true) ||
+    (value.matchmakingV1 !== undefined && value.matchmakingV1 !== true)
   ) {
     return {
       ok: false,
@@ -593,6 +597,7 @@ export function parseJoinMessage(value: Record<string, unknown>):
       paceId: value.paceId as GamePaceId | undefined,
       themeId: themeId as CosmeticThemeId | undefined,
       presenceV1: value.presenceV1 as true | undefined,
+      matchmakingV1: value.matchmakingV1 as true | undefined,
     },
   };
 }

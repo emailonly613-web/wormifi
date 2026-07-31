@@ -1,4 +1,6 @@
 export const DEFAULT_ROOM_ID = "public-1";
+const PUBLIC_MATCHMAKING_QUERY = "match";
+const PUBLIC_MATCHMAKING_VALUE = "public";
 
 const ROOM_ID_PATTERN = /^[a-z0-9-]{1,32}$/u;
 
@@ -17,9 +19,22 @@ export function readRoomId(search = window.location.search): string {
   return normalizeRoomId(new URLSearchParams(search).get("room"));
 }
 
+export function readPublicMatchmaking(search = window.location.search): boolean {
+  const params = new URLSearchParams(search);
+  return !params.has("room") || params.get(PUBLIC_MATCHMAKING_QUERY) === PUBLIC_MATCHMAKING_VALUE;
+}
+
 export function writeRoomIdToLocation(roomId: string): void {
   const url = new URL(window.location.href);
   url.searchParams.set("room", normalizeRoomId(roomId));
+  url.searchParams.delete(PUBLIC_MATCHMAKING_QUERY);
+  window.history.replaceState(null, "", url);
+}
+
+export function writePublicMatchmakingToLocation(roomId: string): void {
+  const url = new URL(window.location.href);
+  url.searchParams.set("room", normalizeRoomId(roomId));
+  url.searchParams.set(PUBLIC_MATCHMAKING_QUERY, PUBLIC_MATCHMAKING_VALUE);
   window.history.replaceState(null, "", url);
 }
 
@@ -27,6 +42,7 @@ export function buildRoomInviteUrl(roomId: string, href = window.location.href):
   const url = new URL(href);
   url.searchParams.delete("c");
   url.searchParams.delete("arena_ws");
+  url.searchParams.delete(PUBLIC_MATCHMAKING_QUERY);
   url.searchParams.set("room", normalizeRoomId(roomId));
   url.hash = "";
   return url.toString();

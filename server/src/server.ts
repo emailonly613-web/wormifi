@@ -27,6 +27,7 @@ const DEFAULT_JOIN_TIMEOUT_MS = 5_000;
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 15_000;
 const DEFAULT_IDLE_TIMEOUT_MS = 45_000;
 const FORCED_CLOSE_GRACE_MS = 250;
+const PUBLIC_ROOM_PATTERN = /^public-[1-9][0-9]*$/u;
 
 function positiveInteger(value: number | undefined, fallback: number, minimum = 1): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
@@ -313,7 +314,18 @@ export class AuthoritativeArenaServer {
         return;
       }
 
-      const roomId = join.value.roomId ?? "public-1";
+      const requestedRoomId = join.value.roomId ?? "public-1";
+      const roomId = join.value.matchmakingV1 === true && !join.value.reconnectToken
+        ? this.selectPublicMatchmakingRoom(requestedRoomId)
+        : requestedRoomId;
+      if (!roomId) {
+        this.send(socket, {
+          type: "error",
+          code: "RATE_LIMITED",
+          message: "Every public arena on this server is full. Another arena is being prepared.",
+        });
+        return;
+      }
       let room = this.rooms.get(roomId);
       let createdRoom = false;
       const requestedBoard = join.value.boardId
@@ -371,7 +383,7 @@ export class AuthoritativeArenaServer {
         createdRoom = true;
       }
 
-      const result = room.join(socket, join.value);
+      const result = room.join(socket, { ...join.value, roomId });
       if (result.error || !result.session) {
         this.send(socket, result.error ?? {
           type: "error", code: "INVALID_JOIN", message: "Unable to join the room.",
@@ -522,5 +534,24 @@ export class AuthoritativeArenaServer {
     if (this.rooms.get(room.id) !== room) return;
     room.stop();
     this.rooms.delete(room.id);
+  }
+
+  private selectPublicMatchmakingRoom(requestedRoomId: string): string | undefined {
+    if (!PUBLIC_ROOM_PATTERN.test(requestedRoomId)) return requestedRoomId;
+
+    const publicRooms = [...this.rooms.values()]
+      .filter((room) => PUBLIC_ROOM_PATTERN.test(room.id))
+      .sort((left, right) => {
+        const leftNumber = Number.parseInt(left.id.slice("public-".length), 10);
+        const rightNumber = Number.parseInt(right.id.slice("public-".length), 10);
+        return leftNumber - rightNumber;
+      });
+    const available = publicRooms.find((room) => room.canAcceptNewHuman());
+    if (available) return available.id;
+    if (this.rooms.size >= this.maxRooms) return undefined;
+
+    let nextNumber = 1;
+    while (this.rooms.has(`public-${nextNumber}`)) nextNumber += 1;
+    return `public-${nextNumber}`;
   }
 }

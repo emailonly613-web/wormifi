@@ -77,6 +77,96 @@ test("keeps honest local identity and the pirate chart through play, results, an
   await expect(radar).toContainText("REPLAY · LAST POSITION");
 });
 
+test("ordinary Play Live accepts the assigned public arena while friend links stay pinned", async ({ page }) => {
+  const assignedRoomId = "public-2";
+  const playerId = "human-matchmade-self";
+  let joinMessage: Record<string, unknown> | undefined;
+
+  await page.routeWebSocket(/\/arena$/u, (socket) => {
+    socket.onMessage((raw) => {
+      const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as Record<string, unknown>;
+      if (message.type !== "join") return;
+      joinMessage = message;
+      const welcome: WelcomeMessage = {
+        type: "welcome",
+        protocolVersion: PROTOCOL_VERSION,
+        authority: "server",
+        roomId: assignedRoomId,
+        playerId,
+        reconnectToken: "matchmaking-proof-reconnect-token-0001",
+        reconnected: false,
+        tick: 12,
+        fixedStepSeconds: 1 / 30,
+        lastAcceptedSequence: -1,
+      };
+      const world: WorldMessage = {
+        type: "world",
+        protocolVersion: PROTOCOL_VERSION,
+        authority: "server",
+        roomId: assignedRoomId,
+        tick: 12,
+        arenaRadius: 1_450,
+        collisionRadii: {
+          baseRadius: 8,
+          massRadiusFactor: 0.68,
+          bodyRadiusFactor: 0.98,
+        },
+        drops: [],
+      };
+      const snapshot: SnapshotMessage = {
+        type: "snapshot",
+        protocolVersion: PROTOCOL_VERSION,
+        authority: "server",
+        roomId: assignedRoomId,
+        tick: 12,
+        serverTimeMs: 12_000,
+        players: [{
+          id: playerId,
+          name: "Matchmade Self",
+          kind: "human",
+          connected: true,
+          alive: true,
+          position: { x: 0, y: 0 },
+          direction: { x: 1, y: 0 },
+          body: [{ x: -20, y: 0 }],
+          mass: 48,
+          kills: 0,
+          score: 0,
+          shieldTicksRemaining: 30,
+        }],
+        dropUpserts: [],
+        removedDropIds: [],
+        events: [],
+      };
+      socket.send(JSON.stringify(welcome));
+      socket.send(JSON.stringify(world));
+      socket.send(JSON.stringify(snapshot));
+    });
+  });
+
+  await page.goto("/");
+  await page.getByTestId("live-lab-button").click();
+  await expect(page.getByTestId("live-arena-canvas")).toHaveAttribute(
+    "data-authority",
+    "server-confirmed",
+  );
+  expect(joinMessage).toMatchObject({
+    type: "join",
+    roomId: "public-1",
+    matchmakingV1: true,
+    presenceV1: true,
+  });
+  await expect(page.getByTestId("room-identity")).toContainText("LIVE ROOM #PUBLIC-2");
+  await expect(page.getByTestId("pirate-radar")).toHaveAttribute("data-room-id", assignedRoomId);
+  await expect.poll(() => new URL(page.url()).searchParams.get("room")).toBe(assignedRoomId);
+  expect(new URL(page.url()).searchParams.get("match")).toBe("public");
+
+  await page.getByTestId("in-game-invite").click();
+  const invite = new URL(await page.getByTestId("room-invite-url").inputValue());
+  expect(invite.searchParams.get("room")).toBe(assignedRoomId);
+  expect(invite.searchParams.has("match")).toBe(false);
+});
+
 test("maps authoritative crews and Heat Ring geometry on desktop and mobile death states", async ({ page }) => {
   const roomId = "radar-proof-room";
   const playerId = "human-radar-self";

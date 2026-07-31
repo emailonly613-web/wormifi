@@ -27,9 +27,11 @@ import {
   buildRoomInviteUrl,
   createCrewRoomId,
   normalizeRoomId,
+  readPublicMatchmaking,
   readRoomId,
   roomIdentityLabel,
   writeRoomIdToLocation,
+  writePublicMatchmakingToLocation,
 } from "./game/roomIdentity";
 import {
   BOARD_OPTIONS,
@@ -205,6 +207,7 @@ export function App() {
   const [controlScheme, setControlScheme] = useState<ControlScheme>(readControlScheme);
   const [roomId, setRoomId] = useState(readRoomId);
   const [roomDraft, setRoomDraft] = useState(readRoomId);
+  const [resolvedLiveRoomId, setResolvedLiveRoomId] = useState(readRoomId);
   const [requestedBoardId, setRequestedBoardId] = useState<GameBoardId>(() => readBoardPreference(window.location.search));
   const [authoritativeBoardId, setAuthoritativeBoardId] = useState<GameBoardId | undefined>();
   const [requestedPaceId, setRequestedPaceId] = useState<GamePaceId>(() =>
@@ -228,7 +231,11 @@ export function App() {
   const [rewardedSkinEquipped, setRewardedSkinEquipped] = useState(isRewardedCorsairSkinEquipped);
   const [currencyStoreOpen, setCurrencyStoreOpen] = useState(false);
   const [portraitTouchViewport, setPortraitTouchViewport] = useState(isPortraitTouchViewport);
-  const [pendingLandscapeLaunch, setPendingLandscapeLaunch] = useState<LaunchMode | null>(null);
+  const [pendingLandscapeLaunch, setPendingLandscapeLaunch] = useState<{
+    mode: LaunchMode;
+    publicMatchmaking: boolean;
+  } | null>(null);
+  const [publicMatchmaking, setPublicMatchmaking] = useState(readPublicMatchmaking);
   const [immersiveState, setImmersiveState] = useState<ImmersiveState>(browserImmersiveState);
   const [immersiveNoticeOpen, setImmersiveNoticeOpen] = useState(false);
   const playButtonRef = useRef<HTMLButtonElement>(null);
@@ -374,6 +381,8 @@ export function App() {
     }
     setRoomId(nextRoom);
     setRoomDraft(nextRoom);
+    setResolvedLiveRoomId(nextRoom);
+    setPublicMatchmaking(false);
     writeRoomIdToLocation(nextRoom);
     return nextRoom;
   }, [roomDraft, roomId]);
@@ -395,8 +404,16 @@ export function App() {
     window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
   }, []);
 
-  const beginStart = useCallback((nextMode: LaunchMode) => {
-    if (nextMode === "live") prepareRoom();
+  const beginStart = useCallback((nextMode: LaunchMode, usePublicMatchmaking = false) => {
+    if (nextMode === "live") {
+      setResolvedLiveRoomId(roomId);
+      if (usePublicMatchmaking) {
+        setPublicMatchmaking(true);
+        writePublicMatchmakingToLocation(roomId);
+      } else {
+        prepareRoom();
+      }
+    }
     setCurrencyStoreOpen(false);
     setLegendVoyageOpen(false);
     setSettingsOpen(false);
@@ -404,7 +421,13 @@ export function App() {
     setSession((value) => value + 1);
     runStartedAtRef.current = performance.now();
     setPlaying(true);
-  }, [prepareRoom]);
+  }, [prepareRoom, roomId]);
+
+  const handleLiveRoomResolved = useCallback((resolvedRoomId: string) => {
+    setResolvedLiveRoomId(resolvedRoomId);
+    setRoomDraft(resolvedRoomId);
+    if (publicMatchmaking) writePublicMatchmakingToLocation(resolvedRoomId);
+  }, [publicMatchmaking]);
 
   const requestImmersiveGameplay = useCallback((explainFailure = false) => {
     // Portals own their container and fullscreen contract. The owned Wormifi
@@ -483,26 +506,27 @@ export function App() {
     setCaptainProgression((current) => awardCaptainRun(summary, current));
   }, []);
 
-  const start = useCallback((nextMode: LaunchMode = mode) => {
+  const start = useCallback((nextMode: LaunchMode = mode, usePublicMatchmaking = false) => {
     if (isPortraitTouchViewport()) {
       // Do not trap a portrait phone in a fullscreen window that cannot resize
       // into the landscape gate. Landscape/desktop launches still use the Play
       // gesture for fullscreen; portrait users rotate before gameplay begins.
       void requestLandscapeOrientation();
       setPortraitTouchViewport(true);
-      setPendingLandscapeLaunch(nextMode);
+      setPendingLandscapeLaunch({ mode: nextMode, publicMatchmaking: usePublicMatchmaking });
       return;
     }
     requestImmersiveGameplay();
     setPendingLandscapeLaunch(null);
-    beginStart(nextMode);
+    beginStart(nextMode, usePublicMatchmaking);
   }, [beginStart, mode, requestImmersiveGameplay]);
 
   useEffect(() => {
     if (!pendingLandscapeLaunch || portraitTouchViewport) return;
-    const nextMode = pendingLandscapeLaunch;
+    const nextMode = pendingLandscapeLaunch.mode;
+    const usePublicMatchmaking = pendingLandscapeLaunch.publicMatchmaking;
     setPendingLandscapeLaunch(null);
-    beginStart(nextMode);
+    beginStart(nextMode, usePublicMatchmaking);
   }, [beginStart, pendingLandscapeLaunch, portraitTouchViewport]);
 
   const platformAdHooks = (grantReward?: () => void) => ({
@@ -567,15 +591,16 @@ export function App() {
   };
 
   const openInvite = () => {
-    prepareRoom();
+    if (!playing) prepareRoom();
     setCopyStatus("");
     setInviteOpen(true);
   };
 
   const closeInvite = useCallback(() => setInviteOpen(false), []);
+  const effectiveLiveRoomId = playing && mode === "live" ? resolvedLiveRoomId : roomId;
   const inviteUrl = buildPaceAwareInviteUrl(
     buildBoardAwareInviteUrl(
-      buildRoomInviteUrl(roomId),
+      buildRoomInviteUrl(effectiveLiveRoomId),
       requestedBoardId,
       authoritativeBoardId,
     ),
@@ -585,7 +610,7 @@ export function App() {
   const copyInvite = async () => {
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopyStatus(`${roomIdentityLabel(roomId)} LINK COPIED`);
+      setCopyStatus(`${roomIdentityLabel(effectiveLiveRoomId)} LINK COPIED`);
     } catch {
       setCopyStatus("SELECT THE CREW LINK ABOVE TO COPY IT");
     }
@@ -593,8 +618,8 @@ export function App() {
   const shareInvite = async () => {
     try {
       await navigator.share({
-        title: `Join my Wormifi ${roomIdentityLabel(roomId)}`,
-        text: `Meet me in ${roomIdentityLabel(roomId)} on Wormifi.`,
+        title: `Join my Wormifi ${roomIdentityLabel(effectiveLiveRoomId)}`,
+        text: `Meet me in ${roomIdentityLabel(effectiveLiveRoomId)} on Wormifi.`,
         url: inviteUrl,
       });
       setCopyStatus("CREW INVITE OPENED");
@@ -627,6 +652,7 @@ export function App() {
           running={playing}
           session={session}
           roomId={roomId}
+          publicMatchmaking={publicMatchmaking}
           boardId={boardIdForJoin(boardSelection)}
           paceId={paceIdForJoin(paceSelection)}
           themeId={photoSkinRenderPlan.multiplayerAppearance.themeId}
@@ -634,6 +660,7 @@ export function App() {
           controlScheme={controlScheme}
           onBoardResolved={setAuthoritativeBoardId}
           onPaceResolved={setAuthoritativePaceId}
+          onRoomResolved={handleLiveRoomResolved}
           onLifeEnded={recordCaptainRun}
           onExit={() => {
             setPlaying(false);
@@ -668,7 +695,7 @@ export function App() {
       {playing && (
         <RoomIdentity
           scope={roomScope}
-          roomId={roomId}
+          roomId={effectiveLiveRoomId}
           onInvite={roomScope === "live" ? openInvite : undefined}
         />
       )}
@@ -889,7 +916,7 @@ export function App() {
                     onSubmit={(event) => {
                       event.preventDefault();
                       setChallenge(null);
-                      start("live");
+                      start("live", false);
                     }}
                   >
                     <label>
@@ -1051,7 +1078,7 @@ export function App() {
               onClick={() => {
                 if (isCrazyGamesDistribution) start(mode === "live" ? "rush" : mode);
                 else if (challenge) start(mode);
-                else start("live");
+                else start("live", publicMatchmaking);
               }}
             >
               <span>{isCrazyGamesDistribution ? "PLAY NOW" : challenge ? "ACCEPT CHALLENGE" : "PLAY LIVE"}</span>
@@ -1125,7 +1152,7 @@ export function App() {
       {!isCrazyGamesDistribution && <PwaStatus activeMatch={playing} />}
       {!isCrazyGamesDistribution && <RoomInviteDialog
         open={inviteOpen}
-        roomId={roomId}
+        roomId={effectiveLiveRoomId}
         inviteUrl={inviteUrl}
         copyStatus={copyStatus}
         onCopy={() => void copyInvite()}

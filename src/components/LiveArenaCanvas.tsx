@@ -156,6 +156,7 @@ interface LiveArenaCanvasProps {
   running: boolean;
   session: number;
   roomId: string;
+  publicMatchmaking?: boolean;
   boardId?: GameBoardId;
   paceId?: GamePaceId;
   themeId: CosmeticThemeId;
@@ -163,6 +164,7 @@ interface LiveArenaCanvasProps {
   controlScheme: ControlScheme;
   onBoardResolved?: (boardId: GameBoardId) => void;
   onPaceResolved?: (paceId: GamePaceId) => void;
+  onRoomResolved?: (roomId: string) => void;
   onLifeEnded?: (summary: CaptainRunSummary) => void;
   onExit: () => void;
 }
@@ -782,6 +784,7 @@ export function LiveArenaCanvas({
   running,
   session,
   roomId,
+  publicMatchmaking = false,
   boardId,
   paceId,
   themeId,
@@ -789,6 +792,7 @@ export function LiveArenaCanvas({
   controlScheme,
   onBoardResolved,
   onPaceResolved,
+  onRoomResolved,
   onLifeEnded,
   onExit,
 }: LiveArenaCanvasProps) {
@@ -1121,7 +1125,8 @@ export function LiveArenaCanvas({
     let reconnectTimer: number | undefined;
     let attempts = 0;
     let roomRulesResolved = false;
-    const storageKey = reconnectStorageKey(arenaUrl, roomId);
+    let assignedRoomId = roomId;
+    let storageKey = reconnectStorageKey(arenaUrl, assignedRoomId);
 
     const connect = () => {
       if (disposed) return;
@@ -1156,13 +1161,14 @@ export function LiveArenaCanvas({
       const sendJoin = (reconnectToken?: string, includeRoomRules = true) => {
         socket.send(JSON.stringify({
           type: "join",
-          roomId,
+          roomId: assignedRoomId,
           name: playerName || "Guest",
           ...(reconnectToken ? { reconnectToken } : {}),
           ...(includeRoomRules && !roomRulesResolved && boardId ? { boardId } : {}),
           ...(includeRoomRules && !roomRulesResolved && paceId ? { paceId } : {}),
           themeId,
           presenceV1: true,
+          ...(!reconnectToken && publicMatchmaking ? { matchmakingV1: true } : {}),
         }));
       };
 
@@ -1192,8 +1198,11 @@ export function LiveArenaCanvas({
           return;
         }
 
-        if (isWelcome(message) && message.roomId === roomId) {
+        if (isWelcome(message) && (publicMatchmaking || message.roomId === roomId)) {
+          assignedRoomId = message.roomId;
+          storageKey = reconnectStorageKey(arenaUrl, assignedRoomId);
           safeSessionSet(storageKey, message.reconnectToken);
+          onRoomResolved?.(message.roomId);
           sequenceRef.current = Math.max(sequenceRef.current, message.lastAcceptedSequence);
           handshakeRef.current = {
             roomId: message.roomId,
@@ -1214,7 +1223,7 @@ export function LiveArenaCanvas({
           return;
         }
 
-        if (isWorld(message) && message.roomId === roomId) {
+        if (isWorld(message)) {
           const handshake = handshakeRef.current;
           if (!handshake?.welcomed || message.roomId !== handshake.roomId) return;
           worldRef.current = {
@@ -1656,6 +1665,8 @@ export function LiveArenaCanvas({
     session,
     onBoardResolved,
     onPaceResolved,
+    onRoomResolved,
+    publicMatchmaking,
     boardId,
     paceId,
     playTone,

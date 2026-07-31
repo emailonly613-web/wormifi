@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   buildRoomInviteUrl,
   createCrewRoomId,
+  readPublicMatchmaking,
   normalizeRoomId,
   roomIdentityLabel,
 } from "../src/game/roomIdentity";
@@ -20,6 +21,13 @@ describe("room identity", () => {
     expect(normalizeRoomId("---")).toBe("public-1");
     expect(normalizeRoomId("A".repeat(40))).toBe("a".repeat(32));
     expect(roomIdentityLabel("my-crew-42")).toBe("ROOM #MY-CREW-42");
+  });
+
+  it("distinguishes ordinary public matchmaking from pinned invite rooms", () => {
+    expect(readPublicMatchmaking("")).toBe(true);
+    expect(readPublicMatchmaking("?room=public-2&match=public")).toBe(true);
+    expect(readPublicMatchmaking("?room=public-2")).toBe(false);
+    expect(readPublicMatchmaking("?room=crew-004217")).toBe(false);
   });
 
   it("builds a clean friend link without local sockets or solo challenges", () => {
