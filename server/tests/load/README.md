@@ -27,11 +27,12 @@ The same gate validates protocol v5 ground-loop visibility under load:
 - active Collector intervals are valid against each snapshot tick;
 - Boost Echo and Rival Echo upserts retain producer identity;
 - no world contains multiple Collector beacons;
-- packed body paths stay decodable and bounded;
+- compact full-room presence and nearby packed body paths stay decodable and bounded;
 - Heat Ring metadata, when present, remains server-owned and room-isolated;
 - metadata violations remain exactly zero;
-- p99 world payload stays at or below 160 KiB, p99 snapshot payload stays at or
-  below 24 KiB, and estimated snapshot traffic stays at or below 4 MiB/s.
+- p99 world payload stays at or below 160 KiB, p99 nearby-body snapshot payload
+  stays at or below 24 KiB, and estimated combined snapshot-plus-presence traffic
+  stays at or below 4 MiB/s.
 
 Those byte ceilings are regression budgets for this bounded 24-client fixture,
 not production bandwidth promises. Snapshot cadence and tick-rate gates still
@@ -70,6 +71,7 @@ WORMIFI_LOAD_SECONDS=30
 WORMIFI_LOAD_INPUT_HZ=20
 WORMIFI_LOAD_PING_HZ=2
 WORMIFI_LOAD_TARGET_POPULATION=32
+WORMIFI_LOAD_ARENA_RADIUS=1450
 WORMIFI_LOAD_RECONNECT_CLIENTS=8
 WORMIFI_LOAD_INVALID_BURST=500
 WORMIFI_LOAD_BOOTSTRAP_TIMEOUT_MS=10000
@@ -90,7 +92,7 @@ ramped capacity pass must be labeled as ramped/steady-state proof and does not
 erase a separate cold-burst bootstrap miss.
 
 The report includes p50/p95/p99 local ping RTT and snapshot inter-arrival,
-snapshot payload and delivery-lag distributions, observed room tick rate,
+snapshot and presence payload distributions, snapshot delivery lag, observed room tick rate,
 event-loop delay, process CPU, heap/RSS, reconnect recovery, room isolation,
 and invalid-message results.
 

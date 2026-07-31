@@ -134,6 +134,8 @@ export class AuthoritativeArenaServer {
       maxHumanPlayers: options.maxHumanPlayers,
       fixedStepHz: options.fixedStepHz,
       snapshotHz: this.roomProfile.snapshotHz,
+      presenceHz: options.presenceHz,
+      playerInterestRadius: options.playerInterestRadius,
       reconnectGraceMs: options.reconnectGraceMs,
       arenaRadius: this.roomProfile.arenaRadius,
       targetDropCount: this.roomProfile.targetDropCount,

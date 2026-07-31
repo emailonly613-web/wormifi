@@ -19,8 +19,11 @@ Current proof:
 - server snapshots own the collectible field, arena radius, player score, and
   the human/AI roster rendered by the browser;
 - released players are respawned by server policy rather than a client command.
-- protocol v5 publishes packed body paths, Echo producer identity, Collector
-  beacon metadata, and the exact server-owned active Collector interval;
+- protocol v5 publishes a compact low-frequency full-room presence roster for
+  honest rank/radar/population plus high-frequency packed body paths only for
+  the local visible/collision neighborhood;
+- Echo producer identity, Collector beacon metadata, and the exact server-owned
+  active Collector interval remain authoritative in that split stream;
 - every room seeds one deterministic zero-mass Collector beacon and publishes a
   replacement five seconds after the collected effect expires;
 - the shared game core remains the only reach authority: Collector can extend
@@ -46,6 +49,7 @@ an active role do not pay repeated JSON cost.
 | `PublicPlayerState` | `specialist?: ActiveSpecialist` | `{ kind, activatedAtTick, expiresAtTick, durationTicks }` from authoritative state |
 | `PublicPlayerState` | `boosting?: boolean` | Server-confirmed sprint actually granted above the mass floor; never raw button intent |
 | `PublicPlayerState` | `bodyQ4?: string` | Packed quarter-unit body path; the client may decode it but cannot author it |
+| `PresenceMessage` | compact `players` tuples | Complete low-frequency room roster for rank, population, and full-board radar; no animated body paths |
 | `WorldMessage` | `heatRing?: PublicHeatRingState` | Active duel geometry, labeled AI IDs, newcomer safe radius, and start tick |
 | `SnapshotMessage.event` | `heatRingStarted`, `heatRingResolved`, or `heatRingAborted` | Authoritative lifecycle; resolution names exact real jewel IDs and conserved total mass |
 | `WorldMessage` | `board?: PublicBoardState` | Static board ID/name and station core, wrap-lane, dock and tuning geometry for arena/radar rendering |
@@ -96,7 +100,10 @@ corepack pnpm start
 ```
 
 Runtime settings can be supplied with `PORT`, `HOST`, `TARGET_POPULATION`,
-`TARGET_DROP_COUNT`, `SNAPSHOT_HZ`, and `ARENA_RADIUS`.
+`MAX_HUMAN_PLAYERS_PER_ROOM`, `TARGET_DROP_COUNT`, `SNAPSHOT_HZ`,
+`ARENA_RADIUS`, and `PLAYER_INTEREST_RADIUS`. The CLI defaults the human-seat
+ceiling to the selected target population, so each arriving human replaces one
+AI seat until that room is genuinely all-human.
 
 `AuthoritativeArenaServer` also accepts these programmatic boundary options:
 
@@ -108,6 +115,8 @@ Runtime settings can be supplied with `PORT`, `HOST`, `TARGET_POPULATION`,
 | `joinTimeoutMs` | 5,000 | Join-handshake deadline |
 | `heartbeatIntervalMs` | 15,000 | WebSocket ping cadence |
 | `idleTimeoutMs` | 45,000 | Maximum time without a client application message |
+| `presenceHz` | 2 | Complete roster/rank/radar refresh cadence |
+| `playerInterestRadius` | disabled in the low-level class; CLI defaults to 1,000 | Radius whose intersecting full bodies enter each human's 15 Hz animation snapshot |
 | `board` | `open-seas` | Immutable `GameBoardConfig`; pass an opt-in catalog profile to enable charging landmarks |
 
 Protocol pong frames prove that the transport is alive, but they do not reset

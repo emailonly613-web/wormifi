@@ -6,8 +6,10 @@ import {
 } from "../../server/src/protocol";
 import type {
   ErrorMessage,
+  PresenceMessage,
   PublicHeatRingState,
   PublicDropState,
+  PublicPlayerPresence,
   PublicPlayerState,
   ServerMessage,
   SnapshotMessage,
@@ -462,6 +464,19 @@ function isPublicPlayer(value: unknown): value is PublicPlayerState {
     (value.specialist === undefined || isActiveCollector(value.specialist));
 }
 
+function isPublicPlayerPresence(value: unknown): value is PublicPlayerPresence {
+  if (!isRecord(value)) return false;
+  return typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    (value.kind === "human" || value.kind === "bot") &&
+    typeof value.connected === "boolean" &&
+    typeof value.alive === "boolean" &&
+    isVec2(value.position) &&
+    typeof value.mass === "number" && Number.isFinite(value.mass) &&
+    typeof value.kills === "number" && Number.isFinite(value.kills) &&
+    typeof value.score === "number" && Number.isFinite(value.score);
+}
+
 function isPublicDrop(value: unknown): value is PublicDropState {
   if (!isRecord(value)) return false;
   const baseValid = typeof value.id === "string" &&
@@ -645,6 +660,41 @@ function isSnapshot(value: unknown): value is SnapshotMessage {
     Array.isArray(value.events) && value.events.every(isAuthoritativeEvent);
 }
 
+function isPresence(value: unknown): value is PresenceMessage {
+  if (!isRecord(value)) return false;
+  return value.type === "presence" &&
+    value.authority === "server" &&
+    value.protocolVersion === EXPECTED_PROTOCOL_VERSION &&
+    typeof value.roomId === "string" &&
+    typeof value.tick === "number" && Number.isSafeInteger(value.tick) &&
+    Array.isArray(value.players) && value.players.every(isPublicPlayerPresence);
+}
+
+function presencePlayerAsSnapshotPlayer(player: PublicPlayerPresence): PublicPlayerState {
+  return {
+    ...player,
+    direction: { x: 1, y: 0 },
+    body: [],
+    shieldTicksRemaining: 0,
+  };
+}
+
+/** Nearby full bodies override room-wide low-frequency roster entries. */
+export function mergeSnapshotWithPresence(
+  snapshot: SnapshotMessage,
+  presence: PresenceMessage | null,
+): SnapshotMessage {
+  if (!presence || presence.roomId !== snapshot.roomId) return snapshot;
+  const detailedPlayers = new Map(snapshot.players.map((player) => [player.id, player]));
+  const players = presence.players.map((player) =>
+    detailedPlayers.get(player.id) ?? presencePlayerAsSnapshotPlayer(player)
+  );
+  for (const player of snapshot.players) {
+    if (!presence.players.some((candidate) => candidate.id === player.id)) players.push(player);
+  }
+  return { ...snapshot, players };
+}
+
 function isPublicBoard(value: unknown): value is NonNullable<WorldMessage["board"]> {
   return isRecord(value) &&
     isGameBoardId(value.id) &&
@@ -738,6 +788,7 @@ export function LiveArenaCanvas({
   const stageRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const snapshotRef = useRef<SnapshotMessage | null>(null);
+  const presenceRef = useRef<PresenceMessage | null>(null);
   const presentationRef = useRef(createLivePresentationBuffer());
   const worldRef = useRef<LiveWorldState | null>(null);
   const handshakeRef = useRef<AuthorityHandshake | null>(null);
@@ -1068,6 +1119,7 @@ export function LiveArenaCanvas({
       if (disposed) return;
       const reconnecting = attempts > 0;
       handshakeRef.current = null;
+      presenceRef.current = null;
       setUi((current) => ({
         ...current,
         phase: reconnecting ? "reconnecting" : "connecting",
@@ -1102,6 +1154,7 @@ export function LiveArenaCanvas({
           ...(includeRoomRules && !roomRulesResolved && boardId ? { boardId } : {}),
           ...(includeRoomRules && !roomRulesResolved && paceId ? { paceId } : {}),
           themeId,
+          presenceV1: true,
         }));
       };
 
@@ -1192,12 +1245,32 @@ export function LiveArenaCanvas({
           return;
         }
 
+        if (isPresence(message)) {
+          const handshake = handshakeRef.current;
+          const world = worldRef.current;
+          if (!handshake?.welcomed || !handshake.worldSynced || message.roomId !== handshake.roomId) return;
+          if (!world || world.roomId !== message.roomId) return;
+          presenceRef.current = message;
+          const currentSnapshot = snapshotRef.current;
+          if (currentSnapshot) {
+            const merged = mergeSnapshotWithPresence(currentSnapshot, message);
+            snapshotRef.current = merged;
+            const now = performance.now();
+            if (now >= nextHudRefreshAtRef.current) {
+              nextHudRefreshAtRef.current = now + HUD_REFRESH_INTERVAL_MS;
+              updateFromSnapshot(merged, handshake.playerId, world);
+            }
+          }
+          return;
+        }
+
         if (isSnapshot(message)) {
           const handshake = handshakeRef.current;
           const world = worldRef.current;
           if (!handshake?.welcomed || !handshake.worldSynced || message.roomId !== handshake.roomId) return;
           if (!world || world.roomId !== message.roomId) return;
           if (!message.players.some((player) => player.id === handshake.playerId)) return;
+          const competitiveSnapshot = mergeSnapshotWithPresence(message, presenceRef.current);
           const removedDrops = new Map<string, PublicDropState>();
           for (const id of message.removedDropIds) {
             const drop = world.drops.get(id);
@@ -1269,7 +1342,7 @@ export function LiveArenaCanvas({
             }
             if (gameEvent.type === "dropCollected" && gameEvent.playerId === handshake.playerId) {
               tutorial.collectedSpark(gameEvent.dropId, tutorialSparkIdRef.current);
-              const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
+              const ownPlayer = competitiveSnapshot.players.find((player) => player.id === handshake.playerId);
               const collectedDrop = removedDrops.get(gameEvent.dropId);
               const collectedPopCluster = (collectedDrop?.mass ?? 0) >= RARE_TREASURE_CHEST_MASS;
               const combo = message.tick - pickupComboRef.current.lastTick < 21
@@ -1337,7 +1410,7 @@ export function LiveArenaCanvas({
               tutorial.sawCollector();
               const relic = resolveRelicPresentation(gameEvent.relicKind);
               const effectText = getRelicEffectText(relic, gameEvent.relicTier);
-              const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
+              const ownPlayer = competitiveSnapshot.players.find((player) => player.id === handshake.playerId);
               if (ownPlayer) {
                 pushLiveBurst(
                   particlesRef.current,
@@ -1372,7 +1445,7 @@ export function LiveArenaCanvas({
               if (!reducedMotionRef.current) navigator.vibrate?.([10, 18, 28]);
             }
             if (gameEvent.type === "playerDied") {
-              const victim = message.players.find((player) => player.id === gameEvent.playerId) ??
+              const victim = competitiveSnapshot.players.find((player) => player.id === gameEvent.playerId) ??
                 snapshotRef.current?.players.find((player) => player.id === gameEvent.playerId);
               if (victim) {
                 appendDeathReleaseParticles(
@@ -1389,7 +1462,7 @@ export function LiveArenaCanvas({
               }
               if (gameEvent.playerId === handshake.playerId) {
                 const killer = gameEvent.killerId
-                  ? message.players.find((player) => player.id === gameEvent.killerId)?.name
+                  ? competitiveSnapshot.players.find((player) => player.id === gameEvent.killerId)?.name
                   : undefined;
                 pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
                 showDeathNotice(
@@ -1401,7 +1474,7 @@ export function LiveArenaCanvas({
                 if (!reducedMotionRef.current) navigator.vibrate?.([35, 25, 80]);
                 if (victim && lastAwardedDeathTickRef.current !== message.tick) {
                   lastAwardedDeathTickRef.current = message.tick;
-                  const ranked = [...message.players]
+                  const ranked = [...competitiveSnapshot.players]
                     .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
                   const rank = Math.max(1, ranked.findIndex((player) => player.id === victim.id) + 1);
                   onLifeEndedRef.current?.({
@@ -1423,7 +1496,7 @@ export function LiveArenaCanvas({
             }
           }
           if (tutorial.stageRef.current === "spark") {
-            const ownPlayer = message.players.find((player) => player.id === handshake.playerId);
+            const ownPlayer = competitiveSnapshot.players.find((player) => player.id === handshake.playerId);
             if (ownPlayer) {
               const previousId = tutorialSparkIdRef.current;
               const target = previousId ? world.drops.get(previousId) : undefined;
@@ -1481,12 +1554,12 @@ export function LiveArenaCanvas({
             performance.now(),
             world.fixedStepSeconds,
           );
-          snapshotRef.current = message;
+          snapshotRef.current = competitiveSnapshot;
           attempts = 0;
           const now = performance.now();
           if (firstAuthoritativeSnapshot || now >= nextHudRefreshAtRef.current) {
             nextHudRefreshAtRef.current = now + HUD_REFRESH_INTERVAL_MS;
-            updateFromSnapshot(message, handshake.playerId, world);
+            updateFromSnapshot(competitiveSnapshot, handshake.playerId, world);
           }
           return;
         }
@@ -1562,6 +1635,7 @@ export function LiveArenaCanvas({
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, "Player left");
       handshakeRef.current = null;
       snapshotRef.current = null;
+      presenceRef.current = null;
       resetLivePresentationBuffer(presentationRef.current);
       worldRef.current = null;
     };

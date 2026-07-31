@@ -96,6 +96,24 @@ test("join parsing accepts only catalog theme IDs and rejects every photo or unk
   assert.equal(valid.ok, true);
   if (valid.ok) assert.equal(valid.value.themeId, "sunken-crown");
 
+  const presenceCapable = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Current Browser",
+    presenceV1: true,
+  });
+  assert.equal(presenceCapable.ok, true);
+  if (presenceCapable.ok) assert.equal(presenceCapable.value.presenceV1, true);
+
+  const invalidPresenceCapability = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Forged Browser",
+    presenceV1: false,
+  });
+  assert.equal(invalidPresenceCapability.ok, false);
+  if (!invalidPresenceCapability.ok) assert.equal(invalidPresenceCapability.error.code, "INVALID_JOIN");
+
   for (const field of ["photo", "photos", "dataUrl", "renderPlan", "unknownField"]) {
     const rejected = parseJoinMessage({
       type: "join",

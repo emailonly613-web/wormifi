@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   PROTOCOL_VERSION,
+  type PresenceMessage,
   type PublicPlayerState,
   type SnapshotMessage,
   type WelcomeMessage,
@@ -103,6 +104,42 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
   });
 
   await page.routeWebSocket(/\/arena$/u, (socket) => {
+    const sendPresence = () => {
+      const roster = [
+        player(playerId, "Radar Self", "human", { x: 120, y: -60 }),
+        player("human-radar-friend", "Radar Friend", "human", { x: 260, y: -40 }),
+        player("bot-radar-rival", "Radar Rival", "bot", { x: 20, y: 100 }),
+        ...Array.from({ length: 197 }, (_, index) => {
+          const angle = index * Math.PI * (3 - Math.sqrt(5));
+          const radius = 500 + (index % 30) * 90;
+          return player(
+            `bot-remote-${index + 1}`,
+            `Remote Rival ${index + 1}`,
+            "bot",
+            { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius },
+          );
+        }),
+      ];
+      const presence: PresenceMessage = {
+        type: "presence",
+        protocolVersion: PROTOCOL_VERSION,
+        authority: "server",
+        roomId,
+        tick,
+        players: roster.map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+          kind: candidate.kind,
+          connected: candidate.connected,
+          alive: candidate.alive,
+          position: candidate.position,
+          mass: candidate.mass,
+          kills: candidate.kills,
+          score: candidate.score,
+        })),
+      };
+      socket.send(JSON.stringify(presence));
+    };
     const sendSnapshot = (events: SnapshotMessage["events"] = []) => {
       const snapshot: SnapshotMessage = {
         type: "snapshot",
@@ -170,6 +207,7 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
         };
         socket.send(JSON.stringify(welcome));
         socket.send(JSON.stringify(world));
+        sendPresence();
         sendSnapshot();
         return;
       }
@@ -195,12 +233,12 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
   await expect(arena).toHaveAttribute("data-authority", "server-confirmed");
   await expect(roomIdentity).toContainText("LIVE ROOM #RADAR-PROOF-ROOM");
   await expect(radar).toHaveAttribute("data-room-id", roomId);
-  await expect(radar).toHaveAttribute("data-other-player-count", "2");
+  await expect(radar).toHaveAttribute("data-other-player-count", "199");
   await expect(radar).toHaveAttribute("data-human-player-count", "1");
-  await expect(radar).toHaveAttribute("data-ai-player-count", "1");
+  await expect(radar).toHaveAttribute("data-ai-player-count", "198");
   await expect(radar).toHaveAttribute("data-hazard-count", "1");
   await expect(radar).toHaveAttribute("data-station-count", "0");
-  await expect(radar.getByTestId("radar-other-player")).toHaveCount(2);
+  await expect(radar.getByTestId("radar-other-player")).toHaveCount(199);
   const heatRing = radar.getByTestId("radar-heat-ring");
   await expect(heatRing).toHaveAttribute("data-world-radius", "240");
   expect(Number(await heatRing.locator("circle").getAttribute("r"))).toBeCloseTo(8.2, 2);
@@ -211,6 +249,6 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
   await expect(arena).toHaveAttribute("data-player-alive", "false");
   await expect(roomIdentity).toContainText("LIVE ROOM #RADAR-PROOF-ROOM");
   await expect(radar).toContainText("RESPAWNING");
-  await expect(radar).toHaveAttribute("data-other-player-count", "2");
+  await expect(radar).toHaveAttribute("data-other-player-count", "199");
   await expectInsideViewport(radar, page);
 });

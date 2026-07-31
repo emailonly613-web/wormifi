@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   decodeSnapshotFromWire,
   MAX_PACKED_BODY_SEGMENTS,
+  packPresenceForWire,
   packSnapshotForWire,
   PROTOCOL_VERSION,
+  type PresenceMessage,
   type PublicPlayerState,
   type SnapshotMessage,
 } from "../server/src/protocol";
@@ -80,5 +82,50 @@ describe("protocol-v5 packed body paths", () => {
     const outOfRange = fullSnapshot(1);
     outOfRange.players[0].body[0] = { x: 100_000, y: 0 };
     expect(() => packSnapshotForWire(outOfRange)).toThrow(/Int16 range/u);
+  });
+});
+
+describe("protocol-v5 compact room presence", () => {
+  it("round-trips an honest 200-seat roster below the steady snapshot budget", () => {
+    const presence: PresenceMessage = {
+      type: "presence",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId: "public-1",
+      tick: 1_500,
+      players: Array.from({ length: 200 }, (_, index) => {
+        const player = fullPlayer(index);
+        return {
+          id: player.id,
+          name: player.name,
+          kind: player.kind,
+          connected: player.connected,
+          alive: player.alive,
+          position: player.position,
+          mass: player.mass + index / 10,
+          kills: player.kills,
+          score: player.score,
+        };
+      }),
+    };
+    const encoded = JSON.stringify(packPresenceForWire(presence));
+    expect(new TextEncoder().encode(encoded).byteLength).toBeLessThan(24 * 1_024);
+    const decoded = decodeSnapshotFromWire(JSON.parse(encoded)) as PresenceMessage;
+    expect(decoded.players).toHaveLength(200);
+    expect(decoded.players[0]).toMatchObject(presence.players[0]);
+    expect(decoded.players[199].id).toBe("max-player-199");
+    expect(decoded.players[199].mass).toBeCloseTo(presence.players[199].mass, 1);
+  });
+
+  it("fails closed on malformed compact presence tuples", () => {
+    const malformed = {
+      type: "presence",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId: "public-1",
+      tick: 10,
+      players: [["bot-1", "BOT ONE", 0]],
+    };
+    expect(decodeSnapshotFromWire(malformed)).toBeNull();
   });
 });

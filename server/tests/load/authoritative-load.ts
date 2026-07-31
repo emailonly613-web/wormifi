@@ -14,6 +14,7 @@ import {
   decodeSnapshotFromWire,
   MIXED_ECHO_ORIGIN_ID,
   type ErrorMessage,
+  type PresenceMessage,
   type PongMessage,
   type PublicDropState,
   type ServerMessage,
@@ -37,6 +38,7 @@ interface LoadConfiguration {
   fixedStepHz: number;
   snapshotHz: number;
   targetPopulationPerRoom: number;
+  arenaRadius: number;
   reconnectClients: number;
   invalidBurstMessages: number;
   reconnectPauseMs: number;
@@ -64,12 +66,14 @@ interface Metrics {
   snapshotInterArrivalMs: number[];
   snapshotDeliveryLagMs: number[];
   snapshotBytes: number[];
+  presenceBytes: number[];
   worldSyncBytes: number[];
   roomTickRatesHz: number[];
   inputsSent: number;
   pingsSent: number;
   pongsReceived: number;
   snapshotsReceived: number;
+  presencesReceived: number;
   worldSyncsReceived: number;
   roomContamination: number;
   collectorBeaconWorlds: number;
@@ -96,6 +100,7 @@ interface Report {
     snapshotInterArrivalMs: Percentiles;
     snapshotDeliveryLagMs: Percentiles;
     snapshotPayloadBytes: Percentiles;
+    presencePayloadBytes: Percentiles;
     worldSyncPayloadBytes: Percentiles;
     observedRoomTickRateHz: Percentiles;
     inputsSent: number;
@@ -103,9 +108,11 @@ interface Report {
     pingsSent: number;
     pongsReceived: number;
     snapshotsReceived: number;
+    presencesReceived: number;
     worldSyncsReceived: number;
     snapshotsPerClientSecond: number;
     estimatedSnapshotWireMiBPerSecond: number;
+    estimatedTotalStateWireMiBPerSecond: number;
     capacityGate: {
       pass: boolean;
       minimumTargetRatio: number;
@@ -158,6 +165,7 @@ interface Report {
         observedSnapshotP99Bytes: number;
         maximumEstimatedSnapshotWireMiBPerSecond: number;
         observedEstimatedSnapshotWireMiBPerSecond: number;
+        observedEstimatedTotalStateWireMiBPerSecond: number;
       };
     };
     roomIsolationViolations: number;
@@ -202,7 +210,12 @@ function integerEnvironment(name: string, fallback: number, minimum: number): nu
 
 function loadConfiguration(): LoadConfiguration {
   const clients = integerEnvironment("WORMIFI_LOAD_CLIENTS", 24, 2);
-  const rooms = integerEnvironment("WORMIFI_LOAD_ROOMS", 4, 2);
+  const rooms = integerEnvironment("WORMIFI_LOAD_ROOMS", 4, 1);
+  const targetPopulationPerRoom = integerEnvironment(
+    "WORMIFI_LOAD_TARGET_POPULATION",
+    Math.max(32, Math.ceil(clients / rooms)),
+    1,
+  );
   assert.ok(clients >= rooms, "The harness needs at least one synthetic client per room.");
 
   return {
@@ -213,10 +226,11 @@ function loadConfiguration(): LoadConfiguration {
     pingHz: numericEnvironment("WORMIFI_LOAD_PING_HZ", 2, 0.2),
     fixedStepHz: integerEnvironment("WORMIFI_LOAD_FIXED_STEP_HZ", 30, 1),
     snapshotHz: integerEnvironment("WORMIFI_LOAD_SNAPSHOT_HZ", 15, 1),
-    targetPopulationPerRoom: integerEnvironment(
-      "WORMIFI_LOAD_TARGET_POPULATION",
-      Math.max(32, Math.ceil(clients / rooms)),
-      1,
+    targetPopulationPerRoom,
+    arenaRadius: numericEnvironment(
+      "WORMIFI_LOAD_ARENA_RADIUS",
+      Math.round(1_450 * Math.sqrt(targetPopulationPerRoom / 32)),
+      600,
     ),
     reconnectClients: Math.min(
       clients,
@@ -351,6 +365,7 @@ class SyntheticClient {
   readonly reconnectToken: string;
 
   lastSnapshot?: SnapshotMessage;
+  lastPresence?: PresenceMessage;
   private readonly metrics: Metrics;
   private readonly waiters: MessageWaiter[] = [];
   private readonly pendingPingStartedAt = new Map<string, number>();
@@ -405,6 +420,7 @@ class SyntheticClient {
       roomId: options.roomId,
       name: options.name,
       reconnectToken: options.reconnectToken,
+      presenceV1: true,
     }));
     const welcome = await welcomePromise;
     const client = new SyntheticClient(
@@ -485,6 +501,15 @@ class SyntheticClient {
         this.lastSnapshotReceivedAt = receivedAt;
         this.firstTickSample ??= { tick: message.tick, receivedAtMs: receivedAt };
         this.lastTickSample = { tick: message.tick, receivedAtMs: receivedAt };
+      }
+    }
+
+    if (message.type === "presence") {
+      this.lastPresence = message as PresenceMessage;
+      if (message.roomId !== this.expectedRoom) this.metrics.roomContamination += 1;
+      if (this.capturing) {
+        this.metrics.presencesReceived += 1;
+        this.metrics.presenceBytes.push(Buffer.byteLength(raw.toString()));
       }
     }
 
@@ -852,12 +877,14 @@ function createMetrics(): Metrics {
     snapshotInterArrivalMs: [],
     snapshotDeliveryLagMs: [],
     snapshotBytes: [],
+    presenceBytes: [],
     worldSyncBytes: [],
     roomTickRatesHz: [],
     inputsSent: 0,
     pingsSent: 0,
     pongsReceived: 0,
     snapshotsReceived: 0,
+    presencesReceived: 0,
     worldSyncsReceived: 0,
     roomContamination: 0,
     collectorBeaconWorlds: 0,
@@ -914,8 +941,10 @@ async function main(): Promise<void> {
     port: 0,
     maxRooms: configuration.rooms + 2,
     targetPopulation: configuration.targetPopulationPerRoom,
+    arenaRadius: configuration.arenaRadius,
     fixedStepHz: configuration.fixedStepHz,
     snapshotHz: configuration.snapshotHz,
+    playerInterestRadius: 1_000,
     reconnectGraceMs: Math.max(2_000, configuration.reconnectPauseMs * 5),
   });
 
@@ -958,7 +987,7 @@ async function main(): Promise<void> {
     await waitUntil(
       () => clients.every((client) => {
         const expectedHumans = expectedHumansByRoom.get(client.expectedRoom) ?? 0;
-        const players = client.lastSnapshot?.players ?? [];
+        const players = client.lastPresence?.players ?? [];
         return (
           players.length === configuration.targetPopulationPerRoom &&
           players.filter((player) => player.kind === "human").length === expectedHumans
@@ -1074,6 +1103,7 @@ async function main(): Promise<void> {
       configuration.clients /
       (runtimeMs / 1_000);
     const snapshotPayload = summarize(metrics.snapshotBytes);
+    const presencePayload = summarize(metrics.presenceBytes);
     const worldPayload = summarize(metrics.worldSyncBytes);
     const estimatedSnapshotWireMiBPerSecond = round(
       snapshotPayload.mean *
@@ -1082,10 +1112,19 @@ async function main(): Promise<void> {
         1024 /
         1024,
     );
+    const estimatedTotalStateWireMiBPerSecond = round(
+      (
+        metrics.snapshotBytes.reduce((sum, bytes) => sum + bytes, 0) +
+        metrics.presenceBytes.reduce((sum, bytes) => sum + bytes, 0)
+      ) /
+        (runtimeMs / 1_000) /
+        1024 /
+        1024,
+    );
     const groundLoopBandwidthPass =
       worldPayload.p99 <= MAX_WORLD_PAYLOAD_BYTES &&
       snapshotPayload.p99 <= MAX_SNAPSHOT_PAYLOAD_BYTES &&
-      estimatedSnapshotWireMiBPerSecond <= MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND;
+      estimatedTotalStateWireMiBPerSecond <= MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND;
     assert.ok(metrics.collectorBeaconWorlds > 0, "load clients must observe authoritative Collector metadata");
     assert.ok(metrics.echoOriginDropsSeen > 0, "load snapshots must expose at least one producer-owned Echo");
     assert.equal(metrics.groundLoopMetadataViolations, 0, "ground-loop metadata must remain coherent");
@@ -1111,6 +1150,7 @@ async function main(): Promise<void> {
         fixedStepHz: configuration.fixedStepHz,
         snapshotHz: configuration.snapshotHz,
         targetPopulationPerRoom: configuration.targetPopulationPerRoom,
+        arenaRadius: configuration.arenaRadius,
         reconnectClients: configuration.reconnectClients,
         invalidBurstMessages: configuration.invalidBurstMessages,
         reconnectPauseMs: configuration.reconnectPauseMs,
@@ -1127,6 +1167,7 @@ async function main(): Promise<void> {
         snapshotInterArrivalMs: snapshotCadence,
         snapshotDeliveryLagMs: summarize(metrics.snapshotDeliveryLagMs),
         snapshotPayloadBytes: snapshotPayload,
+        presencePayloadBytes: presencePayload,
         worldSyncPayloadBytes: worldPayload,
         observedRoomTickRateHz: tickRate,
         inputsSent: metrics.inputsSent,
@@ -1134,9 +1175,11 @@ async function main(): Promise<void> {
         pingsSent: metrics.pingsSent,
         pongsReceived: metrics.pongsReceived,
         snapshotsReceived: metrics.snapshotsReceived,
+        presencesReceived: metrics.presencesReceived,
         worldSyncsReceived: metrics.worldSyncsReceived,
         snapshotsPerClientSecond: round(snapshotsPerClientSecond),
         estimatedSnapshotWireMiBPerSecond,
+        estimatedTotalStateWireMiBPerSecond,
         capacityGate: {
           pass: capacityGatePass,
           minimumTargetRatio,
@@ -1180,6 +1223,7 @@ async function main(): Promise<void> {
             maximumEstimatedSnapshotWireMiBPerSecond:
               MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND,
             observedEstimatedSnapshotWireMiBPerSecond: estimatedSnapshotWireMiBPerSecond,
+            observedEstimatedTotalStateWireMiBPerSecond: estimatedTotalStateWireMiBPerSecond,
           },
         },
         roomIsolationViolations: metrics.roomContamination,
@@ -1195,7 +1239,7 @@ async function main(): Promise<void> {
         freeMemoryGiBAtReport: round(freemem() / 1024 / 1024 / 1024),
       },
       assertions: [
-        `${configuration.clients} real WebSocket clients were distributed across ${configuration.rooms} isolated rooms.`,
+        `${configuration.clients} real WebSocket clients were distributed across ${configuration.rooms} isolated room${configuration.rooms === 1 ? "" : "s"}.`,
         `${configuration.reconnectClients} reconnects recovered the same server-owned player identity.`,
         `The server stayed responsive after ${configuration.invalidBurstMessages} deliberately stale messages.`,
         "Malformed, forged-field, binary, stale, pre-join, and excessive-sequence messages failed closed.",

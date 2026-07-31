@@ -34,12 +34,15 @@ import { SERVER_BUILD_REVISION } from "./build-info.ts";
 import {
   MIXED_ECHO_ORIGIN_ID,
   PROTOCOL_VERSION,
+  packPresenceForWire,
   packSnapshotForWire,
   type AuthoritativeEvent,
   type ErrorMessage,
   type InputMessage,
   type JoinMessage,
+  type PresenceMessage,
   type PublicDropState,
+  type PublicPlayerPresence,
   type PublicPlayerState,
   type ServerMessage,
   type SnapshotMessage,
@@ -57,6 +60,8 @@ import { selectNeutralTreasureMass } from "../../src/game/treasureEconomy.ts";
 const MAX_SNAPSHOT_BUFFER_BYTES = 256 * 1024;
 const SCHEDULER_WAKE_MS = 4;
 const MAX_CATCH_UP_STEPS = 4;
+export const DEFAULT_PRESENCE_HZ = 2;
+export const DEFAULT_PLAYER_INTEREST_RADIUS = 1_000;
 
 /** Published room cadence: replacement appears five seconds after effect expiry. */
 export const COLLECTOR_BEACON_RESPAWN_SECONDS = 5;
@@ -67,6 +72,7 @@ interface Session {
   playerId: string;
   name: string;
   themeId: CosmeticThemeId;
+  presenceV1: boolean;
   socket?: WebSocket;
   lastAcceptedSequence: number;
   latestInput?: PlayerInput;
@@ -85,6 +91,10 @@ export interface ArenaRoomOptions {
   maxHumanPlayers?: number;
   fixedStepHz?: number;
   snapshotHz?: number;
+  /** Low-frequency complete roster used for rank, population, and radar dots. */
+  presenceHz?: number;
+  /** Full body paths are sent only when they intersect this radius from a human. */
+  playerInterestRadius?: number;
   reconnectGraceMs?: number;
   arenaRadius?: number;
   targetDropCount?: number;
@@ -101,6 +111,70 @@ export interface JoinResult {
   error?: ErrorMessage;
 }
 
+function playerIntersectsInterestCircle(
+  player: PublicPlayerState,
+  center: Readonly<{ x: number; y: number }>,
+  radiusSquared: number,
+): boolean {
+  const headX = player.position.x - center.x;
+  const headY = player.position.y - center.y;
+  if (headX * headX + headY * headY <= radiusSquared) return true;
+  return player.body.some((segment) => {
+    const x = segment.x - center.x;
+    const y = segment.y - center.y;
+    return x * x + y * y <= radiusSquared;
+  });
+}
+
+function eventPlayerIds(event: AuthoritativeEvent): string[] {
+  if (event.type === "heatRingStarted") return [...event.heatRing.botIds];
+  if (event.type === "heatRingResolved" || event.type === "heatRingAborted") {
+    return [...event.botIds];
+  }
+  return event.type === "playerDied" && event.killerId
+    ? [event.playerId, event.killerId]
+    : [event.playerId];
+}
+
+/**
+ * Preserve complete authority for the local collision neighborhood while the
+ * low-frequency PresenceMessage owns full-room rank/radar/population truth.
+ */
+export function scopeSnapshotForPlayer(
+  snapshot: SnapshotMessage,
+  playerId: string,
+  interestRadius = DEFAULT_PLAYER_INTEREST_RADIUS,
+): SnapshotMessage {
+  if (interestRadius === Number.POSITIVE_INFINITY) return snapshot;
+  const ownPlayer = snapshot.players.find((player) => player.id === playerId);
+  if (!ownPlayer || !Number.isFinite(interestRadius) || interestRadius <= 0) {
+    return { ...snapshot, players: ownPlayer ? [ownPlayer] : [] };
+  }
+  const radiusSquared = interestRadius * interestRadius;
+  const includedIds = new Set(
+    snapshot.players
+      .filter((player) =>
+        player.id === playerId ||
+        playerIntersectsInterestCircle(player, ownPlayer.position, radiusSquared)
+      )
+      .map((player) => player.id),
+  );
+  const events = snapshot.events.filter((event) => {
+    const ids = eventPlayerIds(event);
+    return ids.includes(playerId) || ids.some((id) => includedIds.has(id));
+  });
+  for (const event of events) {
+    if (eventPlayerIds(event).includes(playerId)) {
+      for (const id of eventPlayerIds(event)) includedIds.add(id);
+    }
+  }
+  return {
+    ...snapshot,
+    players: snapshot.players.filter((player) => includedIds.has(player.id)),
+    events,
+  };
+}
+
 export class ArenaRoom {
   readonly state: GameState;
   readonly paceId: GamePaceId;
@@ -109,6 +183,8 @@ export class ArenaRoom {
   private readonly maxHumanPlayers: number;
   private readonly fixedStepHz: number;
   private readonly snapshotEveryTicks: number;
+  private readonly presenceEveryTicks: number;
+  private readonly playerInterestRadius: number;
   private readonly reconnectGraceMs: number;
   private readonly targetDropCount: number;
   private readonly heatRingOptions: false | Partial<HeatRingConfig> | undefined;
@@ -125,6 +201,7 @@ export class ArenaRoom {
   private schedulerLastMs = 0;
   private schedulerAccumulatorMs = 0;
   private lastSnapshotTick = 0;
+  private lastPresenceTick = 0;
   private humanNumber = 0;
   private collectorBeaconNumber = 0;
   private nextCollectorBeaconTick?: number;
@@ -144,6 +221,12 @@ export class ArenaRoom {
     this.fixedStepHz = Math.max(1, Math.floor(options.fixedStepHz ?? 30));
     const snapshotHz = Math.max(1, Math.floor(options.snapshotHz ?? 15));
     this.snapshotEveryTicks = Math.max(1, Math.round(this.fixedStepHz / snapshotHz));
+    const presenceHz = Math.max(1, Math.floor(options.presenceHz ?? DEFAULT_PRESENCE_HZ));
+    this.presenceEveryTicks = Math.max(1, Math.round(this.fixedStepHz / presenceHz));
+    this.playerInterestRadius = Math.max(
+      100,
+      options.playerInterestRadius ?? Number.POSITIVE_INFINITY,
+    );
     this.reconnectGraceMs = Math.max(100, options.reconnectGraceMs ?? 15_000);
     this.targetDropCount = Math.max(
       0,
@@ -187,6 +270,7 @@ export class ArenaRoom {
     this.schedulerLastMs = performance.now();
     this.schedulerAccumulatorMs = 0;
     this.lastSnapshotTick = this.state.tick;
+    this.lastPresenceTick = this.state.tick;
     this.timer = setInterval(() => this.schedulerWake(), SCHEDULER_WAKE_MS);
     this.timer.unref();
   }
@@ -225,9 +309,11 @@ export class ArenaRoom {
       const player = this.state.players[existing.playerId];
       existing.name = message.name || existing.name;
       if (message.themeId) existing.themeId = message.themeId;
+      if (message.presenceV1 === true) existing.presenceV1 = true;
       if (player) player.name = existing.name;
       this.sendWelcome(existing, true);
       this.sendWorld(existing);
+      this.broadcastPresence();
       this.broadcastSnapshot();
       return { session: existing };
     }
@@ -263,6 +349,7 @@ export class ArenaRoom {
       playerId,
       name: message.name ?? `Guest ${this.humanNumber}`,
       themeId: message.themeId ?? DEFAULT_COSMETIC_THEME_ID,
+      presenceV1: message.presenceV1 === true,
       socket,
       lastAcceptedSequence: -1,
     };
@@ -280,6 +367,7 @@ export class ArenaRoom {
     }
     this.sendWelcome(session, false);
     this.sendWorld(session);
+    this.broadcastPresence();
     this.broadcastSnapshot();
     return { session };
   }
@@ -361,6 +449,10 @@ export class ArenaRoom {
       // multiple due frames even though the authoritative ticks were retained.
       if (this.state.tick - this.lastSnapshotTick >= this.snapshotEveryTicks) {
         this.lastSnapshotTick = this.state.tick;
+        if (this.state.tick - this.lastPresenceTick >= this.presenceEveryTicks) {
+          this.lastPresenceTick = this.state.tick;
+          this.broadcastPresence();
+        }
         this.broadcastSnapshot();
       }
     }
@@ -456,11 +548,46 @@ export class ArenaRoom {
     return message;
   }
 
+  private presence(): PresenceMessage {
+    const players: PublicPlayerPresence[] = Object.values(this.state.players)
+      .sort((first, second) => first.id.localeCompare(second.id))
+      .map((player) => ({
+        id: player.id,
+        name: player.name,
+        kind: player.kind,
+        connected: player.kind === "bot" || Boolean(this.sessionsByPlayer.get(player.id)?.socket),
+        alive: player.alive,
+        position: { ...player.position },
+        mass: player.mass,
+        kills: player.stats.kills,
+        score: calculateScore(player, this.state.config),
+      }));
+    return {
+      type: "presence",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId: this.id,
+      tick: this.state.tick,
+      players,
+    };
+  }
+
+  private broadcastPresence(): void {
+    const encoded = JSON.stringify(packPresenceForWire(this.presence()));
+    for (const session of this.sessionsByToken.values()) {
+      if (!session.presenceV1) continue;
+      this.sendEncoded(session, encoded, true);
+    }
+  }
+
   private broadcastSnapshot(): void {
     const snapshot = this.snapshot();
-    const encoded = JSON.stringify(packSnapshotForWire(snapshot));
     const carriesWorldDelta = snapshot.dropUpserts.length > 0 || snapshot.removedDropIds.length > 0;
     for (const session of this.sessionsByToken.values()) {
+      const scopedSnapshot = session.presenceV1
+        ? scopeSnapshotForPlayer(snapshot, session.playerId, this.playerInterestRadius)
+        : snapshot;
+      const encoded = JSON.stringify(packSnapshotForWire(scopedSnapshot));
       // A skipped dynamic player frame is self-healing because the next frame
       // is complete. A skipped collectible delta is not, so delta-bearing
       // frames always remain ordered on the socket even under backpressure.

@@ -7,11 +7,13 @@ import {
 } from "../src/components/ArenaCanvas";
 import {
   createLiveRadarIntel,
+  mergeSnapshotWithPresence,
 } from "../src/components/LiveArenaCanvas";
 import { PirateRadar } from "../src/components/PirateRadar";
 import { createGameState, spawnPlayer } from "../src/game/core";
 import {
   PROTOCOL_VERSION,
+  type PresenceMessage,
   type PublicPlayerState,
   type SnapshotMessage,
 } from "../server/src/protocol";
@@ -68,6 +70,39 @@ function liveSnapshot(carrier: PublicPlayerState): SnapshotMessage {
 }
 
 describe("Emerald Spyglass radar information boundary", () => {
+  it("keeps all 200 real roster entries on radar while bodies stay nearby", () => {
+    const nearby = liveSnapshot(publicPlayer("captain", 0));
+    nearby.players = nearby.players.slice(0, 2);
+    const presence: PresenceMessage = {
+      type: "presence",
+      protocolVersion: PROTOCOL_VERSION,
+      authority: "server",
+      roomId: nearby.roomId,
+      tick: nearby.tick,
+      players: Array.from({ length: 200 }, (_, index) => {
+        const player = index < nearby.players.length
+          ? nearby.players[index]
+          : publicPlayer(`seat-${index + 1}`, index * 12);
+        return {
+          id: player.id,
+          name: player.name,
+          kind: player.kind,
+          connected: player.connected,
+          alive: player.alive,
+          position: player.position,
+          mass: player.mass,
+          kills: player.kills,
+          score: player.score,
+        };
+      }),
+    };
+    const merged = mergeSnapshotWithPresence(nearby, presence);
+    expect(merged.players).toHaveLength(200);
+    expect(merged.players.find((player) => player.id === "ordinary-visible")?.body).not.toHaveLength(0);
+    expect(merged.players.find((player) => player.id === "seat-200")?.body).toHaveLength(0);
+    expect(createLiveRadarIntel(merged, "captain", 100).visiblePlayers).toHaveLength(199);
+  });
+
   it("keeps every local competitor on the population map while adding coarse danger bearings", () => {
     const state = createGameState("local-spyglass-radar", {
       arenaRadius: 1_000,

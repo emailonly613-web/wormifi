@@ -35,6 +35,8 @@ export interface JoinMessage {
   paceId?: GamePaceId;
   /** Public-safe authored appearance only. Local photos are never a wire field. */
   themeId?: CosmeticThemeId;
+  /** Opt-in capability: client can merge compact full-room presence with nearby bodies. */
+  presenceV1?: true;
 }
 
 export interface InputMessage extends PlayerInput {
@@ -68,6 +70,23 @@ export interface PublicPlayerState {
   /** Server-owned timed role. Snapshot tick is the remaining-time clock. */
   specialist?: ActiveSpecialist;
 }
+
+/**
+ * Low-frequency room-wide truth used by the radar, rank, and honest population
+ * counter. Full animated body paths stay in the nearby SnapshotMessage stream.
+ */
+export type PublicPlayerPresence = Pick<
+  PublicPlayerState,
+  | "id"
+  | "name"
+  | "kind"
+  | "connected"
+  | "alive"
+  | "position"
+  | "mass"
+  | "kills"
+  | "score"
+>;
 
 export interface PublicDropState {
   id: string;
@@ -211,6 +230,15 @@ export interface SnapshotMessage {
   chargingStations?: PublicChargingStationState[];
 }
 
+export interface PresenceMessage {
+  type: "presence";
+  protocolVersion: typeof PROTOCOL_VERSION;
+  authority: "server";
+  roomId: string;
+  tick: number;
+  players: PublicPlayerPresence[];
+}
+
 /** Compact wire-only shape. Game/client code always consumes SnapshotMessage. */
 export interface PackedPublicPlayerState extends Omit<PublicPlayerState, "body"> {
   /** Int16 little-endian x/y offsets from the head, quantized to 1/4 unit. */
@@ -219,6 +247,27 @@ export interface PackedPublicPlayerState extends Omit<PublicPlayerState, "body">
 
 export interface PackedSnapshotMessage extends Omit<SnapshotMessage, "players"> {
   players: PackedPublicPlayerState[];
+}
+
+/**
+ * id, name, kind flag, connected/alive flags, q4 x/y, q10 mass, kills, score.
+ * Tuple keys keep a complete 200-seat room comfortably below one full-body
+ * snapshot while retaining deterministic, server-owned competitive truth.
+ */
+export type PackedPlayerPresence = readonly [
+  id: string,
+  name: string,
+  kind: 0 | 1,
+  flags: number,
+  xQ4: number,
+  yQ4: number,
+  massQ10: number,
+  kills: number,
+  score: number,
+];
+
+export interface PackedPresenceMessage extends Omit<PresenceMessage, "players"> {
+  players: PackedPlayerPresence[];
 }
 
 export interface ErrorMessage {
@@ -251,6 +300,8 @@ export interface PongMessage {
 export type ServerMessage =
   | WelcomeMessage
   | WorldMessage
+  | PresenceMessage
+  | PackedPresenceMessage
   | SnapshotMessage
   | PackedSnapshotMessage
   | ErrorMessage
@@ -258,7 +309,16 @@ export type ServerMessage =
 
 const ROOM_ID_PATTERN = /^[a-z0-9-]{1,32}$/;
 const MAX_NAME_LENGTH = 24;
-const JOIN_KEYS = new Set(["type", "roomId", "name", "reconnectToken", "boardId", "paceId", "themeId"]);
+const JOIN_KEYS = new Set([
+  "type",
+  "roomId",
+  "name",
+  "reconnectToken",
+  "boardId",
+  "paceId",
+  "themeId",
+  "presenceV1",
+]);
 const INPUT_KEYS = new Set(["type", "sequence", "clientTick", "direction", "boost"]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -284,11 +344,82 @@ export function packSnapshotForWire(snapshot: SnapshotMessage): PackedSnapshotMe
   };
 }
 
+export function packPresenceForWire(presence: PresenceMessage): PackedPresenceMessage {
+  return {
+    ...presence,
+    players: presence.players.map((player) => [
+      player.id,
+      player.name,
+      player.kind === "human" ? 1 : 0,
+      (player.connected ? 1 : 0) | (player.alive ? 2 : 0),
+      Math.round(player.position.x * BODY_QUANTIZATION),
+      Math.round(player.position.y * BODY_QUANTIZATION),
+      Math.round(player.mass * 10),
+      player.kills,
+      player.score,
+    ]),
+  };
+}
+
 /**
  * Decodes protocol-v5 packed paths. Decoded in-process/mock snapshots are also
  * accepted so tests and replay fixtures use the same validation path.
  */
 export function decodeSnapshotFromWire(value: unknown): unknown | null {
+  if (isObject(value) && value.type === "presence" && Array.isArray(value.players)) {
+    try {
+      const players = value.players.map((candidate): PublicPlayerPresence => {
+        if (
+          isObject(candidate) &&
+          typeof candidate.id === "string" &&
+          typeof candidate.name === "string" &&
+          (candidate.kind === "human" || candidate.kind === "bot") &&
+          typeof candidate.connected === "boolean" &&
+          typeof candidate.alive === "boolean" &&
+          isFiniteVec2(candidate.position) &&
+          typeof candidate.mass === "number" && Number.isFinite(candidate.mass) &&
+          typeof candidate.kills === "number" && Number.isFinite(candidate.kills) &&
+          typeof candidate.score === "number" && Number.isFinite(candidate.score)
+        ) {
+          return candidate as unknown as PublicPlayerPresence;
+        }
+        if (!Array.isArray(candidate) || candidate.length !== 9) {
+          throw new Error("Packed presence player must be a nine-item tuple");
+        }
+        const [id, name, kind, flags, xQ4, yQ4, massQ10, kills, score] = candidate;
+        if (
+          typeof id !== "string" ||
+          typeof name !== "string" ||
+          (kind !== 0 && kind !== 1) ||
+          !Number.isSafeInteger(flags) ||
+          !Number.isSafeInteger(xQ4) ||
+          !Number.isSafeInteger(yQ4) ||
+          !Number.isSafeInteger(massQ10) ||
+          !Number.isSafeInteger(kills) ||
+          !Number.isFinite(score)
+        ) {
+          throw new Error("Packed presence player is invalid");
+        }
+        return {
+          id,
+          name,
+          kind: kind === 1 ? "human" : "bot",
+          connected: (flags & 1) !== 0,
+          alive: (flags & 2) !== 0,
+          position: {
+            x: xQ4 / BODY_QUANTIZATION,
+            y: yQ4 / BODY_QUANTIZATION,
+          },
+          mass: massQ10 / 10,
+          kills,
+          score,
+        };
+      });
+      return { ...value, players };
+    } catch {
+      return null;
+    }
+  }
   if (!isObject(value) || value.type !== "snapshot" || !Array.isArray(value.players)) {
     return value;
   }
@@ -439,7 +570,8 @@ export function parseJoinMessage(value: Record<string, unknown>):
       (typeof value.boardId !== "string" || !ROOM_ID_PATTERN.test(value.boardId))) ||
     (value.paceId !== undefined &&
       (typeof value.paceId !== "string" || !ROOM_ID_PATTERN.test(value.paceId))) ||
-    (themeId !== undefined && !isCosmeticThemeId(themeId))
+    (themeId !== undefined && !isCosmeticThemeId(themeId)) ||
+    (value.presenceV1 !== undefined && value.presenceV1 !== true)
   ) {
     return {
       ok: false,
@@ -457,6 +589,7 @@ export function parseJoinMessage(value: Record<string, unknown>):
       boardId: value.boardId as string | undefined,
       paceId: value.paceId as GamePaceId | undefined,
       themeId: themeId as CosmeticThemeId | undefined,
+      presenceV1: value.presenceV1 as true | undefined,
     },
   };
 }
