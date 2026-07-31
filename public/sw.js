@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "wormifi-app-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v12`;
+const CACHE_NAME = `${CACHE_PREFIX}v13`;
 const CANONICAL_PAGE_URLS = [
   "/",
   "/how-to-play.html",
