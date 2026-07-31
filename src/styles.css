@@ -6813,6 +6813,378 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   top: max(54px, calc(env(safe-area-inset-top) + 46px));
 }
 
+/* Depth V1: a device-local Captain's Log. This is an earned play surface, not
+ * a checkout surface; the save boundary is stated inside the log itself. */
+.captain-log {
+  position: relative;
+  z-index: 31;
+  width: min(1120px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: 12px auto;
+  padding: clamp(14px, 2.2vw, 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 14px;
+  color: #f5fbff;
+  border: 1px solid rgba(121, 246, 225, .36);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34, 220, 189, .16), transparent 31%),
+    radial-gradient(circle at 93% 3%, rgba(255, 191, 72, .14), transparent 28%),
+    linear-gradient(145deg, rgba(5, 26, 44, .995), rgba(10, 12, 34, .995));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 255, 255, .08);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.captain-log button { font: inherit; }
+.captain-log button:focus-visible { outline: 3px solid #7effe6; outline-offset: 3px; }
+
+.captain-log__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.captain-log__header > div { display: grid; gap: 3px; }
+.captain-log__header span,
+.captain-log__panel header span {
+  color: #78ffe5;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .15em;
+}
+
+.captain-log__header h2 {
+  margin: 0;
+  font: 950 clamp(34px, 5vw, 58px)/.92 "Baloo 2", system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+
+.captain-log__header p {
+  max-width: 720px;
+  margin: 3px 0 0;
+  color: #afc5d2;
+  font-size: 11px;
+}
+
+.captain-log__close {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 13px;
+  color: #e9f6fb;
+  background: rgba(3, 15, 29, .76);
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.captain-log__command {
+  display: grid;
+  grid-template-columns: 92px minmax(180px, 1fr) minmax(300px, 1.25fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 216, 110, .35);
+  border-radius: 20px;
+  background: linear-gradient(105deg, rgba(52, 29, 71, .82), rgba(7, 38, 49, .76));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+}
+
+.captain-log__level-seal {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  border: 1px solid rgba(255, 238, 153, .64);
+  border-radius: 50%;
+  color: #211129;
+  background: radial-gradient(circle at 31% 24%, #fff4a7, #df8c31 57%, #703565 100%);
+  box-shadow: 0 0 26px rgba(255, 194, 79, .28), inset 0 1px rgba(255,255,255,.55);
+}
+
+.captain-log__level-seal small { font-size: 7px; font-weight: 950; letter-spacing: .08em; }
+.captain-log__level-seal strong { font: 950 24px/1 "Baloo 2", sans-serif; }
+.captain-log__level-track { min-width: 0; display: grid; gap: 7px; }
+.captain-log__level-track > div { display: flex; justify-content: space-between; gap: 10px; }
+.captain-log__level-track b { color: #fff1b4; font-size: 13px; }
+.captain-log__level-track span { color: #a9c2ce; font-size: 8px; font-weight: 850; }
+.captain-log__level-track > i,
+.captain-log__orders li i {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .1);
+}
+.captain-log__level-track > i span,
+.captain-log__orders li i span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5bf4d6, #ffe073, #ff8c4c);
+  box-shadow: 0 0 12px rgba(100, 255, 223, .42);
+}
+
+.captain-log__command dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+.captain-log__command dl div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(93, 192, 207, .08);
+}
+.captain-log__command dt { color: #82a5b7; font-size: 7px; font-weight: 950; letter-spacing: .1em; }
+.captain-log__command dd { margin: 0; font: 950 20px/1 "Baloo 2", sans-serif; }
+
+.captain-log__grid {
+  display: grid;
+  grid-template-columns: minmax(300px, .85fr) minmax(480px, 1.5fr);
+  gap: 12px;
+}
+
+.captain-log__panel {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(141, 210, 230, .17);
+  border-radius: 19px;
+  background: rgba(4, 18, 34, .63);
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+}
+.captain-log__panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.captain-log__panel header div { display: grid; gap: 1px; }
+.captain-log__panel h3 { margin: 0; font: 950 18px/1 "Baloo 2", sans-serif; letter-spacing: .04em; }
+.captain-log__panel header > strong { color: #ffd86e; font-size: 8px; letter-spacing: .08em; }
+
+.captain-log__orders ol,
+.captain-log__masteries ul,
+.captain-log__history ol { margin: 0; padding: 0; list-style: none; }
+.captain-log__orders ol { display: grid; gap: 7px; }
+.captain-log__orders li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(111, 229, 210, .13);
+  border-radius: 12px;
+  background: rgba(11, 53, 63, .35);
+}
+.captain-log__orders li[data-complete="true"] { border-color: rgba(255, 216, 105, .4); background: rgba(81, 62, 24, .27); }
+.captain-log__order-mark {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #73ffe3;
+  background: rgba(58, 218, 188, .12);
+  font-size: 12px;
+}
+.captain-log__orders li[data-complete="true"] .captain-log__order-mark { color: #301d08; background: #ffd86e; }
+.captain-log__orders li > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.captain-log__orders li b { font-size: 10px; letter-spacing: .05em; }
+.captain-log__orders li small { color: #9fb7c3; font-size: 7px; }
+.captain-log__orders li i { height: 4px; margin-top: 2px; }
+.captain-log__orders li em { color: #dce9ed; font-size: 8px; font-style: normal; font-weight: 900; }
+.captain-log__orders > p { margin: 9px 0 0; color: #708c9b; font-size: 7px; }
+
+.captain-log__masteries ul { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.captain-log__masteries li {
+  position: relative;
+  min-height: 92px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  padding: 8px 5px;
+  border: 1px solid rgba(132, 180, 199, .15);
+  border-radius: 13px;
+  color: #718b99;
+  text-align: center;
+  background: rgba(5, 20, 38, .56);
+}
+.captain-log__masteries li[data-earned="true"] {
+  border-color: rgba(255, 213, 91, .46);
+  color: #fff1ac;
+  background: radial-gradient(circle at 50% 17%, rgba(255, 216, 95, .19), transparent 48%), rgba(47, 32, 30, .48);
+  box-shadow: inset 0 1px rgba(255,255,255,.05), 0 0 18px rgba(255, 181, 65, .07);
+}
+.captain-log__masteries li > span { color: inherit; font-size: 21px; line-height: 1; }
+.captain-log__masteries li b { font-size: 7px; letter-spacing: .05em; }
+.captain-log__masteries li small { color: #708896; font-size: 5.5px; line-height: 1.25; }
+.captain-log__masteries li[data-earned="true"] small { color: #bcae80; }
+.captain-log__masteries li em { position: absolute; right: 5px; bottom: 4px; font-size: 5px; font-style: normal; }
+
+.captain-log__history { display: grid; }
+.captain-log__history ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.captain-log__history li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(72px, 1.5fr) repeat(4, minmax(34px, .62fr));
+  align-items: center;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid rgba(122, 199, 219, .13);
+  border-radius: 11px;
+  background: rgba(8, 31, 48, .55);
+}
+.captain-log__history li > span { min-width: 0; display: grid; gap: 1px; }
+.captain-log__history li > span:first-child b { overflow: hidden; color: #72f6dc; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.captain-log__history li small { color: #748e9d; font-size: 5px; letter-spacing: .05em; }
+.captain-log__history li strong { overflow: hidden; font: 900 10px/1 "Baloo 2", sans-serif; text-overflow: ellipsis; }
+.captain-log__history ol > li { grid-column: span 2; }
+.captain-log__empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 18px;
+  border: 1px dashed rgba(120, 223, 208, .23);
+  border-radius: 13px;
+  color: #9ab2bd;
+  text-align: center;
+}
+.captain-log__empty strong { color: #79f7df; font-size: 11px; letter-spacing: .08em; }
+.captain-log__empty span { font-size: 8px; }
+
+.captain-log__save {
+  display: grid;
+  grid-template-columns: 34px minmax(180px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 211, 95, .27);
+  border-radius: 15px;
+  background: rgba(48, 37, 25, .42);
+}
+.captain-log__save[data-connected="true"] { border-color: rgba(92, 250, 211, .34); background: rgba(16, 56, 53, .42); }
+.captain-log__save > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #ffe083; background: rgba(255, 213, 99, .12); font-size: 15px; }
+.captain-log__save > div { min-width: 0; display: grid; gap: 2px; }
+.captain-log__save b { font-size: 9px; letter-spacing: .07em; }
+.captain-log__save small { color: #a2b6c0; font-size: 7px; }
+.captain-log__save button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid rgba(117, 242, 220, .32);
+  border-radius: 10px;
+  color: #dffff8;
+  background: rgba(16, 87, 86, .32);
+  font-size: 8px;
+  font-weight: 950;
+  cursor: pointer;
+}
+.captain-log__save .captain-log__done { border-color: transparent; color: #082620; background: linear-gradient(105deg, #69f3d6, #67c7ff); }
+
+.captain-log-launch { border-color: rgba(102, 247, 218, .43); }
+
+.captain-depth-update {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 213, 93, .35);
+  border-radius: 14px;
+  text-align: left;
+  background: linear-gradient(110deg, rgba(67, 43, 52, .68), rgba(7, 55, 59, .72));
+}
+.captain-depth-update header { display: flex; align-items: center; gap: 8px; }
+.captain-depth-update header > span { width: 28px; height: 28px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #442608; background: #ffd867; box-shadow: 0 0 15px rgba(255, 207, 83, .25); }
+.captain-depth-update header div { display: grid; gap: 1px; }
+.captain-depth-update b { font-size: 9px; letter-spacing: .06em; }
+.captain-depth-update small { color: #b8d1d4; font-size: 7px; font-weight: 850; }
+.captain-depth-update__earned { display: flex; flex-wrap: wrap; gap: 4px; }
+.captain-depth-update__earned span { padding: 3px 6px; border-radius: 99px; color: #fff0a9; background: rgba(255, 215, 98, .12); font-size: 6px; font-weight: 950; }
+.captain-depth-update p { margin: 0; color: #93aeb8; font-size: 7px; }
+.captain-depth-update p strong { color: #7ff7df; }
+
+.captain-log-button {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(255, 215, 99, .43);
+  border-radius: 15px;
+  color: #fff0aa;
+  background: linear-gradient(110deg, rgba(106, 60, 58, .46), rgba(21, 82, 86, .46));
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.result-actions:has(.captain-log-button) .menu-button { grid-column: auto; }
+
+@media (max-height: 520px) and (min-width: 560px) {
+  .captain-depth-update { grid-column: 2; margin: 0; }
+  .result-actions:has(.captain-log-button) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .captain-log-button { min-height: 43px; }
+}
+
+@media (max-width: 820px) {
+  .captain-log__command { grid-template-columns: 72px minmax(0, 1fr); }
+  .captain-log__level-seal { width: 64px; height: 64px; }
+  .captain-log__command dl { grid-column: 1 / -1; }
+  .captain-log__grid { grid-template-columns: 1fr; }
+  .captain-log__masteries ul { grid-template-columns: repeat(5, minmax(74px, 1fr)); overflow-x: auto; padding-bottom: 4px; }
+  .captain-log__history ol { grid-template-columns: 1fr; }
+  .captain-log__history ol > li { grid-column: auto; }
+  .captain-log__save { grid-template-columns: 34px minmax(0, 1fr); }
+  .captain-log__save button { grid-column: span 1; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 460px) {
+  .captain-log {
+    width: calc(100% - 12px);
+    max-height: calc(100dvh - 10px);
+    margin: 5px auto;
+    padding: 9px 11px;
+    gap: 8px;
+    border-radius: 18px;
+  }
+  .captain-log__header h2 { font-size: 29px; }
+  .captain-log__header p { display: none; }
+  .captain-log__close { width: 34px; height: 34px; border-radius: 10px; }
+  .captain-log__command { grid-template-columns: 48px minmax(130px, .72fr) minmax(280px, 1.35fr); gap: 8px; padding: 6px 8px; }
+  .captain-log__level-seal { width: 44px; height: 44px; }
+  .captain-log__level-seal small { font-size: 5px; }
+  .captain-log__level-seal strong { font-size: 16px; }
+  .captain-log__command dl { grid-column: auto; }
+  .captain-log__command dl div { padding: 4px; }
+  .captain-log__command dd { font-size: 14px; }
+  .captain-log__grid { grid-template-columns: minmax(260px, .85fr) minmax(430px, 1.5fr); gap: 7px; }
+  .captain-log__panel { padding: 8px; border-radius: 13px; }
+  .captain-log__panel > header { margin-bottom: 5px; }
+  .captain-log__panel h3 { font-size: 13px; }
+  .captain-log__orders ol { gap: 4px; }
+  .captain-log__orders li { grid-template-columns: 22px minmax(0,1fr) auto; gap: 5px; padding: 4px 5px; }
+  .captain-log__order-mark { width: 21px; height: 21px; }
+  .captain-log__orders li b { font-size: 7px; }
+  .captain-log__orders li small { font-size: 5px; }
+  .captain-log__orders > p { display: none; }
+  .captain-log__masteries ul { grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
+  .captain-log__masteries li { min-height: 54px; padding: 4px 2px; }
+  .captain-log__masteries li > span { font-size: 14px; }
+  .captain-log__masteries li b { font-size: 5px; }
+  .captain-log__masteries li small { display: none; }
+  .captain-log__history { display: none; }
+  .captain-log__save { grid-template-columns: 27px minmax(140px, 1fr) auto auto; gap: 6px; padding: 5px 7px; }
+  .captain-log__save > span { width: 25px; height: 25px; }
+  .captain-log__save small { font-size: 5px; }
+  .captain-log__save button { grid-column: auto; min-height: 29px; padding: 4px 7px; font-size: 6px; }
+}
+
 @media (max-width: 460px), (orientation: landscape) and (max-height: 460px) and (max-width: 960px) {
   .pirate-radar {
     top: calc(max(6px, env(safe-area-inset-top)) + 50px);

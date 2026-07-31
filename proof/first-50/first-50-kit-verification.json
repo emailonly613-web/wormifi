@@ -1,9 +1,9 @@
 ﻿{
-    "generatedAt":  "2026-07-31T16:07:54.7299336Z",
+    "generatedAt":  "2026-07-31T17:00:16.2977170Z",
     "status":  "PASS",
     "zip":  "D:\\wormifi-art\\Wormifi_First_50_Distribution_Ready.zip",
-    "bytes":  11609676,
-    "sha256":  "c1381891a8d8cb3160c6f1bd817a02a1c1606959be17a35671c1a999d3aa23e8",
+    "bytes":  11616867,
+    "sha256":  "8ab9bcc7c8e60b6de5161576cfae1c9dfb1df21df55fc5b1682e259c4880b691",
     "files":  [
                   "FIRST-50-AUTONOMOUS-ACQUISITION.md",
                   "FIRST-50-CAMPAIGN-LINKS.csv",

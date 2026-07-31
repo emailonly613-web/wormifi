@@ -379,6 +379,20 @@ function installFunnelTracking() {
       sendEvent("offer_viewed", { surface: "legend_voyage" });
       return;
     }
+    if (testId === "captain-log-launch" || testId === "captain-log-settings" || testId === "view-captain-log") {
+      sendEvent("captain_log_opened", {
+        source: testId === "captain-log-launch"
+          ? "launcher"
+          : testId === "captain-log-settings"
+            ? "settings"
+            : "results",
+      });
+      return;
+    }
+    if (testId === "captain-log-passport") {
+      sendEvent("passport_open_requested", { source: "captain_log" });
+      return;
+    }
     if (testId === "launcher-passport" || testId === "captain-passport-settings") {
       sendEvent("passport_open_requested", {
         source: testId === "launcher-passport" ? "launcher" : "settings",

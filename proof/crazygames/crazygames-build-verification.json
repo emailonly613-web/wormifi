@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-31T16:07:53.288Z",
+  "generatedAt": "2026-07-31T17:00:14.801Z",
   "status": "PASS",
   "platform": "CrazyGames HTML5 SDK v3",
   "distributionRuntime": "crazygames-v3",
-  "fileCount": 39,
-  "totalBytes": 11504506,
-  "totalMegabytes": 10.972,
+  "fileCount": 40,
+  "totalBytes": 11531928,
+  "totalMegabytes": 10.998,
   "underCrazyGamesMobileHomepageTarget": true,
   "sdkLifecycle": [
     "loadingStart",
@@ -26,24 +26,29 @@
       "sha256": "79d516438b16bbbbc20d3bfbd506d63a7a78217200e94c543d1c01814acbebdd"
     },
     {
-      "path": "assets/CaptainPassport-CJTUdWfs.js",
-      "bytes": 11580,
-      "sha256": "520d9197fdffd58152d6b3af3e58119a8b07115c164a207ef65e0cec18aa81d8"
+      "path": "assets/CaptainLog-BjyH8jo7.js",
+      "bytes": 6401,
+      "sha256": "2d62563bd69f6ac3441221c764e70a116ad55f289ed590dff425a9d6dc1b2c7f"
     },
     {
-      "path": "assets/CaptainRooms-CpgbLmav.js",
+      "path": "assets/CaptainPassport-bQPBlBqH.js",
+      "bytes": 11575,
+      "sha256": "dc4afc43569dc790e897711c4c7f72f2a84dfde538aca930989e7f7c4ceca799"
+    },
+    {
+      "path": "assets/CaptainRooms-Bh9eODFM.js",
       "bytes": 2647,
-      "sha256": "e601deeaa5d83c9cb45ee758cc3fb4d74074476ef9d576f709838e35734d5791"
+      "sha256": "dcee288bfb24b79ebd9ffbd047390c25804ae63c1821719fdd5e976108fede3a"
     },
     {
-      "path": "assets/game-D-CN4XvN.js",
-      "bytes": 517047,
-      "sha256": "05354a2f1bc0537161f4048217633dda7031287f6114b3f49aa3b436b25cfa33"
+      "path": "assets/game-B-n3E0O3.css",
+      "bytes": 135405,
+      "sha256": "66b3c4524e5165af1e9b9e8eadbfa587986e33d3bbd1b809b7c56784c9b2c62c"
     },
     {
-      "path": "assets/game-DjoOqURm.css",
-      "bytes": 124024,
-      "sha256": "aa59a3533d0571d94bfecfb92ddefff05dcc697b8d5959feef77f0cb1eb7a79b"
+      "path": "assets/game-DzqSmhuj.js",
+      "bytes": 526692,
+      "sha256": "a4eb9efaab61497497879cfa6f5c45669b8be4f8d18732154c7d56bacfc693ca"
     },
     {
       "path": "assets/sprites/pirate-atlas/doubloon-stack.png",
@@ -213,7 +218,7 @@
     {
       "path": "index.html",
       "bytes": 1652,
-      "sha256": "2e7fdf9d2068be32e0aa2930251dd0e4a66249fd4e04e5f74794014de8b6f461"
+      "sha256": "4df9e5c82ba412d79d75751958b368b5a72dfbc4f71e3ae7575bde147587b57e"
     }
   ]
 }

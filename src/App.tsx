@@ -73,12 +73,18 @@ import {
 import { captainPortraitSource } from "./game/cinematicHeads";
 import {
   awardCaptainRun,
-  calculateCaptainRunXp,
   captainLevelProgress,
   readCaptainProgression,
   type CaptainProgression,
   type CaptainRunSummary,
 } from "./game/captainProgression";
+import {
+  awardCaptainLogRun,
+  captainMasteryProgress,
+  captainOrderProgress,
+  readCaptainLog,
+  type CaptainDepthRunUpdate,
+} from "./game/captainLog";
 import {
   captainPassportClient,
   emailLinkTokenFromLocation,
@@ -109,6 +115,11 @@ const CaptainPassport = lazy(async () => {
 const CaptainRooms = lazy(async () => {
   const module = await import("./components/CaptainRooms");
   return { default: module.CaptainRooms };
+});
+
+const CaptainLog = lazy(async () => {
+  const module = await import("./components/CaptainLog");
+  return { default: module.CaptainLog };
 });
 
 export type GameMode = "rush" | "endless" | "practice";
@@ -309,6 +320,8 @@ export function App() {
   const [passportNudgePending, setPassportNudgePending] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captainProgression, setCaptainProgression] = useState(readCaptainProgression);
+  const [captainLog, setCaptainLog] = useState(readCaptainLog);
+  const [captainLogOpen, setCaptainLogOpen] = useState(false);
   const [photoSkinState, setPhotoSkinState] = useState<PhotoSkinState>(() => readPhotoSkinState().state);
   const [decodedPhotoImages, setDecodedPhotoImages] = useState<ReadonlyMap<string, CanvasImageSource>>(() => new Map());
   const [copyStatus, setCopyStatus] = useState("");
@@ -342,6 +355,9 @@ export function App() {
   );
   const skinStudioReturnToSettingsRef = useRef(true);
   const passportReturnToSettingsRef = useRef(false);
+  const captainLogReturnToSettingsRef = useRef(false);
+  const captainProgressionRef = useRef(captainProgression);
+  const captainLogRef = useRef(captainLog);
   const photoSkinImageCacheRef = useRef(new PhotoSkinImageCache());
   const wasPlayingRef = useRef(false);
   const gameOwnsFullscreenRef = useRef(false);
@@ -368,6 +384,10 @@ export function App() {
     () => captainLevelProgress(captainProgression.xp),
     [captainProgression.xp],
   );
+  const captainOrders = useMemo(() => captainOrderProgress(captainLog), [captainLog]);
+  const captainMasteries = useMemo(() => captainMasteryProgress(captainLog), [captainLog]);
+  const captainMasteriesEarned = captainMasteries.filter((mastery) => mastery.earned).length;
+  const captainNextOrder = captainOrders.find((order) => !order.complete);
   const photoSkinRenderPlan = useMemo(
     () => createPhotoSkinRenderPlan(photoSkinState),
     [photoSkinState],
@@ -387,11 +407,11 @@ export function App() {
   }, [playing]);
 
   useEffect(() => {
-    if (playing || !passportNudgePending || passportProfile) return;
+    if (playing || captainLogOpen || !passportNudgePending || passportProfile) return;
     passportReturnToSettingsRef.current = false;
     setPassportNudgePending(false);
     setPassportOpen(true);
-  }, [passportNudgePending, passportProfile, playing]);
+  }, [captainLogOpen, passportNudgePending, passportProfile, playing]);
 
   useEffect(() => {
     writeControlScheme(controlScheme);
@@ -646,7 +666,9 @@ export function App() {
 
   const handlePassportProfileChange = useCallback((profile: PassportProfile | null) => {
     setPassportProfile(profile);
-    setCaptainProgression(profile ? progressionFromPassport(profile) : readCaptainProgression());
+    const progression = profile ? progressionFromPassport(profile) : readCaptainProgression();
+    captainProgressionRef.current = progression;
+    setCaptainProgression(progression);
   }, []);
 
   useEffect(() => {
@@ -670,7 +692,11 @@ export function App() {
     passportReturnToSettingsRef.current = false;
   }, []);
 
-  const recordCaptainRun = useCallback((summary: CaptainRunSummary) => {
+  const recordCaptainRun = useCallback((summary: CaptainRunSummary): CaptainDepthRunUpdate => {
+    const logAward = awardCaptainLogRun(summary, captainLogRef.current);
+    captainLogRef.current = logAward.state;
+    setCaptainLog(logAward.state);
+
     if (passportProfile && summary.source === "live") {
       // The server writes the authoritative life before broadcasting the death
       // event. Re-read the cookie-bound profile instead of trusting the client
@@ -681,11 +707,32 @@ export function App() {
           // A temporary account read failure never blocks the end-of-run UI.
           // The next launcher/session hydration retries automatically.
         });
-      return;
+      return {
+        xpAwarded: 0,
+        level: captainLevelProgress(captainProgressionRef.current.xp).level,
+        leveledUp: false,
+        newlyEarnedMasteries: logAward.newlyEarnedMasteries.map((mastery) => mastery.label),
+        newlyCompletedOrders: logAward.newlyCompletedOrders.map((order) => order.label),
+        nextOrder: logAward.nextOrder?.label,
+        verifiedXpPending: true,
+      };
     }
-    const award = calculateCaptainRunXp(summary);
-    setCaptainProgression((current) => awardCaptainRun(summary, current));
-    if (!passportProfile && award > 0) setPassportNudgePending(true);
+
+    const previousLevel = captainLevelProgress(captainProgressionRef.current.xp).level;
+    const progression = awardCaptainRun(summary, captainProgressionRef.current);
+    captainProgressionRef.current = progression;
+    setCaptainProgression(progression);
+    const nextLevel = captainLevelProgress(progression.xp).level;
+    if (!passportProfile && progression.lastAwardXp > 0) setPassportNudgePending(true);
+    return {
+      xpAwarded: progression.lastAwardXp,
+      level: nextLevel,
+      leveledUp: nextLevel > previousLevel,
+      newlyEarnedMasteries: logAward.newlyEarnedMasteries.map((mastery) => mastery.label),
+      newlyCompletedOrders: logAward.newlyCompletedOrders.map((order) => order.label),
+      nextOrder: logAward.nextOrder?.label,
+      verifiedXpPending: false,
+    };
   }, [handlePassportProfileChange, passportProfile]);
 
   const start = useCallback((
@@ -892,8 +939,16 @@ export function App() {
           }}
           onRestart={() => start(mode === "live" ? "rush" : mode)}
           onRunEnded={(summary) => {
-            recordCaptainRun(summary);
+            const update = recordCaptainRun(summary);
             requestPostRunAd();
+            return update;
+          }}
+          onOpenCaptainLog={() => {
+            setPassportNudgePending(false);
+            captainLogReturnToSettingsRef.current = false;
+            setPlaying(false);
+            setCaptainLogOpen(true);
+            releaseGameFullscreen();
           }}
         />
       )}
@@ -1014,7 +1069,26 @@ export function App() {
         )}
 
       {!playing && (
-        captainRoomsOpen && !isCrazyGamesDistribution ? (
+        captainLogOpen ? (
+          <Suspense fallback={<p className="passport-status" role="status">OPENING CAPTAIN&apos;S LOG…</p>}>
+            <CaptainLog
+              log={captainLog}
+              progression={captainProgression}
+              passportConnected={Boolean(passportProfile)}
+              passportAvailable={!isCrazyGamesDistribution}
+              onClose={() => {
+                setCaptainLogOpen(false);
+                if (captainLogReturnToSettingsRef.current) setSettingsOpen(true);
+                captainLogReturnToSettingsRef.current = false;
+              }}
+              onOpenPassport={() => {
+                setCaptainLogOpen(false);
+                passportReturnToSettingsRef.current = false;
+                setPassportOpen(true);
+              }}
+            />
+          </Suspense>
+        ) : captainRoomsOpen && !isCrazyGamesDistribution ? (
           <Suspense fallback={<p className="passport-status" role="status">CHARTING CAPTAIN ROOMS…</p>}>
             <CaptainRooms
               onCreateRoom={createFreeCaptainRoom}
@@ -1080,6 +1154,34 @@ export function App() {
                   <small>LOOK & CONTROLS</small>
                   <h3 id="captain-settings-title">YOUR CAPTAIN</h3>
                 </header>
+
+                <button
+                  type="button"
+                  className="captain-progress-launch captain-log-launch"
+                  data-testid="captain-log-settings"
+                  onClick={() => {
+                    captainLogReturnToSettingsRef.current = true;
+                    setPassportNudgePending(false);
+                    setSettingsOpen(false);
+                    setCaptainLogOpen(true);
+                  }}
+                  aria-label={`Captain Level ${captainLevel.level}. Open Captain's Log.`}
+                >
+                  <span className="captain-progress-launch__level">
+                    <small>CAPTAIN LEVEL</small>
+                    <strong>{captainLevel.level}</strong>
+                  </span>
+                  <span className="captain-progress-launch__copy">
+                    <b>CAPTAIN&apos;S LOG</b>
+                    <small>{captainNextOrder
+                      ? `NEXT ORDER · ${captainNextOrder.label}`
+                      : `TODAY'S ORDERS CLEARED · ${captainMasteriesEarned}/10 MEDALS`}</small>
+                    <i><span style={{ width: `${captainLevel.percent}%` }} /></i>
+                  </span>
+                  {captainProgression.lastAwardXp > 0 && (
+                    <em>LAST RUN +{captainProgression.lastAwardXp} XP</em>
+                  )}
+                </button>
 
                 {!isCrazyGamesDistribution && <button
                   type="button"
@@ -1385,13 +1487,19 @@ export function App() {
                     <button
                       type="button"
                       className="launcher-voyage-badge"
-                      data-testid="legend-voyage-launch"
-                      aria-label={`Captain Level ${captainLevel.level}. Open Legend Voyage research preview.`}
-                      onClick={() => setLegendVoyageOpen(true)}
+                      data-testid="captain-log-launch"
+                      aria-label={`Captain Level ${captainLevel.level}. Open Captain's Log.`}
+                      onClick={() => {
+                        captainLogReturnToSettingsRef.current = false;
+                        setPassportNudgePending(false);
+                        setCaptainLogOpen(true);
+                      }}
                     >
                       <span>LV {captainLevel.level}</span>
-                      <b>LEGEND VOYAGE</b>
-                      <small>NOT FOR SALE YET · $1.99/MO OR $9.99 ONCE</small>
+                      <b>CAPTAIN&apos;S LOG</b>
+                      <small>{captainNextOrder
+                        ? `NEXT · ${captainNextOrder.label}`
+                        : `${captainMasteriesEarned}/10 MEDALS · ORDERS CLEARED`}</small>
                     </button>
                   )}
                 </div>
@@ -1504,7 +1612,7 @@ export function App() {
         </section>
       ))}
 
-      {!playing && !settingsOpen && !captainRoomsOpen && !legendVoyageOpen && !skinStudioOpen && !currencyStoreOpen && !passportOpen && !isCrazyGamesDistribution && (
+      {!playing && !settingsOpen && !captainLogOpen && !captainRoomsOpen && !legendVoyageOpen && !skinStudioOpen && !currencyStoreOpen && !passportOpen && !isCrazyGamesDistribution && (
         <nav className="site-guide-links" aria-label="Wormifi guides and policies">
           <a href="/how-to-play.html">How to play</a>
           <a href="/guides.html">Guides</a>

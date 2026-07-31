@@ -137,6 +137,7 @@ import {
   type CameraMotionState,
 } from "../game/cameraMotion";
 import type { CaptainRunSummary } from "../game/captainProgression";
+import { clipCanvasToArenaCircle } from "../game/arenaBoundary";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
@@ -2424,18 +2425,8 @@ function renderLiveArena(
     );
   }
 
-  const boundary = worldToScreen({ x: 0, y: 0 });
   context.save();
-  context.strokeStyle = `rgba(255, 89, 130, ${0.38 + Math.sin(now * 0.004) * 0.1})`;
-  context.lineWidth = Math.max(9, 28 * zoom);
-  context.shadowColor = "#ff4d83";
-  context.shadowBlur = 26;
-  context.setLineDash([28 * zoom, 18 * zoom]);
-  context.beginPath();
-  context.arc(boundary.x, boundary.y, world.arenaRadius * zoom, 0, Math.PI * 2);
-  context.stroke();
-  context.restore();
-
+  clipCanvasToArenaCircle(context, worldToScreen({ x: 0, y: 0 }), world.arenaRadius * zoom);
   drawChargingStationField(context, {
     views: world.board?.chargingStations.map((station) => ({
       station,
@@ -2545,6 +2536,8 @@ function renderLiveArena(
       wormMaterialGlow,
     );
   }
+  context.restore();
+  drawLiveBoundary(context, world, worldToScreen, zoom, now);
 
   drawArenaVignette(context, width, height);
 }
@@ -2558,6 +2551,26 @@ function drawNetworkGrid(
   now: number,
 ) {
   drawNauticalChart(context, width, height, camera, zoom, now);
+}
+
+function drawLiveBoundary(
+  context: CanvasRenderingContext2D,
+  world: LiveWorldState,
+  worldToScreen: (point: Vec2) => Vec2,
+  zoom: number,
+  now: number,
+) {
+  const boundary = worldToScreen({ x: 0, y: 0 });
+  context.save();
+  context.strokeStyle = `rgba(255, 89, 130, ${0.38 + Math.sin(now * 0.004) * 0.1})`;
+  context.lineWidth = Math.max(9, 28 * zoom);
+  context.shadowColor = "#ff4d83";
+  context.shadowBlur = 26;
+  context.setLineDash([28 * zoom, 18 * zoom]);
+  context.beginPath();
+  context.arc(boundary.x, boundary.y, world.arenaRadius * zoom, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
 }
 
 function drawHeatRingTelegraph(

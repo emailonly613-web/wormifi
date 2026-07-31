@@ -1,10 +1,10 @@
 ﻿{
-    "generatedAt":  "2026-07-31T16:07:54.0857172Z",
+    "generatedAt":  "2026-07-31T17:00:15.6143471Z",
     "status":  "PASS",
     "zip":  "D:\\wormifi-art\\Wormifi_CrazyGames_Ready.zip",
-    "bytes":  10981679,
-    "megabytes":  10.473,
-    "entries":  39,
+    "bytes":  10988835,
+    "megabytes":  10.48,
+    "entries":  40,
     "rootIndex":  true,
-    "sha256":  "8ae503ad1b0b98a5dc112edd6c8057dd665f4e22819ac8151d75900a508cb734"
+    "sha256":  "180fb17534a5157ac79db3d1a438c71350e3bb3ad158f83b597ef2db4def9405"
 }

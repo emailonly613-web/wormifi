@@ -42,6 +42,7 @@ import type {
   Vec2,
 } from "./types";
 import { selectHumanHunterAssignments } from "./botPressure";
+import { confinePointToArenaCircle, pointFitsArenaCircle } from "./arenaBoundary";
 
 const EPSILON = 1e-9;
 const TAU = Math.PI * 2;
@@ -307,6 +308,27 @@ function getSegmentSpacing(player: PlayerState, config: GameConfig): number {
   return getBodyRadius(player, config) * 2 * config.segmentSpacingFactor;
 }
 
+function confineBodyToArena(player: PlayerState, config: GameConfig): void {
+  const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
+  for (const segment of player.body) {
+    confinePointToArenaCircle(segment, maximumBodyCenterRadius);
+  }
+}
+
+/**
+ * Release invariant: a living worm is valid only when its complete painted and
+ * collidable geometry fits inside the sea, not merely its head center.
+ */
+export function isPlayerGeometryInsideArena(
+  player: Readonly<PlayerState>,
+  config: Readonly<GameConfig>,
+): boolean {
+  const maximumHeadCenterRadius = Math.max(0, config.arenaRadius - getPlayerRadius(player, config));
+  const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
+  return pointFitsArenaCircle(player.position, maximumHeadCenterRadius) &&
+    player.body.every((segment) => pointFitsArenaCircle(segment, maximumBodyCenterRadius));
+}
+
 function syncBodyLength(player: PlayerState, config: GameConfig): void {
   const targetLength = getTargetBodyLength(player, config);
   const spacing = getSegmentSpacing(player, config);
@@ -327,6 +349,9 @@ function syncBodyLength(player: PlayerState, config: GameConfig): void {
       y: tail.y + tailDirection.y * spacing,
     });
   }
+  // Growth changes both segment count and radius. Reproject the complete body,
+  // including older points that just became wider, before collision/rendering.
+  confineBodyToArena(player, config);
 }
 
 function pickSpawnPosition(state: GameState): Vec2 {
@@ -436,6 +461,7 @@ export function spawnPlayer(
       y: position.y - direction.y * spacing * index,
     });
   }
+  confineBodyToArena(player, state.config);
   player.previousBody = player.body.map(cloneVec);
   state.players[id] = player;
 
@@ -593,6 +619,7 @@ function getTurnRate(player: PlayerState, config: GameConfig): number {
 
 function updateBodyPositions(player: PlayerState, config: GameConfig): void {
   const spacing = getSegmentSpacing(player, config);
+  const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
   let leader = player.position;
 
   for (const segment of player.body) {
@@ -611,6 +638,7 @@ function updateBodyPositions(player: PlayerState, config: GameConfig): void {
     }
     segment.x = leader.x + awayX * spacing;
     segment.y = leader.y + awayY * spacing;
+    confinePointToArenaCircle(segment, maximumBodyCenterRadius);
     leader = segment;
   }
 }
@@ -892,6 +920,8 @@ export function sampleDeathTracePositions(
 
   let segmentIndex = 1;
   return Array.from({ length: count }, (_, index) => {
+    if (count > 1 && index === 0) return cloneVec(points[0]);
+    if (count > 1 && index === count - 1) return cloneVec(points.at(-1)!);
     const ratio = count === 1 ? 0.5 : index / (count - 1);
     const targetLength = totalLength * ratio;
     while (

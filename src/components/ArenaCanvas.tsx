@@ -131,6 +131,8 @@ import {
   type CameraMotionState,
 } from "../game/cameraMotion";
 import type { CaptainRunSummary } from "../game/captainProgression";
+import type { CaptainDepthRunUpdate } from "../game/captainLog";
+import { clipCanvasToArenaCircle } from "../game/arenaBoundary";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -165,7 +167,8 @@ interface ArenaCanvasProps {
   controlScheme: ControlScheme;
   onExit: () => void;
   onRestart: () => void;
-  onRunEnded: (summary: CaptainRunSummary) => void;
+  onRunEnded: (summary: CaptainRunSummary) => CaptainDepthRunUpdate | undefined;
+  onOpenCaptainLog?: () => void;
 }
 
 interface HudState {
@@ -230,6 +233,7 @@ interface ResultState {
   rank: number;
   replayContext: string;
   recording: LocalRunRecording;
+  captainUpdate?: CaptainDepthRunUpdate;
 }
 
 interface Particle {
@@ -476,6 +480,7 @@ export function ArenaCanvas({
   onExit,
   onRestart,
   onRunEnded,
+  onOpenCaptainLog,
 }: ArenaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -757,6 +762,13 @@ export function ArenaCanvas({
       const score = calculateScore(player, runtime.state.config);
       const challengeBeaten = challenge?.target.metric === "score" && score > challenge.target.value;
       const recording = finalizeLocalRun(runtime.recording, runtime.state);
+      const captainUpdate = onRunEndedRef.current({
+        source: mode,
+        score,
+        kills: player.stats.kills,
+        rank,
+        peakMass: player.stats.peakMass,
+      });
       setResult({
         heading: challengeBeaten ? "TARGET BEATEN" : heading,
         cause,
@@ -768,13 +780,7 @@ export function ArenaCanvas({
           ? `DEATH · ${cause}`
           : `RUN FINISH · ${cause}`,
         recording,
-      });
-      onRunEndedRef.current({
-        source: mode,
-        score,
-        kills: player.stats.kills,
-        rank,
-        peakMass: player.stats.peakMass,
+        captainUpdate,
       });
       if (sprintReleaseTimerRef.current !== undefined) {
         window.clearTimeout(sprintReleaseTimerRef.current);
@@ -1750,6 +1756,34 @@ export function ArenaCanvas({
               <div><dt>SCORE RANK</dt><dd>#{result.rank}</dd></div>
               <div><dt>CHAIN CUTS</dt><dd>{result.kills}</dd></div>
             </dl>
+            {result.captainUpdate && (
+              <aside className="captain-depth-update" data-testid="captain-depth-update">
+                <header>
+                  <span aria-hidden="true">✦</span>
+                  <div>
+                    <b>CAPTAIN&apos;S LOG UPDATED</b>
+                    <small>{result.captainUpdate.verifiedXpPending
+                      ? "VERIFIED LIVE XP SYNCING"
+                      : result.captainUpdate.xpAwarded > 0
+                        ? `+${result.captainUpdate.xpAwarded} XP · LEVEL ${result.captainUpdate.level}${result.captainUpdate.leveledUp ? " REACHED" : ""}`
+                        : `LEVEL ${result.captainUpdate.level} · COMPLETE A STRONGER RUN FOR XP`}</small>
+                  </div>
+                </header>
+                {(result.captainUpdate.newlyEarnedMasteries.length > 0 || result.captainUpdate.newlyCompletedOrders.length > 0) && (
+                  <div className="captain-depth-update__earned">
+                    {result.captainUpdate.newlyEarnedMasteries.map((mastery) => (
+                      <span key={`mastery-${mastery}`}>★ {mastery} MEDAL</span>
+                    ))}
+                    {result.captainUpdate.newlyCompletedOrders.map((order) => (
+                      <span key={`order-${order}`}>✓ {order} CLEARED</span>
+                    ))}
+                  </div>
+                )}
+                {result.captainUpdate.nextOrder && (
+                  <p>NEXT ORDER · <strong>{result.captainUpdate.nextOrder}</strong></p>
+                )}
+              </aside>
+            )}
             {resultShare && (
               <aside className="result-share-card" data-testid="result-share-highlight">
                 <div className="result-share-heading">
@@ -1806,6 +1840,15 @@ export function ArenaCanvas({
               >
                 PLAY AGAIN
               </button>
+              {onOpenCaptainLog && (
+                <button
+                  className="captain-log-button"
+                  data-testid="view-captain-log"
+                  onClick={onOpenCaptainLog}
+                >
+                  VIEW CAPTAIN&apos;S LOG
+                </button>
+              )}
               <button className="menu-button" onClick={onExit}>CHANGE MODE</button>
             </div>
           </section>
@@ -1945,7 +1988,12 @@ function renderArena(
 
   drawArenaTexture(context, width, height, camera, zoom, effectTime);
   drawPirateShipBackdrop(context, width, height);
-  drawBoundary(context, runtime.state, worldToScreen, zoom, effectTime, width, height);
+  context.save();
+  clipCanvasToArenaCircle(
+    context,
+    worldToScreen({ x: 0, y: 0 }),
+    runtime.state.config.arenaRadius * zoom,
+  );
   drawChargingStationField(context, {
     views: runtime.state.board.chargingStations.map((station) => ({
       station,
@@ -2026,6 +2074,10 @@ function renderArena(
   }
   context.globalAlpha = 1;
   context.shadowBlur = 0;
+  context.restore();
+  // The physical wall is the topmost arena geometry. Treasure, death releases,
+  // creatures, and their glow can approach it but never paint over or escape.
+  drawBoundary(context, runtime.state, worldToScreen, zoom, effectTime, width, height);
 
   drawArenaVignette(context, width, height);
 

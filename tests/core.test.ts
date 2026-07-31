@@ -10,6 +10,7 @@ import {
   getPlayerTurboReserveRatio,
   getPlayerTurboSecondsRemaining,
   isPlayerBoosting,
+  isPlayerGeometryInsideArena,
   spawnDrop,
   spawnPlayer,
   stepGame,
@@ -504,6 +505,41 @@ describe("deterministic game core", () => {
       playerId: player.id,
       cause: "boundary",
     }));
+  });
+
+  it("contains the complete living chain when a large pickup grows its tail beside the wall", () => {
+    const state = createGameState("full-chain-boundary", {
+      fixedStepSeconds: 1,
+      arenaRadius: 260,
+      baseSpeed: 0,
+      boostSpeed: 0,
+      spawnShieldSeconds: 0,
+    });
+    const player = spawnPlayer(state, {
+      id: "wall-growth",
+      position: { x: 100, y: 0 },
+      // The tail points toward the right wall. Before the fix, adding many
+      // segments extrapolated it through the boundary while the head survived.
+      direction: { x: -1, y: 0 },
+      shieldSeconds: 0,
+    });
+    expect(isPlayerGeometryInsideArena(player, state.config)).toBe(true);
+    spawnDrop(state, {
+      id: "wall-growth-hoard",
+      position: { ...player.position },
+      mass: 2_500,
+      radius: 5,
+      source: "arena",
+    });
+
+    stepGame(state);
+
+    expect(player.alive).toBe(true);
+    expect(player.body).toHaveLength(state.config.maximumBodySegments);
+    expect(isPlayerGeometryInsideArena(player, state.config)).toBe(true);
+    const maximumBodyCenterRadius = state.config.arenaRadius - getBodyRadius(player, state.config);
+    expect(Math.max(...player.body.map((segment) => Math.hypot(segment.x, segment.y))))
+      .toBeLessThanOrEqual(maximumBodyCenterRadius + 1e-7);
   });
 
   it("lets a bot provide the same sequenced input packet as a network client", () => {
