@@ -1047,10 +1047,25 @@ export function App() {
               </div>
 
               <div className="captain-launch-profile__identity">
-                <span className="captain-launch-profile__selected">
-                  <small>YOUR CAPTAIN</small>
-                  <strong data-testid="launcher-selected-look">{photoSkinRenderPlan.theme.label}</strong>
-                </span>
+                <div className="captain-launch-profile__identity-head">
+                  <span className="captain-launch-profile__selected">
+                    <small>YOUR CAPTAIN</small>
+                    <strong data-testid="launcher-selected-look">{photoSkinRenderPlan.theme.label}</strong>
+                  </span>
+                  {captainProgression.completedRuns > 0 && (
+                    <button
+                      type="button"
+                      className="launcher-voyage-badge"
+                      data-testid="legend-voyage-launch"
+                      aria-label={`Captain Level ${captainLevel.level}. Open Legend Voyage research preview.`}
+                      onClick={() => setLegendVoyageOpen(true)}
+                    >
+                      <span>LV {captainLevel.level}</span>
+                      <b>LEGEND VOYAGE</b>
+                      <small>TRY ALL 3 · $4.99 RESEARCH</small>
+                    </button>
+                  )}
+                </div>
                 <label className="nickname-field nickname-field--quick">
                   <span>YOUR ARENA NAME</span>
                   <input

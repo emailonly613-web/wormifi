@@ -60,3 +60,34 @@ test("legacy query-string store preview cannot expose a payment action", async (
   await expect(page.getByTestId("skin-studio-founder")).toHaveCount(0);
   await expect(page.getByTestId("founder-unlock-button")).toHaveCount(0);
 });
+
+test("returning captains can reach Legend Voyage directly without hunting through Settings", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("wormifi.captain-progression.v1", JSON.stringify({
+      version: 1,
+      xp: 420,
+      completedRuns: 3,
+      totalScore: 1_200,
+      lastAwardXp: 80,
+      updatedAtMs: Date.now(),
+    }));
+  });
+  await page.goto("/");
+
+  const directVoyage = page.getByTestId("legend-voyage-launch");
+  await expect(directVoyage).toBeVisible();
+  await expect(directVoyage).toContainText("LEGEND VOYAGE");
+  await expect(directVoyage).toContainText("$4.99 RESEARCH");
+  const launcherFit = await page.locator(".launch-panel").evaluate((panel) => ({
+    clientHeight: panel.clientHeight,
+    scrollHeight: panel.scrollHeight,
+    bottom: panel.getBoundingClientRect().bottom,
+    viewportHeight: window.innerHeight,
+  }));
+  expect(launcherFit.scrollHeight).toBeLessThanOrEqual(launcherFit.clientHeight + 1);
+  expect(launcherFit.bottom).toBeLessThanOrEqual(launcherFit.viewportHeight);
+  await directVoyage.click();
+
+  await expect(page.getByTestId("legend-voyage")).toBeVisible();
+  await expect(page.getByTestId("settings-panel")).toHaveCount(0);
+});

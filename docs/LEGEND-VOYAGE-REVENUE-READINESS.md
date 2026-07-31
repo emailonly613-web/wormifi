@@ -23,6 +23,9 @@ ownership.
 ## Public preview boundary
 
 - Players may try all three animated identities before purchase exists.
+- Returning captains with at least one completed run get a compact direct
+  Legend Voyage doorway on the launcher; first-time play remains free of a
+  purchase prompt, and Settings retains the complete route entry.
 - The interface must say that the route is not for sale and that no checkout,
   card, or email is collected.
 - The interest action is optional, consent-gated analytics only. It cannot
@@ -67,6 +70,9 @@ or self-selected sample must be labeled inconclusive rather than successful.
 
 1. Ship this no-sale preview and collect only consented product-interest data.
 2. Add and audit account identity without payment or client-authored value.
+   The local cryptographic/session/recovery core is implemented; durable
+   storage, HTTP/UI integration, real-device proof, and independent review are
+   still required.
 3. Add and audit server-owned progression after identity passes.
 4. Add and audit the durable entitlement ledger after progression passes.
 5. Run observed external-player value/comprehension sessions and tune the route.

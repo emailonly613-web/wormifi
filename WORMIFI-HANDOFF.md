@@ -129,7 +129,7 @@ load.
 | External players should prefer it and tell friends | **MISSING PROOF** | Requires observed external-player testing, not bots or automated browsers. |
 | CrazyGames HTML5 distribution package | **READY FOR OWNER PORTAL REVIEW; NOT SUBMITTED OR APPROVED** | Official SDK v3 lifecycle/ad adapter, portable 23-file root-index ZIP, verifier, listing copy and owner checklist exist. The current package includes both static ground-treasure rotation atlases and is `Wormifi_CrazyGames_Ready.zip` (5.695 MiB, SHA-256 `76FC14A26468DE5880F718A4BF15A2D4558C426E12FF0DDDC595351EA7FD46C8`). Basic Launch monetization remains disabled. |
 | Menu monetization configuration | **DONE LOCALLY; OFF BY DEFAULT** | One variable, `VITE_CRAZYGAMES_MENU_MONETIZATION`, selects `off`, `rewarded-skin`, or `currency-store`. Capability gates fail closed, the two commercial surfaces are mutually exclusive, purchase controls remain disabled without a real settlement handler, and no store/reward UI is present during active gameplay. |
-| Captain progression and permanent cosmetic offer | **PUBLIC-PREVIEW CANDIDATE / NO SALE** | Captain XP now advances from completed local runs and live lives on the device, and Legend Voyage lets players try three animated complete identities across a visible 20-level route. The `$4.99` price is a research hypothesis only: the UI explicitly collects no checkout, card, email, or payment, and local progress is not yet a durable account entitlement. See `docs/LEGEND-VOYAGE-REVENUE-READINESS.md`. |
+| Captain progression and permanent cosmetic offer | **PUBLIC VALUE PREVIEW / LOCAL ACCOUNT CORE PASS / NO SALE** | Captain XP advances from completed runs on the device, returning captains get a direct launcher doorway, and Legend Voyage lets players try three animated complete identities across a visible 20-level route. The local Passport core now covers passkey ceremonies, hashed/revocable sessions, one-use recovery rotation, replacement-passkey binding, throttling, a PostgreSQL schema and adversarial tests. It has no public routes, durable database or live accounts. The `$4.99` price remains a research hypothesis; no checkout, card, email or payment is collected. See `docs/CAPTAIN-PASSPORT-GENERATION-AHEAD-AUDIT.md`. |
 | SEO | **LOCAL TECHNICAL FOUNDATION DONE; DEPLOYMENT/INDEXING PENDING** | Five crawlable canonical pages, metadata, schema, robots, sitemap, consent-gated analytics shell, PWA metadata, offline-canonical behavior and automated verification are implemented. No ranking/indexing claim is permitted. See `docs/SEO-AND-ANALYTICS-HANDOFF.md`. |
 | Google Analytics | **CODE READY; OWNER GA4 PROPERTY/ID AND DEPLOYMENT PENDING** | The owned site has privacy-first, consent-gated, sanitized GA4 events, but no Measurement ID was invented. CrazyGames builds intentionally exclude GA4 and use platform reporting. |
 | Stripe / direct-site checkout | **BLOCKED BEHIND REVENUE-READINESS GATES** | No player-facing checkout may ship until account identity, server-owned progression, a durable entitlement ledger, private webhook/refund/reconciliation proof, operating policies, and convincing external demand evidence exist. CrazyGames IAP is separately invite-only and remains gated off until platform authorization and a verified settlement implementation exist. |
@@ -201,10 +201,12 @@ production proof or deployment.
 8. **Only after the owner's product and SEO ordering is satisfied, finish
    smoothing and performance polish** against the accepted art, features and
    public multiplayer build.
-9. Build account-backed progression and an entitlement ledger, then prove the
-   complete payment/refund/reconciliation path privately. Stripe remains behind
-   the evidence gates in `docs/LEGEND-VOYAGE-REVENUE-READINESS.md`; never expose
-   checkout merely because the visual offer is ready.
+9. Convert the passing local Passport core into an approved durable account
+   beta: add the database adapter, routes and UI only after recurring database
+   cost approval, then prove real-device restore/revocation before server-owned
+   progression and the entitlement ledger. Stripe remains behind the evidence
+   gates in `docs/LEGEND-VOYAGE-REVENUE-READINESS.md`; never expose checkout
+   merely because the visual offer is ready.
 
 ## Current proof locations
 
