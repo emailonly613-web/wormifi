@@ -149,13 +149,8 @@ function fullscreenElement(): Element | null {
     null;
 }
 
-function isInstalledDisplayMode(): boolean {
-  return window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
-    window.matchMedia?.("(display-mode: standalone)").matches === true;
-}
-
-function browserImmersiveState(): ImmersiveState {
-  if (fullscreenElement() || isInstalledDisplayMode()) return "active";
+function browserImmersiveState(gameOwnsFullscreen = false): ImmersiveState {
+  if (gameOwnsFullscreen && fullscreenElement() === document.documentElement) return "active";
   const root = document.documentElement as WebkitFullscreenElement;
   return typeof root.requestFullscreen === "function" ||
     typeof root.webkitRequestFullscreen === "function"
@@ -262,7 +257,7 @@ export function App() {
     const synchronizeFullscreen = () => {
       const activeElement = fullscreenElement();
       if (!activeElement) gameOwnsFullscreenRef.current = false;
-      setImmersiveState(browserImmersiveState());
+      setImmersiveState(browserImmersiveState(gameOwnsFullscreenRef.current));
     };
     document.addEventListener("fullscreenchange", synchronizeFullscreen);
     document.addEventListener("webkitfullscreenchange", synchronizeFullscreen);
@@ -366,7 +361,10 @@ export function App() {
       return;
     }
     const root = document.documentElement as WebkitFullscreenElement;
-    if (fullscreenElement() || isInstalledDisplayMode()) {
+    if (
+      gameOwnsFullscreenRef.current &&
+      fullscreenElement() === document.documentElement
+    ) {
       setImmersiveState("active");
       void requestLandscapeOrientation();
       return;
@@ -394,7 +392,7 @@ export function App() {
     void Promise.resolve(result)
       .then(() => {
         gameOwnsFullscreenRef.current = fullscreenElement() === root;
-        setImmersiveState(browserImmersiveState());
+        setImmersiveState(browserImmersiveState(gameOwnsFullscreenRef.current));
       })
       .catch(() => {
         setImmersiveState("denied");

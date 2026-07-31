@@ -1929,6 +1929,13 @@ html:fullscreen .app-shell {
   stroke-width: 2;
 }
 
+@media (display-mode: fullscreen), (display-mode: standalone) {
+  .immersive-button,
+  .immersive-notice {
+    display: none;
+  }
+}
+
 .immersive-notice {
   position: fixed;
   z-index: 45;
