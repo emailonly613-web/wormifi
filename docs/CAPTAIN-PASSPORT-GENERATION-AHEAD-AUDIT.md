@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-07-30
 
-**Status:** P0 contract accepted for implementation; accounts and payments are not live.
+**Status:** P0 contract active. The Phase 2 local security core passes automated tests; accounts and payments are not live.
 
 **Fixed order:** account identity -> server-owned progression -> durable entitlements -> private payment proof -> limited live money.
 
@@ -66,6 +66,30 @@ review reproduces the required evidence.
 | Analytics | `src/analytics.ts` is consent-gated and intentionally minimal | Useful for aggregate interest, not an account or financial ledger | Keep optional analytics separate from essential account/security records |
 | Privacy copy | `privacy.html` truthfully says the preview collects no account or purchase history | It becomes false the moment accounts launch | Update, review, and deploy disclosure before the first account is created |
 | Operations | Existing load/network/performance suites cover the arena | No database backup/restore, session-revocation, or entitlement reconciliation drill | Add failure injection and operator runbooks before money |
+
+## Phase 2 local-core checkpoint
+
+Implemented locally on 2026-07-30 under `server/src/passport/`:
+
+- PostgreSQL records for opaque accounts, passkeys, one-use challenges, hashed
+  sessions, versioned recovery codes, and the append-only Captain Log;
+- exact HTTPS origin and RP-ID binding through `@simplewebauthn/server` 13.3.2,
+  with discoverable resident credentials and required user verification;
+- five-minute, consume-before-verification ceremonies that reject expiry and
+  replay;
+- 256-bit session secrets stored only as keyed hashes, immediate session
+  revocation, sanitized device labels, and a visible session projection;
+- 128-bit saved recovery codes stored only as salted keyed hashes, throttled by
+  account and IP, single-use rotation, old-session and old-passkey revocation,
+  and authenticated replacement-passkey binding; and
+- seven adversarial account-core tests plus the complete authoritative-server
+  suite.
+
+This is source and local-test evidence only. There are no account HTTP routes,
+no browser Passport UI, no durable database adapter, no deployed account data,
+and no real-device passkey/recovery proof. It therefore does not pass the
+Identity, Recovery, Reliability, Operations, Value, or Independent Audit gates
+and does not authorize checkout.
 
 ## Non-negotiable product rules
 
