@@ -3,8 +3,6 @@ import { PREMIUM_COSMETIC_THEME_IDS, getCosmeticTheme } from "./cosmeticThemes";
 export const LEGEND_VOYAGE = Object.freeze({
   id: "legend-voyage-one",
   label: "LEGEND VOYAGE",
-  priceResearchUsdCents: 499,
-  priceResearchLabel: "$4.99",
   permanent: true,
   purchasable: false,
 });

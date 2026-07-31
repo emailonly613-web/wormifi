@@ -26,6 +26,20 @@ test("Legend Voyage proves value without exposing checkout", async ({ page }) =>
   await expect(voyage).toHaveAttribute("data-purchasable", "false");
   await expect(voyage).toContainText("NOT FOR SALE YET");
   await expect(voyage).toContainText("no checkout · no card · no email collected");
+  await expect(voyage).toContainText("THE WHOLE GAME STAYS FREE");
+  const monthly = page.getByTestId("captain-offer-captain-club-monthly-v1");
+  const lifetime = page.getByTestId("captain-offer-legend-voyage-lifetime-v1");
+  await expect(monthly).toContainText("$1.99 / MONTH");
+  await expect(monthly).toContainText("ACCESS WHILE ACTIVE");
+  await expect(monthly).toContainText("Cancel online any time");
+  await expect(lifetime).toContainText("$9.99 ONCE");
+  await expect(lifetime).toContainText("PERMANENT OWNERSHIP");
+  await lifetime.click();
+  await expect(lifetime).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("legend-voyage-interest")).toContainText("$9.99 ONCE");
+  await monthly.click();
+  await expect(monthly).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("legend-voyage-interest")).toContainText("$1.99 / MONTH");
   const valueSummary = voyage.locator(".legend-voyage__value");
   await expect(valueSummary).toContainText("COMPLETE LEGEND IDENTITIES");
   await expect(valueSummary.locator("strong").first()).toHaveText("3");
@@ -77,7 +91,7 @@ test("returning captains can reach Legend Voyage directly without hunting throug
   const directVoyage = page.getByTestId("legend-voyage-launch");
   await expect(directVoyage).toBeVisible();
   await expect(directVoyage).toContainText("LEGEND VOYAGE");
-  await expect(directVoyage).toContainText("$4.99 RESEARCH");
+  await expect(directVoyage).toContainText("$1.99/MO OR $9.99 ONCE");
   const launcherFit = await page.locator(".launch-panel").evaluate((panel) => ({
     clientHeight: panel.clientHeight,
     scrollHeight: panel.scrollHeight,

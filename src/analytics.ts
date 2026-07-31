@@ -263,6 +263,17 @@ function installFunnelTracking() {
       });
       return;
     }
+    const commercePlan = target.dataset.commercePlan;
+    if (commercePlan && testId !== "legend-voyage-interest") {
+      const value = Number(target.dataset.valueUsd);
+      sendEvent("captain_offer_selected", {
+        currency: "USD",
+        value: Number.isFinite(value) ? value : 0,
+        item_id: commercePlan,
+        billing: target.dataset.billing === "monthly" ? "monthly" : "one_time",
+      });
+      return;
+    }
     const legendTheme = target.dataset.legendTheme;
     if (legendTheme && ["krakens-ink", "phoenix-wake", "leviathan-scale"].includes(legendTheme)) {
       sendEvent("legend_theme_previewed", {
@@ -272,10 +283,12 @@ function installFunnelTracking() {
       return;
     }
     if (testId === "legend-voyage-interest") {
-      sendEvent("legend_voyage_interest", {
+      const value = Number(target.dataset.valueUsd);
+      sendEvent("captain_offer_interest", {
         currency: "USD",
-        value: 4.99,
-        item_id: "legend_voyage_one",
+        value: Number.isFinite(value) ? value : 0,
+        item_id: target.dataset.commercePlan ?? "unknown",
+        billing: target.dataset.billing === "monthly" ? "monthly" : "one_time",
       });
       return;
     }

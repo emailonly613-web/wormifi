@@ -823,7 +823,7 @@ export function App() {
                   </span>
                   <span className="captain-progress-launch__copy">
                     <b>LEGEND VOYAGE · TRY ALL 3</b>
-                    <small>PERMANENT COSMETIC ROUTE · NOT FOR SALE YET</small>
+                    <small>NOT FOR SALE YET · $1.99/MO ACCESS OR $9.99 OWN FOREVER</small>
                     <i><span style={{ width: `${captainLevel.percent}%` }} /></i>
                   </span>
                   {captainProgression.lastAwardXp > 0 && (
@@ -1062,7 +1062,7 @@ export function App() {
                     >
                       <span>LV {captainLevel.level}</span>
                       <b>LEGEND VOYAGE</b>
-                      <small>TRY ALL 3 · $4.99 RESEARCH</small>
+                      <small>NOT FOR SALE YET · $1.99/MO OR $9.99 ONCE</small>
                     </button>
                   )}
                 </div>

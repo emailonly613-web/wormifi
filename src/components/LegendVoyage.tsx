@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { captainLevelProgress, type CaptainProgression } from "../game/captainProgression";
+import {
+  CAPTAIN_COMMERCE_OFFERS,
+  DEFAULT_CAPTAIN_COMMERCE_OFFER_ID,
+  getCaptainCommerceOffer,
+  type CaptainCommerceOfferId,
+} from "../game/captainCommerce";
 import { getCosmeticTheme } from "../game/cosmeticThemes";
 import {
   LEGEND_VOYAGE,
@@ -51,6 +57,7 @@ function drawWake(
 
 export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendVoyageProps) {
   const [selectedThemeId, setSelectedThemeId] = useState<string>(LEGEND_VOYAGE_THEME_IDS[0]);
+  const [selectedOfferId, setSelectedOfferId] = useState<CaptainCommerceOfferId>(DEFAULT_CAPTAIN_COMMERCE_OFFER_ID);
   const [interestRecorded, setInterestRecorded] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reducedMotion = useMemo(
@@ -59,6 +66,7 @@ export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendV
   );
   const level = captainLevelProgress(progression.xp);
   const selectedTheme = getCosmeticTheme(selectedThemeId);
+  const selectedOffer = getCaptainCommerceOffer(selectedOfferId);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -151,7 +159,7 @@ export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendV
 
       <div className="legend-voyage__no-sale" role="status">
         <strong>NOT FOR SALE YET</strong>
-        <span>{LEGEND_VOYAGE.priceResearchLabel} one-time price research · no checkout · no card · no email collected</span>
+        <span>$1.99/month access or $9.99 permanent ownership research · no checkout · no card · no email collected</span>
       </div>
 
       <section className="legend-voyage__captain" aria-label={`Captain Level ${level.level}`}>
@@ -164,6 +172,49 @@ export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendV
           <span style={{ width: `${level.percent}%` }} />
         </div>
         <small>{level.maxed ? "VOYAGE LEVEL MAXED" : `${level.xpIntoLevel} / ${level.xpForLevel} XP TO LEVEL ${level.level + 1}`}</small>
+      </section>
+
+      <section className="legend-voyage__offers" aria-labelledby="legend-voyage-offer-title">
+        <header>
+          <div>
+            <small>ONE CLEAR CHOICE · COSMETICS ONLY</small>
+            <h3 id="legend-voyage-offer-title">ACCESS MONTHLY OR OWN THE COLLECTION</h3>
+          </div>
+          <strong>THE WHOLE GAME STAYS FREE</strong>
+        </header>
+        <div role="radiogroup" aria-label="Price research choice">
+          {CAPTAIN_COMMERCE_OFFERS.map((offer) => {
+            const selected = offer.id === selectedOffer.id;
+            return (
+              <button
+                key={offer.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={selected ? "selected" : ""}
+                data-testid={`captain-offer-${offer.id}`}
+                data-commerce-plan={offer.id}
+                data-billing={offer.billing}
+                data-value-usd={(offer.priceResearchUsdCents / 100).toFixed(2)}
+                onClick={() => {
+                  setSelectedOfferId(offer.id);
+                  setInterestRecorded(false);
+                }}
+              >
+                <span>
+                  <small>{offer.label}</small>
+                  <b>{offer.shortLabel}</b>
+                  <em>{offer.relationshipLabel}</em>
+                </span>
+                <p>{offer.promise}</p>
+                <ul>
+                  {offer.includes.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+                <strong>{offer.cancellation ?? "One payment. This fixed collection does not expire."}</strong>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       <div className="legend-voyage__showcase">
@@ -227,12 +278,15 @@ export function LegendVoyage({ progression, onClose, onOpenSkinStudio }: LegendV
           type="button"
           className="legend-voyage__interest"
           data-testid="legend-voyage-interest"
+          data-commerce-plan={selectedOffer.id}
+          data-billing={selectedOffer.billing}
+          data-value-usd={(selectedOffer.priceResearchUsdCents / 100).toFixed(2)}
           disabled={interestRecorded}
           onClick={() => setInterestRecorded(true)}
         >
-          {interestRecorded ? "INTEREST NOTED · NO PAYMENT COLLECTED" : `I'D CONSIDER ${LEGEND_VOYAGE.priceResearchLabel} · RESEARCH ONLY`}
+          {interestRecorded ? "CHOICE NOTED · NO PAYMENT COLLECTED" : `I'D CHOOSE ${selectedOffer.shortLabel} · RESEARCH ONLY`}
         </button>
-        <p>Every existing free theme stays free. No purchased XP, skips, multipliers, zoom, size, speed, collision power, loot-box odds, or expiration.</p>
+        <p>Every existing free theme and the whole game stay free. No purchased XP, skips, multipliers, zoom, size, speed, collision power, lives, rank, or loot-box odds.</p>
       </footer>
     </section>
   );

@@ -44,7 +44,7 @@ turning store claims, rating counts, or download counts into revenue claims.
 | Observed category pattern | Wormifi response | Measurable advantage required |
 |---|---|---|
 | Ads interrupt death and retry | Never place an interstitial between death and Retry | Automated navigation audit plus observed sessions find zero retry interruption |
-| Coin packs, subscriptions, loot boxes, and paid boosters obscure value | One plainly priced permanent cosmetic route; no consumable currency or randomized reward | Catalog audit finds zero paid stats, odds, lives, skips, multipliers, zoom, radar, or starting power |
+| Coin packs, subscriptions, loot boxes, and paid boosters obscure value | One plainly compared choice between monthly cosmetic-catalog access and permanent fixed-collection ownership; no consumable currency or randomized reward | Players can explain access versus ownership and catalog audit finds zero paid stats, odds, lives, skips, multipliers, zoom, radar, or starting power |
 | Accounts commonly add email/password and tracking | Guest-first play; optional discoverable passkey; no password or email required | New-device restore succeeds without stored browser data or personal-data lookup |
 | Progression and purchases are hard to explain | Customer-visible append-only Captain Log | Every displayed XP and entitlement state traces to one immutable event |
 | Long runs can disappear on disconnect | Server-validated run completion, bounded reconnect, and explicit failure result | Duplicate/reconnect/failure tests never double-award or invent a verified run |
@@ -102,7 +102,9 @@ and does not authorize checkout.
 4. Every existing free theme remains free. The player can try the complete paid
    visual treatment before purchase.
 5. No loot boxes, consumable premium currency, deceptive scarcity, forced
-   sharing, paid streak protection, or subscription lock is introduced.
+   sharing, paid streak protection, or subscription lock on the game is
+   introduced. A cosmetic membership may control only its clearly named Club
+   catalog while active; guest play and every existing free theme remain free.
 6. The client may request and display state; it may never author XP,
    entitlements, payment status, refund state, or reconciliation outcomes.
 7. Essential account/security records and optional analytics remain separate.
@@ -141,7 +143,8 @@ never accept arbitrary client-reported run summaries to gain feature coverage.
 ### Entitlement ledger
 
 Entitlements use platform-neutral product/version IDs. Immutable events record
-`grant`, `refund`, `reversal`, `chargeback`, `restore`, and reviewed correction,
+`grant`, `activate`, `renew`, `cancel_at_period_end`, `expire`, `refund`,
+`reversal`, `chargeback`, `restore`, and reviewed correction,
 with provider, provider object IDs, account, currency/amount snapshot, reason,
 source event, idempotency key, and timestamps. Current access is a projection of
 the event history, never a browser token or mutable paid boolean.

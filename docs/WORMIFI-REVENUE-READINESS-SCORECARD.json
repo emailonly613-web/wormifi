@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "auditedAt": "2026-07-30",
+  "passingScore": 8,
+  "rule": "Stripe account details may be requested only when every non-payment gate scores at least 8 out of 10.",
+  "checkoutEnabled": false,
+  "stripeDetailsAllowed": false,
+  "paymentRail": {
+    "score": 0,
+    "status": "not_started",
+    "reason": "Stripe account creation, credentials, sandbox events, live charges, and bank settlement remain intentionally absent."
+  },
+  "nonPaymentGates": [
+    {
+      "id": "commercial_offer",
+      "score": 8,
+      "status": "passed_current_scope",
+      "evidence": "Two no-sale offers now distinguish $1.99 monthly catalog access from $9.99 permanent fixed-collection ownership, preserve the free game, and list cancellation and exclusions plainly.",
+      "nextProof": "Recheck comprehension with external players before any price is called validated."
+    },
+    {
+      "id": "identity",
+      "score": 4,
+      "status": "local_core_only",
+      "evidence": "Passkey primitives and adversarial tests exist locally; account routes, browser UI, durable storage, and real-device proof do not.",
+      "nextProof": "Deploy a no-payment durable Captain Passport beta and pass the supported device matrix."
+    },
+    {
+      "id": "recovery",
+      "score": 4,
+      "status": "local_core_only",
+      "evidence": "Hashed single-use recovery primitives and tests exist; no real-device recovery or observed human comprehension evidence exists.",
+      "nextProof": "Complete concurrent redemption, lost-device, replacement-passkey, and human recovery drills."
+    },
+    {
+      "id": "sessions",
+      "score": 4,
+      "status": "local_core_only",
+      "evidence": "Hashed session and revocation primitives exist; no player-facing session list or authenticated live socket binding exists.",
+      "nextProof": "Prove single-session and revoke-all behavior against deployed HTTP and WebSocket sessions."
+    },
+    {
+      "id": "progression",
+      "score": 3,
+      "status": "preview_only",
+      "evidence": "The live arena owns simulation, but Captain XP remains a browser-local preview and is not bound to durable accounts.",
+      "nextProof": "Award each eligible authoritative life exactly once into the durable Captain Log."
+    },
+    {
+      "id": "entitlements",
+      "score": 2,
+      "status": "contract_only",
+      "evidence": "Provider-neutral event requirements are documented; no durable grant, renewal, expiration, refund, dispute, or restoration ledger is integrated.",
+      "nextProof": "Implement immutable access and ownership projections before connecting any payment provider."
+    },
+    {
+      "id": "fairness",
+      "score": 8,
+      "status": "passed_current_scope",
+      "evidence": "Catalog tests and public copy prohibit paid XP, score, size, speed, boost, collision power, multipliers, zoom, radar, lives, rank, skips, and randomized odds.",
+      "nextProof": "Repeat protocol and collision audits on the exact payment candidate revision."
+    },
+    {
+      "id": "privacy_age_legal",
+      "score": 3,
+      "status": "review_required",
+      "evidence": "The current no-account preview has truthful privacy copy; account retention, deletion, age handling, subscription terms, tax, refunds, and owner/legal approval are absent.",
+      "nextProof": "Complete the data inventory and obtain owner/legal review for account and child-directed commerce behavior."
+    },
+    {
+      "id": "accessibility",
+      "score": 5,
+      "status": "partial_surface_proof",
+      "evidence": "The visual preview has keyboard semantics, reduced motion, responsive layout, and automated coverage; missing Passport, recovery, sessions, account log, and purchase flows cannot be audited yet.",
+      "nextProof": "Pass the complete keyboard, screen-reader, zoom/reflow, contrast, and error-recovery matrix."
+    },
+    {
+      "id": "reliability",
+      "score": 4,
+      "status": "arena_only",
+      "evidence": "Arena tests exist, but no durable account API, database failure injection, or entitlement reconciliation service exists.",
+      "nextProof": "Meet predeclared account latency and error targets under burst, restart, and dependency failure."
+    },
+    {
+      "id": "operations",
+      "score": 2,
+      "status": "not_executed",
+      "evidence": "Requirements exist, but backup/restore, key rotation, migration rollback, support lookup, incident disable, and reconciliation drills have not been executed.",
+      "nextProof": "A human other than the implementer must run and record every drill."
+    },
+    {
+      "id": "value",
+      "score": 3,
+      "status": "research_hypothesis",
+      "evidence": "The value is visible and interest can be measured with consent, but there is no predeclared external-player sample or willingness-to-pay result.",
+      "nextProof": "Observe external players and pass declared comprehension, desire, repeat-use, and price thresholds."
+    },
+    {
+      "id": "independent_audit",
+      "score": 0,
+      "status": "not_started",
+      "evidence": "No separate reviewer has reproduced the account, fairness, accessibility, recovery, operations, or financial-ledger evidence on one release revision.",
+      "nextProof": "Commission and record an independent reproduction after all underlying surfaces exist."
+    }
+  ]
+}
