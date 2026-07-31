@@ -4,6 +4,7 @@ import {
   MAX_PACKED_BODY_SEGMENTS,
   packPresenceForWire,
   packSnapshotForWire,
+  packSnapshotTupleForWire,
   PROTOCOL_VERSION,
   type PresenceMessage,
   type PublicPlayerState,
@@ -65,6 +66,24 @@ describe("protocol-v5 packed body paths", () => {
       const source = original.players[0].body[index];
       expect(Math.hypot(segment.x - source.x, segment.y - source.y)).toBeLessThanOrEqual(0.18);
     });
+  });
+
+  it("round-trips compact player tuples and materially reduces nearby snapshot bytes", () => {
+    const original = fullSnapshot();
+    const objectEncoded = JSON.stringify(packSnapshotForWire(original));
+    const tupleEncoded = JSON.stringify(packSnapshotTupleForWire(original));
+    expect(tupleEncoded.length).toBeLessThan(objectEncoded.length * 0.8);
+    const decoded = decodeSnapshotFromWire(JSON.parse(tupleEncoded)) as SnapshotMessage;
+    expect(decoded.players).toHaveLength(original.players.length);
+    expect(decoded.players[0]).toMatchObject({
+      id: original.players[0].id,
+      name: original.players[0].name,
+      kind: original.players[0].kind,
+      position: original.players[0].position,
+      direction: original.players[0].direction,
+      mass: original.players[0].mass,
+    });
+    expect(decoded.players[0].body).toHaveLength(MAX_PACKED_BODY_SEGMENTS);
   });
 
   it("fails closed on malformed, oversized, or out-of-range packed paths", () => {

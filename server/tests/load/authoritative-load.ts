@@ -27,9 +27,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPORT_PATH = resolve(HERE, "../../proof/load/authoritative-load-latest.json");
 const MAX_WORLD_PAYLOAD_BYTES = 160 * 1024;
 const MAX_SNAPSHOT_PAYLOAD_BYTES = 24 * 1024;
-const MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND = 4;
+const BANDWIDTH_BASELINE_CLIENTS = 24;
+const MAX_TOTAL_STATE_WIRE_MIB_PER_SECOND_AT_BASELINE = 4;
 
 interface LoadConfiguration {
+  authorityMode: "in-process" | "separate-local-process";
+  localArenaWebSocketUrl?: string;
   clients: number;
   rooms: number;
   durationSeconds: number;
@@ -39,6 +42,7 @@ interface LoadConfiguration {
   snapshotHz: number;
   targetPopulationPerRoom: number;
   arenaRadius: number;
+  playerInterestRadius: number;
   reconnectClients: number;
   invalidBurstMessages: number;
   reconnectPauseMs: number;
@@ -91,7 +95,7 @@ interface TickSample {
 interface Report {
   verdict: "LOCAL_CAPACITY_GATE_PASS" | "LOCAL_CAPACITY_GATE_MISS";
   claim: "bounded-local-authoritative-network-proof-only";
-  configuration: Omit<LoadConfiguration, "reportPath">;
+  configuration: Omit<LoadConfiguration, "reportPath" | "localArenaWebSocketUrl">;
   measured: {
     runtimeMs: number;
     initialJoinMs: Percentiles;
@@ -122,6 +126,9 @@ interface Report {
       snapshotTargetHz: number;
       observedSnapshotsPerClientSecond: number;
       snapshotTargetRatio: number;
+      snapshotCadencePass: boolean;
+      targetSnapshotIntervalMs: number;
+      observedMedianSnapshotIntervalMs: number;
     };
     eventLoopDelayMs: {
       min: number;
@@ -163,7 +170,9 @@ interface Report {
         observedWorldP99Bytes: number;
         maximumSnapshotPayloadBytes: number;
         observedSnapshotP99Bytes: number;
-        maximumEstimatedSnapshotWireMiBPerSecond: number;
+        baselineClientCount: number;
+        baselineMaximumTotalStateWireMiBPerSecond: number;
+        maximumTotalStateWireMiBPerSecond: number;
         observedEstimatedSnapshotWireMiBPerSecond: number;
         observedEstimatedTotalStateWireMiBPerSecond: number;
       };
@@ -208,9 +217,31 @@ function integerEnvironment(name: string, fallback: number, minimum: number): nu
   return Math.floor(numericEnvironment(name, fallback, minimum));
 }
 
+function localArenaWebSocketUrl(): string | undefined {
+  const raw = process.env.WORMIFI_LOAD_LOCAL_ARENA_WS_URL;
+  if (!raw) return undefined;
+  const url = new URL(raw);
+  assert.ok(url.protocol === "ws:", "The separate local authority must use ws://.");
+  assert.ok(
+    url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1",
+    "The ordinary load harness may target only a separate localhost authority.",
+  );
+  return url.toString();
+}
+
+function httpUrlForLocalWebSocket(websocketUrl: string): string {
+  const url = new URL(websocketUrl);
+  url.protocol = "http:";
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/u, "");
+}
+
 function loadConfiguration(): LoadConfiguration {
   const clients = integerEnvironment("WORMIFI_LOAD_CLIENTS", 24, 2);
   const rooms = integerEnvironment("WORMIFI_LOAD_ROOMS", 4, 1);
+  const localArenaUrl = localArenaWebSocketUrl();
   const targetPopulationPerRoom = integerEnvironment(
     "WORMIFI_LOAD_TARGET_POPULATION",
     Math.max(32, Math.ceil(clients / rooms)),
@@ -219,6 +250,8 @@ function loadConfiguration(): LoadConfiguration {
   assert.ok(clients >= rooms, "The harness needs at least one synthetic client per room.");
 
   return {
+    authorityMode: localArenaUrl ? "separate-local-process" : "in-process",
+    localArenaWebSocketUrl: localArenaUrl,
     clients,
     rooms,
     durationSeconds: numericEnvironment("WORMIFI_LOAD_SECONDS", 10, 3),
@@ -232,6 +265,7 @@ function loadConfiguration(): LoadConfiguration {
       Math.round(1_450 * Math.sqrt(targetPopulationPerRoom / 32)),
       600,
     ),
+    playerInterestRadius: numericEnvironment("WORMIFI_LOAD_PLAYER_INTEREST_RADIUS", 1_000, 100),
     reconnectClients: Math.min(
       clients,
       integerEnvironment("WORMIFI_LOAD_RECONNECT_CLIENTS", 4, 1),
@@ -421,6 +455,7 @@ class SyntheticClient {
       name: options.name,
       reconnectToken: options.reconnectToken,
       presenceV1: true,
+      snapshotTupleV1: true,
     }));
     const welcome = await welcomePromise;
     const client = new SyntheticClient(
@@ -936,17 +971,20 @@ async function reconnectSubset(
 async function main(): Promise<void> {
   const configuration = loadConfiguration();
   const metrics = createMetrics();
-  const server = new AuthoritativeArenaServer({
-    host: "127.0.0.1",
-    port: 0,
-    maxRooms: configuration.rooms + 2,
-    targetPopulation: configuration.targetPopulationPerRoom,
-    arenaRadius: configuration.arenaRadius,
-    fixedStepHz: configuration.fixedStepHz,
-    snapshotHz: configuration.snapshotHz,
-    playerInterestRadius: 1_000,
-    reconnectGraceMs: Math.max(2_000, configuration.reconnectPauseMs * 5),
-  });
+  const server = configuration.localArenaWebSocketUrl
+    ? undefined
+    : new AuthoritativeArenaServer({
+        host: "127.0.0.1",
+        port: 0,
+        maxRooms: configuration.rooms + 2,
+        targetPopulation: configuration.targetPopulationPerRoom,
+        maxHumanPlayers: configuration.targetPopulationPerRoom,
+        arenaRadius: configuration.arenaRadius,
+        fixedStepHz: configuration.fixedStepHz,
+        snapshotHz: configuration.snapshotHz,
+        playerInterestRadius: configuration.playerInterestRadius,
+        reconnectGraceMs: Math.max(2_000, configuration.reconnectPauseMs * 5),
+      });
 
   const socketsToClose: SyntheticClient[] = [];
   let inputTimer: NodeJS.Timeout | undefined;
@@ -955,7 +993,12 @@ async function main(): Promise<void> {
   const eventLoop = monitorEventLoopDelay({ resolution: 10 });
 
   try {
-    const startedServer = await server.start();
+    const startedServer = server
+      ? await server.start()
+      : {
+          websocketUrl: configuration.localArenaWebSocketUrl as string,
+          httpUrl: httpUrlForLocalWebSocket(configuration.localArenaWebSocketUrl as string),
+        };
     const clients: SyntheticClient[] = [];
     for (let batchStart = 0; batchStart < configuration.clients; batchStart += configuration.joinBatchSize) {
       const batchEnd = Math.min(configuration.clients, batchStart + configuration.joinBatchSize);
@@ -1091,11 +1134,9 @@ async function main(): Promise<void> {
     );
     const snapshotCadence = summarize(metrics.snapshotInterArrivalMs);
     const expectedIntervalMs = 1_000 / configuration.snapshotHz;
-    assert.ok(
+    const snapshotCadencePass =
       snapshotCadence.p50 >= expectedIntervalMs * 0.45 &&
-        snapshotCadence.p50 <= expectedIntervalMs * 2.2,
-      `median snapshot cadence ${snapshotCadence.p50} ms is outside the broad local proof window`,
-    );
+      snapshotCadence.p50 <= expectedIntervalMs * 2.2;
 
     const tickRate = summarize(metrics.roomTickRatesHz);
     const snapshotsPerClientSecond =
@@ -1121,10 +1162,16 @@ async function main(): Promise<void> {
         1024 /
         1024,
     );
+    // The original 4 MiB/s ceiling was calibrated for the 24-client default.
+    // Preserve that per-client ceiling when explicitly proving larger rooms.
+    const maximumTotalStateWireMiBPerSecond = round(
+      MAX_TOTAL_STATE_WIRE_MIB_PER_SECOND_AT_BASELINE *
+        Math.max(1, configuration.clients / BANDWIDTH_BASELINE_CLIENTS),
+    );
     const groundLoopBandwidthPass =
       worldPayload.p99 <= MAX_WORLD_PAYLOAD_BYTES &&
       snapshotPayload.p99 <= MAX_SNAPSHOT_PAYLOAD_BYTES &&
-      estimatedTotalStateWireMiBPerSecond <= MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND;
+      estimatedTotalStateWireMiBPerSecond <= maximumTotalStateWireMiBPerSecond;
     assert.ok(metrics.collectorBeaconWorlds > 0, "load clients must observe authoritative Collector metadata");
     assert.ok(metrics.echoOriginDropsSeen > 0, "load snapshots must expose at least one producer-owned Echo");
     assert.equal(metrics.groundLoopMetadataViolations, 0, "ground-loop metadata must remain coherent");
@@ -1133,7 +1180,8 @@ async function main(): Promise<void> {
     const snapshotTargetRatio = snapshotsPerClientSecond / configuration.snapshotHz;
     const capacityGatePass =
       fixedStepTargetRatio >= minimumTargetRatio &&
-      snapshotTargetRatio >= minimumTargetRatio;
+      snapshotTargetRatio >= minimumTargetRatio &&
+      snapshotCadencePass;
     const releaseGatePass = capacityGatePass && groundLoopBandwidthPass;
     const machineCpus = cpus();
     const report: Report = {
@@ -1142,6 +1190,7 @@ async function main(): Promise<void> {
         : "LOCAL_CAPACITY_GATE_MISS",
       claim: "bounded-local-authoritative-network-proof-only",
       configuration: {
+        authorityMode: configuration.authorityMode,
         clients: configuration.clients,
         rooms: configuration.rooms,
         durationSeconds: configuration.durationSeconds,
@@ -1151,6 +1200,7 @@ async function main(): Promise<void> {
         snapshotHz: configuration.snapshotHz,
         targetPopulationPerRoom: configuration.targetPopulationPerRoom,
         arenaRadius: configuration.arenaRadius,
+        playerInterestRadius: configuration.playerInterestRadius,
         reconnectClients: configuration.reconnectClients,
         invalidBurstMessages: configuration.invalidBurstMessages,
         reconnectPauseMs: configuration.reconnectPauseMs,
@@ -1189,6 +1239,9 @@ async function main(): Promise<void> {
           snapshotTargetHz: configuration.snapshotHz,
           observedSnapshotsPerClientSecond: round(snapshotsPerClientSecond),
           snapshotTargetRatio: round(snapshotTargetRatio),
+          snapshotCadencePass,
+          targetSnapshotIntervalMs: round(expectedIntervalMs),
+          observedMedianSnapshotIntervalMs: snapshotCadence.p50,
         },
         eventLoopDelayMs: histogramMilliseconds(eventLoop),
         process: {
@@ -1220,8 +1273,10 @@ async function main(): Promise<void> {
             observedWorldP99Bytes: worldPayload.p99,
             maximumSnapshotPayloadBytes: MAX_SNAPSHOT_PAYLOAD_BYTES,
             observedSnapshotP99Bytes: snapshotPayload.p99,
-            maximumEstimatedSnapshotWireMiBPerSecond:
-              MAX_ESTIMATED_SNAPSHOT_WIRE_MIB_PER_SECOND,
+            baselineClientCount: BANDWIDTH_BASELINE_CLIENTS,
+            baselineMaximumTotalStateWireMiBPerSecond:
+              MAX_TOTAL_STATE_WIRE_MIB_PER_SECOND_AT_BASELINE,
+            maximumTotalStateWireMiBPerSecond,
             observedEstimatedSnapshotWireMiBPerSecond: estimatedSnapshotWireMiBPerSecond,
             observedEstimatedTotalStateWireMiBPerSecond: estimatedTotalStateWireMiBPerSecond,
           },
@@ -1246,15 +1301,17 @@ async function main(): Promise<void> {
         "Snapshot cadence, local ping RTT, event-loop delay, CPU, heap, RSS, and payload sizes were measured.",
         "Collector metadata plus concrete-producer or explicit mixed-cache Echo identity stayed coherent under room load.",
         groundLoopBandwidthPass
-          ? "World, snapshot, and estimated snapshot-wire payloads stayed inside the published regression budget."
-          : "PAYLOAD GATE MISS: world, snapshot, or estimated snapshot-wire traffic exceeded its published regression budget.",
+          ? "World, per-snapshot, and linearly scaled total-state payloads stayed inside the published regression budget."
+          : "PAYLOAD GATE MISS: world, per-snapshot, or linearly scaled total-state traffic exceeded its published regression budget.",
         capacityGatePass
-          ? "Observed simulation and snapshot delivery both reached at least 98% of their configured local targets."
-          : "CAPACITY GATE MISS: observed simulation or snapshot delivery fell below 98% of its configured local target.",
+          ? "Observed simulation, snapshot delivery, and median snapshot cadence met their configured local targets."
+          : "CAPACITY GATE MISS: simulation, snapshot delivery, or median snapshot cadence missed its configured local target.",
       ],
       caveats: [
         "This is a bounded localhost measurement, not a production capacity result or a parity claim.",
-        "Synthetic clients and the server share one process and machine; CPU, heap, RSS, and event-loop numbers include both sides of the harness.",
+        configuration.authorityMode === "in-process"
+          ? "Synthetic clients and the server share one process and machine; CPU, heap, RSS, and event-loop numbers include both sides of the harness."
+          : "The authority and synthetic clients use separate local processes on one machine; observed tick and delivery cadence cover the authority, while reported process CPU, heap, and event-loop numbers cover the load generator only.",
         "Ping RTT and snapshot inter-arrival are measured. Input-to-authoritative-ack latency is not measured because the current protocol does not acknowledge each input.",
         "Loopback traffic does not test WAN latency, packet loss, jitter, TLS termination, proxies, mobile radios, or geographic distance.",
         "The bounded invalid-message burst is a safety regression probe, not DDoS, WAF, bandwidth-exhaustion, or sustained abuse certification.",
@@ -1286,7 +1343,7 @@ async function main(): Promise<void> {
     if (memoryTimer) clearInterval(memoryTimer);
     eventLoop.disable();
     await Promise.allSettled(socketsToClose.map(async (client) => await client.close()));
-    await server.stop();
+    await server?.stop();
   }
 }
 

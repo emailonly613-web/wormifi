@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   PROTOCOL_VERSION,
+  packSnapshotTupleForWire,
   type PresenceMessage,
   type PublicPlayerState,
   type SnapshotMessage,
@@ -140,7 +141,7 @@ test("ordinary Play Live accepts the assigned public arena while friend links st
       };
       socket.send(JSON.stringify(welcome));
       socket.send(JSON.stringify(world));
-      socket.send(JSON.stringify(snapshot));
+      socket.send(JSON.stringify(packSnapshotTupleForWire(snapshot)));
     });
   });
 
@@ -155,6 +156,7 @@ test("ordinary Play Live accepts the assigned public arena while friend links st
     roomId: "public-1",
     matchmakingV1: true,
     presenceV1: true,
+    snapshotTupleV1: true,
   });
   await expect(page.getByTestId("room-identity")).toContainText("LIVE ROOM #PUBLIC-2");
   await expect(page.getByTestId("pirate-radar")).toHaveAttribute("data-room-id", assignedRoomId);

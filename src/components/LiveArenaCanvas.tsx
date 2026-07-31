@@ -1168,6 +1168,7 @@ export function LiveArenaCanvas({
           ...(includeRoomRules && !roomRulesResolved && paceId ? { paceId } : {}),
           themeId,
           presenceV1: true,
+          snapshotTupleV1: true,
           ...(!reconnectToken && publicMatchmaking ? { matchmakingV1: true } : {}),
         }));
       };

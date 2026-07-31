@@ -6,7 +6,10 @@ import {
   type PublicPlayerState,
   type SnapshotMessage,
 } from "../server/src/protocol";
-import { scopeSnapshotForPlayer } from "../server/src/room";
+import {
+  createSnapshotInterestIndex,
+  scopeSnapshotForPlayer,
+} from "../server/src/room";
 
 function player(id: string, x: number, bodyX = x - 20): PublicPlayerState {
   return {
@@ -108,5 +111,31 @@ describe("nearby animated snapshot scope", () => {
     expect(scoped.players.length).toBeGreaterThan(1);
     expect(scoped.players.length).toBeLessThan(40);
     expect(bytes).toBeLessThan(24 * 1_024);
+  });
+
+  it("the spatial index preserves exact head, body-crossing, and event scope", () => {
+    const original = snapshot([
+      player("human-1", 0),
+      player("near-head", 400),
+      player("crossing-body", 2_000, 500),
+      player("remote-killer", 2_400),
+      player("far-away", -2_500),
+    ]);
+    original.events = [{
+      type: "playerDied",
+      tick: original.tick,
+      playerId: "human-1",
+      killerId: "remote-killer",
+      cause: "collision",
+      collisionTime: 0.4,
+    }];
+    const baseline = scopeSnapshotForPlayer(original, "human-1", 600);
+    const indexed = scopeSnapshotForPlayer(
+      original,
+      "human-1",
+      600,
+      createSnapshotInterestIndex(original, 600),
+    );
+    expect(indexed).toEqual(baseline);
   });
 });

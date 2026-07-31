@@ -114,6 +114,15 @@ test("join parsing accepts only catalog theme IDs and rejects every photo or unk
   assert.equal(matchmakingCapable.ok, true);
   if (matchmakingCapable.ok) assert.equal(matchmakingCapable.value.matchmakingV1, true);
 
+  const tupleCapable = parseJoinMessage({
+    type: "join",
+    roomId: "public-1",
+    name: "Current Browser",
+    snapshotTupleV1: true,
+  });
+  assert.equal(tupleCapable.ok, true);
+  if (tupleCapable.ok) assert.equal(tupleCapable.value.snapshotTupleV1, true);
+
   const invalidPresenceCapability = parseJoinMessage({
     type: "join",
     roomId: "theme-proof",
@@ -133,6 +142,15 @@ test("join parsing accepts only catalog theme IDs and rejects every photo or unk
   if (!invalidMatchmakingCapability.ok) {
     assert.equal(invalidMatchmakingCapability.error.code, "INVALID_JOIN");
   }
+
+  const invalidTupleCapability = parseJoinMessage({
+    type: "join",
+    roomId: "public-1",
+    name: "Forged Browser",
+    snapshotTupleV1: false,
+  });
+  assert.equal(invalidTupleCapability.ok, false);
+  if (!invalidTupleCapability.ok) assert.equal(invalidTupleCapability.error.code, "INVALID_JOIN");
 
   for (const field of ["photo", "photos", "dataUrl", "renderPlan", "unknownField"]) {
     const rejected = parseJoinMessage({

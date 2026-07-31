@@ -35,7 +35,9 @@ import {
   MIXED_ECHO_ORIGIN_ID,
   PROTOCOL_VERSION,
   packPresenceForWire,
+  packPublicPlayerTupleForWire,
   packSnapshotForWire,
+  packSnapshotTupleForWire,
   type AuthoritativeEvent,
   type ErrorMessage,
   type InputMessage,
@@ -77,6 +79,7 @@ interface Session {
   name: string;
   themeId: CosmeticThemeId;
   presenceV1: boolean;
+  snapshotTupleV1: boolean;
   socket?: WebSocket;
   lastAcceptedSequence: number;
   latestInput?: PlayerInput;
@@ -140,6 +143,65 @@ function eventPlayerIds(event: AuthoritativeEvent): string[] {
     : [event.playerId];
 }
 
+export interface SnapshotInterestIndex {
+  cellSize: number;
+  playerIdsByCell: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+function interestCellKey(x: number, y: number): string {
+  return `${x}:${y}`;
+}
+
+/**
+ * Index every sampled head/body point once per snapshot. Querying the cells
+ * overlapped by a player's interest circle preserves the exact final distance
+ * check while avoiding an all-bodies scan for every connected captain.
+ */
+export function createSnapshotInterestIndex(
+  snapshot: SnapshotMessage,
+  cellSize: number,
+): SnapshotInterestIndex | undefined {
+  if (!Number.isFinite(cellSize) || cellSize <= 0) return undefined;
+  const playerIdsByCell = new Map<string, Set<string>>();
+  for (const player of snapshot.players) {
+    const occupiedCells = new Set<string>();
+    const addPoint = (point: Readonly<{ x: number; y: number }>) => {
+      occupiedCells.add(interestCellKey(
+        Math.floor(point.x / cellSize),
+        Math.floor(point.y / cellSize),
+      ));
+    };
+    addPoint(player.position);
+    for (const point of player.body) addPoint(point);
+    for (const key of occupiedCells) {
+      const ids = playerIdsByCell.get(key) ?? new Set<string>();
+      ids.add(player.id);
+      playerIdsByCell.set(key, ids);
+    }
+  }
+  return { cellSize, playerIdsByCell };
+}
+
+function interestCandidates(
+  index: SnapshotInterestIndex,
+  center: Readonly<{ x: number; y: number }>,
+  radius: number,
+): Set<string> {
+  const ids = new Set<string>();
+  const minimumX = Math.floor((center.x - radius) / index.cellSize);
+  const maximumX = Math.floor((center.x + radius) / index.cellSize);
+  const minimumY = Math.floor((center.y - radius) / index.cellSize);
+  const maximumY = Math.floor((center.y + radius) / index.cellSize);
+  for (let x = minimumX; x <= maximumX; x += 1) {
+    for (let y = minimumY; y <= maximumY; y += 1) {
+      const cell = index.playerIdsByCell.get(interestCellKey(x, y));
+      if (!cell) continue;
+      for (const id of cell) ids.add(id);
+    }
+  }
+  return ids;
+}
+
 /**
  * Preserve complete authority for the local collision neighborhood while the
  * low-frequency PresenceMessage owns full-room rank/radar/population truth.
@@ -148,6 +210,7 @@ export function scopeSnapshotForPlayer(
   snapshot: SnapshotMessage,
   playerId: string,
   interestRadius = DEFAULT_PLAYER_INTEREST_RADIUS,
+  interestIndex?: SnapshotInterestIndex,
 ): SnapshotMessage {
   if (interestRadius === Number.POSITIVE_INFINITY) return snapshot;
   const ownPlayer = snapshot.players.find((player) => player.id === playerId);
@@ -155,11 +218,15 @@ export function scopeSnapshotForPlayer(
     return { ...snapshot, players: ownPlayer ? [ownPlayer] : [] };
   }
   const radiusSquared = interestRadius * interestRadius;
+  const candidateIds = interestIndex
+    ? interestCandidates(interestIndex, ownPlayer.position, interestRadius)
+    : undefined;
   const includedIds = new Set(
     snapshot.players
       .filter((player) =>
         player.id === playerId ||
-        playerIntersectsInterestCircle(player, ownPlayer.position, radiusSquared)
+        (candidateIds?.has(player.id) ?? true) &&
+          playerIntersectsInterestCircle(player, ownPlayer.position, radiusSquared)
       )
       .map((player) => player.id),
   );
@@ -319,6 +386,7 @@ export class ArenaRoom {
       existing.name = message.name || existing.name;
       if (message.themeId) existing.themeId = message.themeId;
       if (message.presenceV1 === true) existing.presenceV1 = true;
+      if (message.snapshotTupleV1 === true) existing.snapshotTupleV1 = true;
       if (player) player.name = existing.name;
       this.sendWelcome(existing, true);
       this.sendWorld(existing);
@@ -359,6 +427,7 @@ export class ArenaRoom {
       name: message.name ?? `Guest ${this.humanNumber}`,
       themeId: message.themeId ?? DEFAULT_COSMETIC_THEME_ID,
       presenceV1: message.presenceV1 === true,
+      snapshotTupleV1: message.snapshotTupleV1 === true,
       socket,
       lastAcceptedSequence: -1,
     };
@@ -593,12 +662,27 @@ export class ArenaRoom {
 
   private broadcastSnapshot(): void {
     const snapshot = this.snapshot();
+    const interestIndex = createSnapshotInterestIndex(snapshot, this.playerInterestRadius);
+    const tuplePlayersById = [...this.sessionsByToken.values()].some(
+        (session) => session.snapshotTupleV1,
+      )
+      ? new Map(snapshot.players.map((player) => [player.id, packPublicPlayerTupleForWire(player)]))
+      : undefined;
     const carriesWorldDelta = snapshot.dropUpserts.length > 0 || snapshot.removedDropIds.length > 0;
     for (const session of this.sessionsByToken.values()) {
       const scopedSnapshot = session.presenceV1
-        ? scopeSnapshotForPlayer(snapshot, session.playerId, this.playerInterestRadius)
+        ? scopeSnapshotForPlayer(
+            snapshot,
+            session.playerId,
+            this.playerInterestRadius,
+            interestIndex,
+          )
         : snapshot;
-      const encoded = JSON.stringify(packSnapshotForWire(scopedSnapshot));
+      const encoded = JSON.stringify(
+        session.snapshotTupleV1
+          ? packSnapshotTupleForWire(scopedSnapshot, tuplePlayersById)
+          : packSnapshotForWire(scopedSnapshot),
+      );
       // A skipped dynamic player frame is self-healing because the next frame
       // is complete. A skipped collectible delta is not, so delta-bearing
       // frames always remain ordered on the socket even under backpressure.

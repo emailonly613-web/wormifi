@@ -39,6 +39,8 @@ export interface JoinMessage {
   presenceV1?: true;
   /** Opt-in public matchmaking. Shared and manually entered rooms never set this. */
   matchmakingV1?: true;
+  /** Opt-in compact nearby-player tuples. Cached v5 clients retain object snapshots. */
+  snapshotTupleV1?: true;
 }
 
 export interface InputMessage extends PlayerInput {
@@ -250,8 +252,27 @@ export interface PackedPublicPlayerState extends Omit<PublicPlayerState, "body">
   bodyQ4: string;
 }
 
+/** Compact wire-only nearby player; decoded clients still consume PublicPlayerState. */
+export type PackedPublicPlayerTuple = readonly [
+  id: string,
+  name: string,
+  kind: 0 | 1,
+  flags: number,
+  x: number,
+  y: number,
+  directionX: number,
+  directionY: number,
+  bodyQ4: string,
+  mass: number,
+  kills: number,
+  score: number,
+  shieldTicksRemaining: number,
+  themeId: CosmeticThemeId | null,
+  specialist: ActiveSpecialist | null,
+];
+
 export interface PackedSnapshotMessage extends Omit<SnapshotMessage, "players"> {
-  players: PackedPublicPlayerState[];
+  players: Array<PackedPublicPlayerState | PackedPublicPlayerTuple>;
 }
 
 /**
@@ -306,9 +327,7 @@ export type ServerMessage =
   | WelcomeMessage
   | WorldMessage
   | PresenceMessage
-  | PackedPresenceMessage
   | SnapshotMessage
-  | PackedSnapshotMessage
   | ErrorMessage
   | PongMessage;
 
@@ -324,6 +343,7 @@ const JOIN_KEYS = new Set([
   "themeId",
   "presenceV1",
   "matchmakingV1",
+  "snapshotTupleV1",
 ]);
 const INPUT_KEYS = new Set(["type", "sequence", "clientTick", "direction", "boost"]);
 
@@ -340,13 +360,51 @@ function isFiniteVec2(value: unknown): value is Vec2 {
 export function packSnapshotForWire(snapshot: SnapshotMessage): PackedSnapshotMessage {
   return {
     ...snapshot,
-    players: snapshot.players.map((player) => {
-      const { body, ...publicPlayer } = player;
-      return {
-        ...publicPlayer,
-        bodyQ4: packBodyQ4(player.position, body),
-      };
-    }),
+    players: snapshot.players.map(packPublicPlayerForWire),
+  };
+}
+
+export function packPublicPlayerForWire(player: PublicPlayerState): PackedPublicPlayerState {
+  const { body, ...publicPlayer } = player;
+  return {
+    ...publicPlayer,
+    bodyQ4: packBodyQ4(player.position, body),
+  };
+}
+
+export function packPublicPlayerTupleForWire(
+  player: PublicPlayerState,
+): PackedPublicPlayerTuple {
+  return [
+    player.id,
+    player.name,
+    player.kind === "human" ? 1 : 0,
+    (player.connected ? 1 : 0) |
+      (player.alive ? 2 : 0) |
+      (player.boosting ? 4 : 0),
+    player.position.x,
+    player.position.y,
+    player.direction.x,
+    player.direction.y,
+    packBodyQ4(player.position, player.body),
+    player.mass,
+    player.kills,
+    player.score,
+    player.shieldTicksRemaining,
+    player.themeId ?? null,
+    player.specialist ?? null,
+  ];
+}
+
+export function packSnapshotTupleForWire(
+  snapshot: SnapshotMessage,
+  packedPlayersById?: ReadonlyMap<string, PackedPublicPlayerTuple>,
+): PackedSnapshotMessage {
+  return {
+    ...snapshot,
+    players: snapshot.players.map((player) =>
+      packedPlayersById?.get(player.id) ?? packPublicPlayerTupleForWire(player)
+    ),
   };
 }
 
@@ -431,6 +489,61 @@ export function decodeSnapshotFromWire(value: unknown): unknown | null {
   }
   try {
     const players = value.players.map((candidate) => {
+      if (Array.isArray(candidate)) {
+        if (candidate.length !== 15) throw new Error("Packed snapshot player tuple length is invalid");
+        const [
+          id,
+          name,
+          kind,
+          flags,
+          x,
+          y,
+          directionX,
+          directionY,
+          bodyQ4,
+          mass,
+          kills,
+          score,
+          shieldTicksRemaining,
+          themeId,
+          specialist,
+        ] = candidate;
+        if (
+          typeof id !== "string" ||
+          typeof name !== "string" ||
+          (kind !== 0 && kind !== 1) ||
+          !Number.isSafeInteger(flags) || flags < 0 || flags > 7 ||
+          !Number.isFinite(x) || !Number.isFinite(y) ||
+          !Number.isFinite(directionX) || !Number.isFinite(directionY) ||
+          typeof bodyQ4 !== "string" ||
+          !Number.isFinite(mass) ||
+          !Number.isSafeInteger(kills) ||
+          !Number.isFinite(score) ||
+          !Number.isSafeInteger(shieldTicksRemaining) ||
+          (themeId !== null && !isCosmeticThemeId(themeId)) ||
+          (specialist !== null && !isObject(specialist))
+        ) {
+          throw new Error("Packed snapshot player tuple is invalid");
+        }
+        const position = { x: x as number, y: y as number };
+        return {
+          id,
+          name,
+          kind: kind === 1 ? "human" as const : "bot" as const,
+          connected: (flags & 1) !== 0,
+          alive: (flags & 2) !== 0,
+          position,
+          direction: { x: directionX as number, y: directionY as number },
+          body: unpackBodyQ4(position, bodyQ4),
+          mass: mass as number,
+          kills: kills as number,
+          score: score as number,
+          shieldTicksRemaining: shieldTicksRemaining as number,
+          boosting: (flags & 4) !== 0,
+          themeId: themeId ?? undefined,
+          specialist: (specialist as ActiveSpecialist | null) ?? undefined,
+        } satisfies PublicPlayerState;
+      }
       if (!isObject(candidate)) throw new Error("Packed player must be an object");
       if (Array.isArray(candidate.body)) return candidate;
       if (typeof candidate.bodyQ4 !== "string" || !isFiniteVec2(candidate.position)) {
@@ -578,7 +691,8 @@ export function parseJoinMessage(value: Record<string, unknown>):
       (typeof value.paceId !== "string" || !ROOM_ID_PATTERN.test(value.paceId))) ||
     (themeId !== undefined && !isCosmeticThemeId(themeId)) ||
     (value.presenceV1 !== undefined && value.presenceV1 !== true) ||
-    (value.matchmakingV1 !== undefined && value.matchmakingV1 !== true)
+    (value.matchmakingV1 !== undefined && value.matchmakingV1 !== true) ||
+    (value.snapshotTupleV1 !== undefined && value.snapshotTupleV1 !== true)
   ) {
     return {
       ok: false,
@@ -598,6 +712,7 @@ export function parseJoinMessage(value: Record<string, unknown>):
       themeId: themeId as CosmeticThemeId | undefined,
       presenceV1: value.presenceV1 as true | undefined,
       matchmakingV1: value.matchmakingV1 as true | undefined,
+      snapshotTupleV1: value.snapshotTupleV1 as true | undefined,
     },
   };
 }
