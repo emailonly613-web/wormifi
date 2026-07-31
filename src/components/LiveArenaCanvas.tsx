@@ -271,7 +271,7 @@ export interface LiveRadarIntel {
   dangerBearings: SpyglassDangerBearing[];
 }
 
-/** Applies the same visible-contact boundary to authoritative snapshots. */
+/** Full-board population dots are the competitive-room contract. */
 export function createLiveRadarIntel(
   snapshot: Pick<SnapshotMessage, "players" | "tick"> | null,
   playerId: string | undefined,
@@ -284,13 +284,7 @@ export function createLiveRadarIntel(
   const rivals = snapshot.players
     .filter((player) => player.id !== playerId && player.connected);
   const visiblePlayers = rivals
-    .filter((player) =>
-      player.alive &&
-      Math.hypot(
-        player.position.x - carrier.position.x,
-        player.position.y - carrier.position.y,
-      ) <= visibleRadius
-    )
+    .filter((player) => player.alive)
     .map((player) => ({
       id: player.id,
       kind: player.kind,
@@ -1912,6 +1906,15 @@ export function LiveArenaCanvas({
           otherPlayers={radarIntel.visiblePlayers}
           stations={radarStations}
           dangerBearings={radarIntel.dangerBearings}
+          competition={{
+            rank: ui.rank,
+            rankTotal: ui.rankTotal,
+            score: ui.score,
+            size: ui.mass,
+            humans: ui.humans,
+            ai: ui.ai,
+            testIdPrefix: "live-hud",
+          }}
         />
       )}
       <p className="sr-only" id="live-arena-keyboard-help">
@@ -1934,19 +1937,6 @@ export function LiveArenaCanvas({
       </div>
 
       <div className="game-hud live-game-hud">
-        <div className="hud-top">
-          <div className="hud-pill hud-rank" data-testid="live-hud-rank">
-            <small>RUN SCORE RANK</small><strong>#{ui.rank} / {ui.rankTotal}</strong>
-          </div>
-          <div className="hud-pill hud-size" data-testid="live-hud-score">
-            <small>RUN SCORE</small><strong>{ui.score.toLocaleString()}</strong>
-          </div>
-          <div className="hud-pill" data-testid="live-hud-length">
-            <small>SIZE · {ui.length} CREW</small>
-            <strong className="size-value-pop" key={`${ui.mass}:${ui.length}`}>{ui.mass}</strong>
-          </div>
-        </div>
-
         <aside className="leaderboard live-leaderboard" aria-label="Live score leaderboard">
           <h2>RUN SCORE · RESETS ON CRASH</h2>
           <p className="leaderboard-rule">SURVIVE +3/S · GROW · CUT RIVALS</p>

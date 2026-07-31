@@ -92,7 +92,7 @@ test("two browser sessions share a confirmed server-owned room", async ({ browse
   await expect(firstRadar).toHaveAttribute("data-spyglass-bearing-count", "0");
   await expect(firstRadar).toHaveAttribute(
     "data-fair-intel",
-    "arena-bounds,self-heading,coarse-players,collector,public-hazard,stations",
+    "arena-bounds,self-heading,full-population-map,collector,public-hazard,stations",
   );
   await expect(firstRadar.getByTestId("radar-player")).toBeVisible();
   await expect(firstRadar.getByTestId("radar-other-player")).toHaveCount(visibleRadarCounts.other);

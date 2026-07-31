@@ -28,6 +28,16 @@ export interface RadarStation {
   active?: boolean;
 }
 
+export interface RadarCompetitionSummary {
+  rank: number;
+  rankTotal: number;
+  score: number;
+  size: number;
+  humans: number;
+  ai: number;
+  testIdPrefix: "hud" | "live-hud";
+}
+
 interface PirateRadarProps {
   scopeLabel: string;
   arenaRadius: number;
@@ -37,6 +47,7 @@ interface PirateRadarProps {
   landmarks: readonly RadarLandmark[];
   otherPlayers?: readonly RadarPlayerMarker[];
   stations?: readonly RadarStation[];
+  competition?: RadarCompetitionSummary;
   /** Coarse, position-free off-screen intelligence from an active Spyglass. */
   dangerBearings?: readonly SpyglassDangerBearing[];
   roomId?: string;
@@ -90,6 +101,7 @@ export function PirateRadar({
   landmarks,
   otherPlayers = [],
   stations = [],
+  competition,
   dangerBearings = [],
   roomId,
   downLabel = "RESPAWNING",
@@ -132,7 +144,10 @@ export function PirateRadar({
         `${bearing.sector} ${bearing.distanceBand}, ${bearing.threatCount} ${bearing.threatCount === 1 ? "threat" : "threats"}`
       ).join("; ")}.`
     : "";
-  const accessibleSummary = `${scopeLabel} radar. Shows your position and heading, the arena boundary, ${safeOtherPlayers.length} ordinarily visible crew markers, ${hazardCount} active hazards, and ${safeStations.length} stations.${spyglassSummary}`;
+  const populationSummary = competition
+    ? ` Rank ${competition.rank} of ${competition.rankTotal}; score ${competition.score}; size ${competition.size}; ${competition.humans} ${competition.humans === 1 ? "human" : "humans"} and ${competition.ai} AI.`
+    : "";
+  const accessibleSummary = `${scopeLabel} radar. Shows your position and heading, the arena boundary, ${safeOtherPlayers.length} active competitor markers across the full board, ${hazardCount} active hazards, and ${safeStations.length} stations.${populationSummary}${spyglassSummary}`;
 
   return (
     <aside
@@ -149,13 +164,42 @@ export function PirateRadar({
       data-station-count={safeStations.length}
       data-spyglass-bearing-count={safeDangerBearings.length}
       data-spyglass-sectors={safeDangerBearings.map((bearing) => bearing.sector).join(",")}
-      data-fair-intel="arena-bounds,self-heading,coarse-players,collector,public-hazard,stations"
+      data-fair-intel="arena-bounds,self-heading,full-population-map,collector,public-hazard,stations"
       aria-label={accessibleSummary}
     >
       <header>
         <span>PIRATE CHART</span>
         <strong>{scopeLabel}</strong>
       </header>
+      {competition && (
+        <section className="radar-competition" data-testid="radar-competition" aria-label="Rank, score, size, and arena population">
+          <span
+            className="radar-competition__rank"
+            data-testid={`${competition.testIdPrefix}-rank`}
+            aria-label={`Rank ${competition.rank} of ${competition.rankTotal}`}
+          >
+            <small>PLACE</small>
+            <strong>#{competition.rank}<i>/{competition.rankTotal}</i></strong>
+          </span>
+          <span
+            data-testid={`${competition.testIdPrefix}-score`}
+            aria-label={`Score ${competition.score}`}
+          >
+            <small>SCORE</small>
+            <strong>{competition.score.toLocaleString()}</strong>
+          </span>
+          <span
+            data-testid={`${competition.testIdPrefix}-length`}
+            aria-label={`Size ${competition.size}`}
+          >
+            <small>SIZE</small>
+            <strong>{competition.size.toLocaleString()}</strong>
+          </span>
+          <b className="radar-competition__population" data-testid="radar-population">
+            {competition.humans} HUMAN{competition.humans === 1 ? "" : "S"} · {competition.ai} AI
+          </b>
+        </section>
+      )}
       <svg viewBox="0 0 100 100" role="img" aria-label="Circular arena map">
         <defs>
           <radialGradient id="radar-parchment" cx="42%" cy="36%" r="68%">

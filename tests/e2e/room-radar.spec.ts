@@ -38,7 +38,7 @@ test("keeps honest local identity and the pirate chart through play, results, an
   await expect(radar).toHaveAttribute("data-station-count", "3");
   await expect(radar).toHaveAttribute(
     "aria-label",
-    /shows your position and heading, the arena boundary, \d+ ordinarily visible crew markers/i,
+    /shows your position and heading, the arena boundary, \d+ active competitor markers across the full board/i,
   );
   await expect(radar.getByTestId("radar-other-player").first()).toBeVisible();
   await expectInsideViewport(roomIdentity, page);
@@ -63,9 +63,8 @@ test("keeps honest local identity and the pirate chart through play, results, an
     rivals: Number(element.getAttribute("data-rival-marker-count")),
     ai: Number(element.getAttribute("data-ai-player-count")),
   }));
-  // The final six seconds can honestly have no rival inside a landscape-phone
-  // camera. Never manufacture a marker: any visible replay crew must remain
-  // consistently labeled as AI and represented by one radar marker.
+  // Replay population dots remain honest: every represented rival is still an
+  // actual AI state from the replay rather than a manufactured crowd marker.
   expect(replayCrewCounts.ai).toBe(replayCrewCounts.other);
   expect(replayCrewCounts.rivals).toBe(replayCrewCounts.other);
   await expectInsideViewport(radar, page);
@@ -114,8 +113,7 @@ test("maps authoritative crews and Heat Ring geometry on desktop and mobile deat
         serverTimeMs: 50_000 + tick,
         players: [
           player(playerId, "Radar Self", "human", { x: 120, y: -60 }),
-          // Keep both rivals inside ordinary camera visibility. The radar must
-          // map what the captain can already see without leaking global positions.
+          // Both real rivals must remain on the full-board population map.
           player("human-radar-friend", "Radar Friend", "human", { x: 260, y: -40 }),
           player("bot-radar-rival", "Radar Rival", "bot", { x: 20, y: 100 }),
         ],

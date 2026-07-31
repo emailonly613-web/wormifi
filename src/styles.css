@@ -5198,3 +5198,95 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   .settings-room-group { grid-column: auto; }
   .settings-done { min-height: 31px; }
 }
+
+/* One competition cluster: place, score, size, population, and full-board map. */
+.pirate-radar {
+  top: max(54px, calc(env(safe-area-inset-top) + 46px));
+  width: clamp(154px, 13vw, 184px);
+}
+
+.radar-competition {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1.18fr 1fr 1fr;
+  gap: 3px;
+  padding: 3px 2px 2px;
+  color: #2c180a;
+  text-align: center;
+}
+
+.radar-competition > span {
+  display: grid;
+  min-width: 0;
+  padding: 3px 2px;
+  border: 1px solid rgba(70, 35, 13, .24);
+  border-radius: 7px;
+  background: rgba(255, 234, 171, .3);
+}
+
+.radar-competition small {
+  color: #70411f;
+  font-size: 5px;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+
+.radar-competition strong {
+  overflow: hidden;
+  font-family: "Baloo 2", sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.radar-competition__rank strong {
+  color: #6b3515;
+  font-size: 14px;
+}
+
+.radar-competition strong i {
+  color: #6e4b2b;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.radar-competition__population {
+  grid-column: 1 / -1;
+  padding: 2px 4px;
+  border-radius: 999px;
+  color: #153f37;
+  background: rgba(119, 255, 219, .34);
+  font-size: 6px;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+
+.hud-top--clock-only {
+  top: max(54px, calc(env(safe-area-inset-top) + 46px));
+}
+
+@media (max-width: 460px), (pointer: coarse) and (orientation: landscape) and (max-height: 460px) {
+  .pirate-radar {
+    top: calc(max(6px, env(safe-area-inset-top)) + 50px);
+    right: max(6px, env(safe-area-inset-right));
+    width: 108px;
+    padding: 3px;
+  }
+
+  .radar-competition { gap: 2px; padding: 1px; }
+  .radar-competition > span { padding: 2px 1px; border-radius: 5px; }
+  .radar-competition small { font-size: 4px; }
+  .radar-competition strong { font-size: 8px; }
+  .radar-competition__rank strong { font-size: 10px; }
+  .radar-competition strong i { font-size: 6px; }
+  .radar-competition__population { padding: 1px 2px; font-size: 4.5px; }
+  .pirate-radar svg { margin-top: 0; }
+  .hud-top--clock-only {
+    top: calc(max(6px, env(safe-area-inset-top)) + 50px);
+    right: auto;
+    left: max(6px, env(safe-area-inset-left));
+    display: block;
+  }
+}

@@ -59,7 +59,7 @@ describe("fair pirate radar projection", () => {
     expect(projectRadarRadius(Number.NaN, 1_200)).toBe(0);
   });
 
-  it("renders coarse crews, a radius-accurate hazard, and the empty-ready station hook", () => {
+  it("renders the full competition cluster, a radius-accurate hazard, and stations", () => {
     const markup = renderToStaticMarkup(createElement(PirateRadar, {
       scopeLabel: "ROOM #PROOF",
       roomId: "proof",
@@ -79,6 +79,15 @@ describe("fair pirate radar projection", () => {
         radius: 340,
       }],
       stations: [{ id: "station-a", position: { x: -700, y: 0 }, active: true }],
+      competition: {
+        rank: 73,
+        rankTotal: 200,
+        score: 4_250,
+        size: 318,
+        humans: 1,
+        ai: 199,
+        testIdPrefix: "live-hud",
+      },
     }));
 
     expect(markup).toContain('data-other-player-count="2"');
@@ -89,5 +98,11 @@ describe("fair pirate radar projection", () => {
     expect(markup).toContain('data-station-count="1"');
     expect(markup.match(/data-testid="radar-other-player"/gu)).toHaveLength(2);
     expect(markup).toContain('data-testid="radar-station"');
+    expect(markup).toContain('data-testid="live-hud-rank"');
+    expect(markup).toContain('aria-label="Rank 73 of 200"');
+    expect(markup).toContain('data-testid="live-hud-score"');
+    expect(markup).toContain('data-testid="live-hud-length"');
+    expect(markup).toContain('data-testid="radar-population"');
+    expect(markup).toContain("1 HUMAN · 199 AI");
   });
 });

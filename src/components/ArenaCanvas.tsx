@@ -272,7 +272,7 @@ export interface LocalRadarIntel {
   dangerBearings: SpyglassDangerBearing[];
 }
 
-/** Keeps ordinary radar knowledge inside the current camera envelope. */
+/** Full-board population dots are the competitive-room contract. */
 export function createLocalRadarIntel(
   state: Pick<GameState, "players" | "tick">,
   playerId: string,
@@ -285,13 +285,7 @@ export function createLocalRadarIntel(
   const rivals = Object.values(state.players)
     .filter((player) => player.id !== playerId);
   const visiblePlayers = rivals
-    .filter((player) =>
-      player.alive &&
-      Math.hypot(
-        player.position.x - carrier.position.x,
-        player.position.y - carrier.position.y,
-      ) <= visibleRadius
-    )
+    .filter((player) => player.alive)
     .map((player) => ({
       id: player.id,
       kind: player.kind,
@@ -1489,6 +1483,15 @@ export function ArenaCanvas({
           stations={radarStations}
           dangerBearings={radarIntel.dangerBearings}
           downLabel={localReplay ? "REPLAY · LAST POSITION" : result ? "RUN ENDED" : "CHAIN RELEASED"}
+          competition={{
+            rank: hud.rank,
+            rankTotal: Object.values(radarRuntime.state.players).filter((player) => player.alive).length,
+            score: hud.score,
+            size: hud.mass,
+            humans: Object.values(radarRuntime.state.players).filter((player) => player.kind === "human").length,
+            ai: Object.values(radarRuntime.state.players).filter((player) => player.kind === "bot").length,
+            testIdPrefix: "hud",
+          }}
         />
       )}
       {running && !localReplay && (
@@ -1499,30 +1502,8 @@ export function ArenaCanvas({
             Press Tab to reach the Exit and Sprint controls.
           </p>
           <div className="game-hud">
-            <div className="hud-top">
-              <div
-                className="hud-pill hud-rank"
-                data-testid="hud-rank"
-                aria-label={`Size rank ${hud.rank}`}
-              >
-                <small>SIZE RANK</small><strong>#{hud.rank}</strong>
-              </div>
-              <div
-                className="hud-pill hud-size"
-                data-testid="hud-score"
-                aria-label={`Score ${hud.score}`}
-              >
-                <small>SCORE</small><strong>{hud.score.toLocaleString()}</strong>
-              </div>
-              <div
-                className="hud-pill"
-                data-testid="hud-length"
-                aria-label={`Size ${hud.mass}`}
-              >
-                <small>SIZE · {hud.length} CREW</small>
-                <strong className="size-value-pop" key={`${hud.mass}:${hud.length}`}>{hud.mass}</strong>
-              </div>
-              {mode === "rush" && (
+            {mode === "rush" && (
+              <div className="hud-top hud-top--clock-only">
                 <div
                   className={`rush-clock ${hud.remaining <= 10 ? "urgent" : ""}`}
                   role="timer"
@@ -1530,8 +1511,8 @@ export function ArenaCanvas({
                 >
                   {formatClock(hud.remaining)}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <aside className="leaderboard" aria-label="AI size leaderboard">
               <h2>SIZE RANK · AI</h2>

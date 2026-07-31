@@ -68,7 +68,7 @@ function liveSnapshot(carrier: PublicPlayerState): SnapshotMessage {
 }
 
 describe("Emerald Spyglass radar information boundary", () => {
-  it("keeps distant local rivals off baseline radar and reveals only a coarse active bearing", () => {
+  it("keeps every local competitor on the population map while adding coarse danger bearings", () => {
     const state = createGameState("local-spyglass-radar", {
       arenaRadius: 1_000,
       spawnShieldSeconds: 0,
@@ -95,41 +95,53 @@ describe("Emerald Spyglass radar information boundary", () => {
     state.tick = 10;
 
     const baseline = createLocalRadarIntel(state, carrier.id, 100);
-    expect(baseline.visiblePlayers.map((player) => player.id)).toEqual(["ordinary-visible"]);
+    expect(baseline.visiblePlayers.map((player) => player.id)).toEqual([
+      "ordinary-visible",
+      "distant-secret-contact",
+    ]);
     expect(baseline.dangerBearings).toEqual([]);
-    expect(JSON.stringify(baseline)).not.toContain("distant-secret-contact");
+    expect(JSON.stringify(baseline)).toContain("distant-secret-contact");
 
     carrier.specialist = activeSpyglass();
     const active = createLocalRadarIntel(state, carrier.id, 100);
-    expect(active.visiblePlayers.map((player) => player.id)).toEqual(["ordinary-visible"]);
+    expect(active.visiblePlayers.map((player) => player.id)).toEqual([
+      "ordinary-visible",
+      "distant-secret-contact",
+    ]);
     expect(active.dangerBearings).toEqual([
       { sector: "E", distanceBand: "far", threatCount: 1 },
     ]);
-    expect(JSON.stringify(active)).not.toContain("distant-secret-contact");
+    expect(JSON.stringify(active)).toContain("distant-secret-contact");
     expect(active.dangerBearings[0]).not.toHaveProperty("position");
     expect(active.dangerBearings[0]).not.toHaveProperty("id");
   });
 
-  it("applies the same hidden-contact boundary to authoritative live snapshots", () => {
+  it("applies the same full-population map to authoritative live snapshots", () => {
     const baseline = createLiveRadarIntel(
       liveSnapshot(publicPlayer("captain", 0)),
       "captain",
       100,
     );
-    expect(baseline.visiblePlayers.map((player) => player.id)).toEqual(["ordinary-visible"]);
+    expect(baseline.visiblePlayers.map((player) => player.id)).toEqual([
+      "ordinary-visible",
+      "distant-secret-contact",
+    ]);
     expect(baseline.dangerBearings).toEqual([]);
-    expect(JSON.stringify(baseline)).not.toContain("distant-secret-contact");
+    expect(JSON.stringify(baseline)).toContain("distant-secret-contact");
 
     const active = createLiveRadarIntel(
       liveSnapshot(publicPlayer("captain", 0, activeSpyglass())),
       "captain",
       100,
     );
-    expect(active.visiblePlayers.map((player) => player.id)).toEqual(["ordinary-visible"]);
+    expect(active.visiblePlayers.map((player) => player.id)).toEqual([
+      "ordinary-visible",
+      "distant-secret-contact",
+    ]);
     expect(active.dangerBearings).toEqual([
       { sector: "E", distanceBand: "far", threatCount: 1 },
     ]);
-    expect(JSON.stringify(active)).not.toContain("distant-secret-contact");
+    expect(JSON.stringify(active)).toContain("distant-secret-contact");
     expect(active.dangerBearings[0]).not.toHaveProperty("position");
     expect(active.dangerBearings[0]).not.toHaveProperty("id");
   });

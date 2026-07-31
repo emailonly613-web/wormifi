@@ -340,14 +340,14 @@ test.describe("first Wormifi session", () => {
     await expect(radar).toHaveAttribute("data-station-count", "3");
     await expect(radar).toHaveAttribute(
       "data-fair-intel",
-      "arena-bounds,self-heading,coarse-players,collector,public-hazard,stations",
+      "arena-bounds,self-heading,full-population-map,collector,public-hazard,stations",
     );
     await expect(radar.getByTestId("radar-other-player").first()).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
       const radarBox = await radar.boundingBox();
       expect(radarBox).not.toBeNull();
-      expect(radarBox!.width).toBeLessThanOrEqual(92);
-      expect(radarBox!.height).toBeLessThanOrEqual(112);
+      expect(radarBox!.width).toBeLessThanOrEqual(112);
+      expect(radarBox!.height).toBeLessThanOrEqual(170);
     }
   });
 
