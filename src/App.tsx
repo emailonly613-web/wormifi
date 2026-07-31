@@ -143,6 +143,38 @@ async function requestLandscapeOrientation(): Promise<void> {
   }
 }
 
+const MOBILE_BROWSER_GAME_CLASS = "mobile-browser-game";
+
+function requestMobileBrowserChromeCollapse(): void {
+  const touchCapable = navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.("(pointer: coarse)").matches === true;
+  const installed = window.matchMedia?.("(display-mode: fullscreen)").matches === true ||
+    window.matchMedia?.("(display-mode: standalone)").matches === true;
+  if (!touchCapable || installed) return;
+
+  const root = document.documentElement;
+  root.classList.add(MOBILE_BROWSER_GAME_CLASS);
+  document.body.classList.add(MOBILE_BROWSER_GAME_CLASS);
+  root.dataset.mobileBrowserCollapse = "true";
+
+  const collapse = () => {
+    if (!root.classList.contains(MOBILE_BROWSER_GAME_CLASS)) return;
+    // A small real page scroll lets Chrome/Safari retract collapsible browser
+    // chrome while the fixed arena remains visually stable.
+    window.scrollTo(0, 96);
+  };
+  window.requestAnimationFrame(collapse);
+  window.setTimeout(collapse, 180);
+  window.setTimeout(collapse, 650);
+}
+
+function releaseMobileBrowserChromeCollapse(): void {
+  document.documentElement.classList.remove(MOBILE_BROWSER_GAME_CLASS);
+  document.body.classList.remove(MOBILE_BROWSER_GAME_CLASS);
+  delete document.documentElement.dataset.mobileBrowserCollapse;
+  window.scrollTo(0, 0);
+}
+
 function fullscreenElement(): Element | null {
   return document.fullscreenElement ??
     (document as WebkitFullscreenDocument).webkitFullscreenElement ??
@@ -267,6 +299,8 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => releaseMobileBrowserChromeCollapse, []);
+
   useEffect(() => {
     if (!immersiveNoticeOpen) return;
     const timeout = window.setTimeout(() => setImmersiveNoticeOpen(false), 6_000);
@@ -360,6 +394,7 @@ export function App() {
       void requestLandscapeOrientation();
       return;
     }
+    requestMobileBrowserChromeCollapse();
     const root = document.documentElement as WebkitFullscreenElement;
     if (
       gameOwnsFullscreenRef.current &&
@@ -404,6 +439,7 @@ export function App() {
   }, []);
 
   const releaseGameFullscreen = useCallback(() => {
+    releaseMobileBrowserChromeCollapse();
     if (!gameOwnsFullscreenRef.current) return;
     gameOwnsFullscreenRef.current = false;
     const fullscreenDocument = document as WebkitFullscreenDocument;

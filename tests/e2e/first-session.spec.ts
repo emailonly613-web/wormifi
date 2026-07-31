@@ -134,6 +134,39 @@ test.describe("first Wormifi session", () => {
     await expect(page.getByTestId("player-chain")).toBeVisible();
   });
 
+  test("independently collapses regular mobile-browser chrome without moving the arena", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "maxTouchPoints", {
+        configurable: true,
+        value: 5,
+      });
+      Object.defineProperty(document.documentElement, "requestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(document.documentElement, "webkitRequestFullscreen", {
+        configurable: true,
+        value: undefined,
+      });
+      window.scrollTo = ((first?: number | ScrollToOptions, second?: number) => {
+        const y = typeof first === "object" ? first.top ?? 0 : second ?? 0;
+        document.documentElement.dataset.lastRequestedScrollY = String(y);
+      }) as typeof window.scrollTo;
+    });
+
+    await page.getByTestId("solo-run-button").click();
+    await expect(page.locator("html")).toHaveClass(/mobile-browser-game/);
+    await expect(page.locator("html")).toHaveAttribute("data-mobile-browser-collapse", "true");
+    await expect(page.locator("html")).toHaveAttribute("data-last-requested-scroll-y", "96");
+    await expect(page.getByTestId("player-chain")).toBeVisible();
+
+    await page.getByTestId("exit-button").click();
+    await expect(page.locator("html")).not.toHaveClass(/mobile-browser-game/);
+    await expect(page.locator("html")).not.toHaveAttribute("data-mobile-browser-collapse", "true");
+    await expect(page.locator("html")).toHaveAttribute("data-last-requested-scroll-y", "0");
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });

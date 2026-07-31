@@ -82,6 +82,31 @@ html:fullscreen .app-shell {
   min-height: 100dvh;
 }
 
+html.mobile-browser-game,
+html.mobile-browser-game body {
+  height: auto;
+  min-height: calc(100dvh + 96px);
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: none;
+  background: #061022;
+}
+
+html.mobile-browser-game #root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.mobile-browser-game .app-shell[data-playing="true"] {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+}
+
 .landscape-gate {
   position: fixed;
   z-index: 1000;
