@@ -68,6 +68,12 @@ export interface ChargingStationState {
   graceTicksRemaining: number;
   cooldownTicksRemaining: number;
   massAwarded: number;
+  /**
+   * The occupant's mass when this charge began. A completed charge adds exactly
+   * this much, so finishing doubles the captain. Captured once per charge so a
+   * worm that grows mid-wrap cannot compound its own payout.
+   */
+  lapBaseMass?: number;
   /** Legacy harbor-lap snapshot fields retained for replay compatibility. */
   lapStartAngleRadians?: number;
   lapLastAngleRadians?: number;
@@ -118,6 +124,12 @@ export interface PlayerStats {
   collectedMass: number;
   peakMass: number;
   survivalTicks: number;
+  /**
+   * Completed charging-station doublings this life. Each one doubles the
+   * captain, so the run is capped to keep a single worm from swallowing the
+   * arena; see CHARGING_DOUBLING_LIMIT.
+   */
+  chargingDoublings?: number;
 }
 
 export interface PlayerState {

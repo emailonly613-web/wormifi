@@ -59,8 +59,8 @@ describe("charging station client presentation", () => {
       progressRatio: 0,
       active: false,
     });
-    expect(readyView.detail).toContain(`WRAP ${station.minimumWrappedSegments}+ CREW`);
-    expect(readyView.detail).toContain(`+${station.massReward} SIZE`);
+    expect(readyView.detail).toContain(`WRAP AROUND IT ${station.minimumWrappedSegments}+ CREW`);
+    expect(readyView.detail).toContain("GET TWICE AS BIG");
 
     const charging: ChargingStationState = {
       ...ready,
@@ -172,8 +172,10 @@ describe("charging station client presentation", () => {
       heading: "Kraken Atoll · PAD READY",
       icon: "⚡",
     });
-    expect(presentation.detail).toBe("STAY INSIDE 7.0S · GROWTH ×1 → ×2 → ×3 · UP TO +42 SIZE");
-    expect(presentation.visualValue).toBe("+42");
+    // The pad pays the captain's own mass now, so the label promises a doubling
+    // rather than a flat number that means nothing at size 40 or size 4000.
+    expect(presentation.detail).toBe("STAY INSIDE 7.0S · FINISH IT AND YOU GET TWICE AS BIG");
+    expect(presentation.visualValue).toBe("×2 SIZE");
 
     const looping: ChargingStationState = {
       ...ready,

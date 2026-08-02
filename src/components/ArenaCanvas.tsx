@@ -2480,17 +2480,8 @@ function drawLivingChain(
     });
   }
 
-  // Was tied to the procedural renderer, so seeing your own boost depended on a
-  // rendering accident. Show it for the player's own worm only.
-  if (player.id === PLAYER_ID) {
-    drawTurboReserveGauge(context, {
-      points,
-      bodyRadius: followerRadius,
-      reserveRatio: getPlayerTurboReserveRatio(player, state.config),
-      now,
-      motion: materialMotion,
-    });
-  }
+  // No on-body reserve gauge - see the note in LiveArenaCanvas. The HUD boost
+  // dial carries this without painting a bar through the skin.
 
   if (activeRelic && points[1]) {
     // Relic paint stays entirely inside an existing solid segment. It changes

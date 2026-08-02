@@ -2950,18 +2950,10 @@ function drawNetworkChain(
     });
   }
 
-  // The reserve gauge used to be tied to the procedural renderer, so whether you
-  // could see your own boost depended on whether your theme happened to map to a
-  // parent skin. Show it for the player's own worm and no one else's.
-  if (isLocal) {
-    drawTurboReserveGauge(context, {
-      points,
-      bodyRadius,
-      reserveRatio: getPlayerTurboReserveRatio(player, DEFAULT_GAME_CONFIG),
-      now,
-      motion: materialMotion,
-    });
-  }
+  // No on-body reserve gauge. It was originally tied to the procedural
+  // renderer, and once every worm draws a parent skin it painted a hard bar
+  // straight through the body - it read as a rendering fault, not a meter. The
+  // boost dial in the HUD already carries this, without defacing the skin.
 
   if (activeRelic && points[1]) {
     // Relic paint stays inside an existing body segment. It changes neither

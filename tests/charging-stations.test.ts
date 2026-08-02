@@ -123,7 +123,7 @@ describe("authoritative body-wrap charging", () => {
     expect(evaluateChargingWrap(player, station).valid).toBe(false);
   });
 
-  it("charges for the disclosed duration and awards exactly +24 mass", () => {
+  it("charges for the disclosed duration and doubles the captain", () => {
     const { state, station, player } = setup();
     const startingMass = player.mass;
     const first = stepGame(state);
@@ -148,13 +148,16 @@ describe("authoritative body-wrap charging", () => {
       completion ??= result.events.find((event) => event.type === "chargingCompleted");
     }
 
+    // A finished charge pays the captain's mass at the moment the charge
+    // began, so completing it leaves them exactly twice the size.
     expect(completion).toMatchObject({
       type: "chargingCompleted",
       stationId: station.id,
       playerId: player.id,
-      massAwarded: station.massReward,
+      massAwarded: expect.closeTo(startingMass, 8),
     });
-    expect(player.mass).toBeCloseTo(startingMass + station.massReward, 8);
+    expect(player.mass).toBeCloseTo(startingMass * 2, 8);
+    expect(player.stats.chargingDoublings).toBe(1);
     expect(player.stats.peakMass).toBeCloseTo(player.mass, 8);
     expect(player.position).toEqual(dockedPosition);
     expect(chargingState.phase).toBe("cooldown");
@@ -292,9 +295,13 @@ describe("authoritative body-wrap charging", () => {
     const afterX2 = player.mass;
     const finalStageEvents = holdHarborPad(state, player, krakenAtoll, stageTicks);
 
-    expect(afterX1 - startingMass).toBeCloseTo(7, 8);
-    expect(afterX2 - afterX1).toBeCloseTo(14, 8);
-    expect(player.mass - afterX2).toBeCloseTo(21, 8);
+    // The staged curve still pays 1/6, then 1/3, then 1/2 of the charge - but
+    // the charge is now the captain's own starting mass, so a full hold leaves
+    // them exactly doubled instead of handing out a flat 42.
+    expect(afterX1 - startingMass).toBeCloseTo(startingMass / 6, 8);
+    expect(afterX2 - afterX1).toBeCloseTo(startingMass / 3, 8);
+    expect(player.mass - afterX2).toBeCloseTo(startingMass / 2, 8);
+    expect(player.mass).toBeCloseTo(startingMass * 2, 8);
     expect([...firstStageEvents, ...finalStageEvents]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: "chargingStarted",
@@ -305,10 +312,10 @@ describe("authoritative body-wrap charging", () => {
         type: "chargingCompleted",
         stationId: krakenAtoll.id,
         playerId: player.id,
-        massAwarded: 42,
+        massAwarded: expect.closeTo(startingMass, 8),
       }),
     ]));
-    expect(player.mass).toBeCloseTo(startingMass + 42, 8);
+    expect(player.mass).toBeCloseTo(startingMass * 2, 8);
     expect(chargingState.phase).toBe("cooldown");
   });
 
@@ -321,9 +328,10 @@ describe("authoritative body-wrap charging", () => {
     const krakenAtoll = state.board.chargingStations[2];
     const player = spawnPlayer(state, { id: "captain", shieldSeconds: 60 });
     const chargingState = state.chargingStations[krakenAtoll.id];
+    const lapBase = player.mass;
     holdHarborPad(state, player, krakenAtoll, chargingState.requiredTicks / 3);
     const partialMass = player.mass;
-    expect(chargingState.massAwarded).toBeCloseTo(7, 8);
+    expect(chargingState.massAwarded).toBeCloseTo(lapBase / 6, 8);
 
     placeOnHarborPad(
       player,
@@ -346,7 +354,7 @@ describe("authoritative body-wrap charging", () => {
       type: "chargingReset",
       stationId: krakenAtoll.id,
       playerId: player.id,
-      massAwarded: expect.closeTo(7, 8),
+      massAwarded: expect.closeTo(lapBase / 6, 8),
     }));
     expect(player.mass).toBeCloseTo(partialMass, 8);
 
@@ -356,9 +364,11 @@ describe("authoritative body-wrap charging", () => {
       type: "chargingCompleted",
       stationId: krakenAtoll.id,
       playerId: player.id,
-      massAwarded: krakenAtoll.massReward,
+      // The second charge is measured against the captain's mass now, which
+      // already includes the partial growth kept from the interrupted one.
+      massAwarded: expect.closeTo(partialMass, 8),
     }));
-    expect(player.mass).toBeCloseTo(partialMass + krakenAtoll.massReward, 8);
+    expect(player.mass).toBeCloseTo(partialMass * 2, 8);
   });
 
   it("resolves simultaneous harbor-pad contenders by stable player id", () => {

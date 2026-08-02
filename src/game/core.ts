@@ -45,6 +45,13 @@ import { selectHumanHunterAssignments } from "./botPressure";
 import { confinePointToArenaCircle, pointFitsArenaCircle } from "./arenaBoundary";
 
 const EPSILON = 1e-9;
+
+/**
+ * How many charging-station doublings a captain may bank in one life. Four
+ * takes a worm to sixteen times its starting size - dramatic enough to be worth
+ * chasing, bounded enough that the arena still has other players in it.
+ */
+export const CHARGING_DOUBLING_LIMIT = 4;
 const TAU = Math.PI * 2;
 
 interface DropIdCache {
@@ -1524,6 +1531,7 @@ function resetChargingStateToReady(
   chargingState.graceTicksRemaining = 0;
   chargingState.cooldownTicksRemaining = 0;
   chargingState.massAwarded = 0;
+  chargingState.lapBaseMass = undefined;
   delete chargingState.lapStartAngleRadians;
   delete chargingState.lapLastAngleRadians;
   delete chargingState.lapAccumulatedRadians;
@@ -1569,7 +1577,20 @@ function advanceValidCharge(
         ? 1 / 6 + (progressRatio - 1 / 3)
         : 1 / 2 + (progressRatio - 2 / 3) * 1.5
     : progressRatio;
-  const targetMassAward = station.massReward * rewardRatio;
+  // A finished charge doubles the captain. The payout is the mass they had when
+  // the charge began, not a flat number, so the reward always reads as "you got
+  // twice as big" instead of an opaque "+42" that means nothing at size 40 and
+  // nothing at size 4000. Captured once per charge so growth mid-wrap cannot
+  // compound. Past the limit a charge still completes but pays nothing, which
+  // keeps one captain from swallowing the arena.
+  if (chargingState.lapBaseMass === undefined) {
+    chargingState.lapBaseMass = player.mass;
+  }
+  const doublingsUsed = player.stats.chargingDoublings ?? 0;
+  const fullChargeAward = doublingsUsed >= CHARGING_DOUBLING_LIMIT
+    ? 0
+    : chargingState.lapBaseMass;
+  const targetMassAward = fullChargeAward * rewardRatio;
   const incrementalMass = Math.max(0, targetMassAward - chargingState.massAwarded);
   if (incrementalMass > EPSILON) {
     chargingState.massAwarded = targetMassAward;
@@ -1582,14 +1603,18 @@ function advanceValidCharge(
 
   // Set the configured total exactly on completion so floating-point addition
   // cannot drift the public result between different render chunking.
-  const finalAdjustment = station.massReward - chargingState.massAwarded;
+  const finalAdjustment = fullChargeAward - chargingState.massAwarded;
   if (finalAdjustment > EPSILON) {
-    chargingState.massAwarded = station.massReward;
+    chargingState.massAwarded = fullChargeAward;
     player.mass += finalAdjustment;
     player.stats.peakMass = Math.max(player.stats.peakMass, player.mass);
     syncBodyLength(player, state.config);
   }
   const completedMass = chargingState.massAwarded;
+  if (fullChargeAward > 0) {
+    player.stats.chargingDoublings = doublingsUsed + 1;
+  }
+  chargingState.lapBaseMass = undefined;
   chargingState.phase = "cooldown";
   chargingState.cooldownTicksRemaining = cooldownTicks(
     station.completionCooldownSeconds,
@@ -1691,6 +1716,7 @@ function updateHarborStation(
     );
     chargingState.graceTicksRemaining = 0;
     chargingState.massAwarded = 0;
+  chargingState.lapBaseMass = undefined;
     events.push({
       type: "chargingReset",
       tick: state.tick,
@@ -1716,6 +1742,7 @@ function updateHarborStation(
   chargingState.progressTicks = 0;
   chargingState.graceTicksRemaining = 0;
   chargingState.massAwarded = 0;
+  chargingState.lapBaseMass = undefined;
   events.push({
     type: "chargingStarted",
     tick: state.tick,
@@ -1827,6 +1854,7 @@ function updateChargingStations(state: GameState, events: GameEvent[]): void {
       );
       chargingState.graceTicksRemaining = 0;
       chargingState.massAwarded = 0;
+  chargingState.lapBaseMass = undefined;
       events.push({
         type: "chargingReset",
         tick: state.tick,
@@ -1850,6 +1878,7 @@ function updateChargingStations(state: GameState, events: GameEvent[]): void {
     chargingState.windingDirection = geometry.windingDirection;
     chargingState.progressTicks = 0;
     chargingState.massAwarded = 0;
+  chargingState.lapBaseMass = undefined;
     chargingState.phase = "charging";
     events.push({
       type: "chargingStarted",

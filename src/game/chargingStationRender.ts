@@ -74,7 +74,7 @@ export function describeChargingStation(
       detail: "WAITING FOR AUTHORITATIVE STATION STATE",
       progressRatio: 0,
       progressLabel: "SYNCING",
-      visualValue: harbor ? `+${compactNumber(station.massReward)}` : "",
+      visualValue: harbor ? "×2 SIZE" : "",
       active: false,
       ownedByViewer: false,
     };
@@ -98,11 +98,11 @@ export function describeChargingStation(
       icon: harbor ? "⚡" : "⚓",
       heading: harbor ? `${station.name} · PAD READY` : `${station.name} · READY`,
       detail: harbor
-        ? `STAY INSIDE ${secondsLabel(station.chargeDurationSeconds)} · GROWTH ×1 → ×2 → ×3 · UP TO +${compactNumber(station.massReward)} SIZE`
-        : `DOCK HEAD · WRAP ${station.minimumWrappedSegments}+ CREW · HOLD ${secondsLabel(station.chargeDurationSeconds)} · +${compactNumber(station.massReward)} SIZE`,
+        ? `STAY INSIDE ${secondsLabel(station.chargeDurationSeconds)} · FINISH IT AND YOU GET TWICE AS BIG`
+        : `WRAP AROUND IT ${station.minimumWrappedSegments}+ CREW · HOLD ${secondsLabel(station.chargeDurationSeconds)} · GET TWICE AS BIG`,
       progressRatio: 0,
       progressLabel: "READY",
-      visualValue: harbor ? `+${compactNumber(station.massReward)}` : "",
+      visualValue: harbor ? "×2 SIZE" : "",
       active: false,
       ownedByViewer,
     };
@@ -131,7 +131,7 @@ export function describeChargingStation(
             : `${station.name} · WINDING`,
       detail: harbor
         ? `×${multiplier} GROWTH · +${compactNumber(state.massAwarded)} NOW · ${secondsLabel(remainingSeconds)} TO MAX`
-        : `${direction} · ${percent}% · ${secondsLabel(remainingSeconds)} TO +${compactNumber(station.massReward)} SIZE`,
+        : `${direction} · ${percent}% · ${secondsLabel(remainingSeconds)} TO DOUBLE`,
       progressRatio,
       progressLabel: `${percent}% CHARGED`,
       visualValue: harbor ? `×${multiplier}` : "",
@@ -160,7 +160,7 @@ export function describeChargingStation(
     };
   }
 
-  const fullCompletion = state.massAwarded + 1e-6 >= station.massReward;
+  const fullCompletion = state.massAwarded > 1e-6;
   const cooldownSeconds = state.cooldownTicksRemaining * safeStep;
   const configuredCooldownSeconds = fullCompletion
     ? station.completionCooldownSeconds
@@ -188,7 +188,7 @@ export function describeChargingStation(
     progressRatio: cooldownRatio,
     progressLabel: `${secondsLabel(cooldownSeconds)} COOLDOWN`,
     visualValue: harbor && fullCompletion
-      ? `+${compactNumber(station.massReward)}`
+      ? "×2"
       : "",
     active: false,
     ownedByViewer,
@@ -538,13 +538,13 @@ export function drawChargingStationField(
       if (
         presentation.phase === "cooldown" &&
         state &&
-        state.massAwarded + 1e-6 >= station.massReward
+        state.massAwarded > 1e-6
       ) {
         context.shadowBlur = 14;
         context.fillStyle = "#fff4bd";
         context.font = `950 ${clamp(13 * zoom, 13, 24)}px "Baloo 2", Inter, sans-serif`;
         context.fillText(
-          `+${compactNumber(station.massReward)}`,
+          "×2",
           center.x,
           center.y - outerRadius - Math.max(9, 11 * zoom),
         );
@@ -561,7 +561,7 @@ export function drawChargingStationField(
     const completedPrize = Boolean(
       presentation.phase === "cooldown" &&
       state &&
-      state.massAwarded + 1e-6 >= station.massReward
+      state.massAwarded > 1e-6
     );
 
     // The translucent band is exactly the configured valid wrap tolerance.
