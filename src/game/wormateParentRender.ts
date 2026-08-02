@@ -17,40 +17,6 @@ import {
 const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL.endsWith("/")
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
-/**
- * How much bigger the head sphere is than the collision head radius. The head
- * must lead the body: segments draw at bodyRadius * 1.12, and bodyRadius is
- * 0.98 of the player radius, so anything under ~1.10 here renders a head that
- * is smaller than the segments behind it. The face, hat and shield ring all
- * scale off this so they can never drift out of proportion with the sphere.
- */
-const HEAD_RADIUS_SCALE = 1.18;
-
-/**
- * Spine stamp spacing as a fraction of the body radius. Wormate's own bodies
- * are unbroken tubes with the pattern flowing along them, and its body sprite
- * is a plain circle - the smoothness is entirely in how tightly those circles
- * are packed. At 0.18 consecutive stamps overlap so heavily that only the outer
- * envelope shows and the seams vanish. Measured in a live 32-worm room it also
- * held 60 fps, so the smoothest setting is not the expensive one: the base+glow
- * pair is composited into a cached canvas, every stamp is one drawImage, and
- * off-screen stamps are skipped before they cost anything.
- */
-const SMOOTH_BODY_STEP = 0.18;
-
-/**
- * How far forward, in head radii, to move the origin before stamping the face.
- *
- * The parent's wear sprites are authored around a front-of-head origin, not the
- * centre: the stock eye region has pivot px=75 in a 128-unit box while the
- * sprite itself is only 42 wide, so drawn about our head centre it lands from
- * -1.43 to -0.63 radii - entirely behind the head, sitting on the neck. That is
- * why the face looked stuck on backwards. Moving the origin forward by roughly
- * the amount that pivot assumes puts eyes, mouth, glasses and hat back on the
- * head where they were drawn to sit.
- */
-const FACE_FORWARD_OFFSET = 1.15;
-
 const SKIN_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_skins.png`;
 const WEAR_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_wear.png`;
 const ABILITY_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_abilities.png`;
@@ -186,67 +152,6 @@ function combinedBodySprite(
   context.drawImage(image, glow.x, glow.y, glow.w, glow.h, 0, 0, width, height);
   bodySpriteCache.set(key, canvas);
   return canvas;
-}
-
-/**
- * The flat colour of a body region, sampled once from the atlas and cached.
- *
- * Stamping overlapping soft-edged discs along the spine can never be perfectly
- * smooth: the anti-aliased rims beat against each other and show as fine ridges
- * across the body. A stroked path with round caps and joins is smooth by
- * construction, so the body is drawn as strokes - and to stroke it we need the
- * region's colour rather than its pixels. The parent's body discs are flat
- * fills, so one sample from the centre is the whole disc.
- */
-const regionColorCache = new Map<string, string>();
-
-function regionColor(
-  image: CanvasImageSource,
-  regionId: WormateParentRegionId,
-): string | undefined {
-  const cached = regionColorCache.get(regionId);
-  if (cached) return cached;
-  if (typeof document === "undefined") return undefined;
-  const region = WORMATE_PARENT_REGIONS[regionId];
-  const canvas = document.createElement("canvas");
-  canvas.width = 1;
-  canvas.height = 1;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return undefined;
-  context.drawImage(
-    image,
-    region.x + region.w / 2,
-    region.y + region.h / 2,
-    1,
-    1,
-    0,
-    0,
-    1,
-    1,
-  );
-  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-  if (a === 0) return undefined;
-  const value = `rgb(${r},${g},${b})`;
-  regionColorCache.set(regionId, value);
-  return value;
-}
-
-/**
- * Stamps one region of the body sprite. The parent's body art is two layers: a
- * flat filled disc and a soft coloured ring. Composited together at every dense
- * stamp, those rings pile up through the interior of the worm and read as hard
- * banding. Kept apart, the rings can be laid down first and then covered by the
- * discs, so only the rim of the outer envelope survives - which is what gives
- * the parent's worms their clean outlined, rounded look.
- */
-function stampBodyRegion(
-  context: CanvasRenderingContext2D,
-  image: CanvasImageSource,
-  regionId: WormateParentRegionId,
-  point: Readonly<Vec2>,
-  radius: number,
-) {
-  drawRoundRegion(context, image, regionId, point, radius);
 }
 
 function drawBodySegment(
@@ -587,121 +492,41 @@ export function drawWormateParentWorm(
   context.globalAlpha = 1;
   context.shadowBlur = 0;
 
-  // Wormate's own body sprite is a plain circle - the smoothness comes from how
-  // densely those circles are packed, not from the art. Drawing one per chain
-  // point spaced bodyRadius * 1.64 apart, at diameter 2.24, leaves only ~27%
-  // overlap, so every circle reads as its own bulge and the worm looks like a
-  // string of bubbles. Walking the spine and stamping a circle every fraction
-  // of a radius makes consecutive circles almost fully overlap, so only the
-  // outer envelope shows and the body reads as one smooth tube.
-  //
-  // Cheap: the base+glow pair is composited once into a cached canvas, so each
-  // stamp is a single drawImage, and off-screen stamps are skipped.
-  const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
-  const tailIndex = points.length - 1;
-
-  // Smooth silhouette AND full pattern.
-  //
-  // Stamping discs alone gives the pattern but never a clean edge - every disc
-  // carries an anti-aliased rim and hundreds of them beat into ridges. Stroking
-  // alone gives a perfect tube but flattens each skin to one sampled colour,
-  // which erased the pattern on all 190 bodies.
-  //
-  // So: stroke the spine first to lay down a smooth, correctly shaped body,
-  // then stamp the real sprites over it with "source-atop", which paints only
-  // where the stroke already is. The stroke owns the silhouette, the sprites
-  // own the detail, and no stamp can spill past the edge.
-  const spine = points.slice(0, tailIndex + 1);
-  const bodyWidth = options.bodyRadius * 2 * 1.12;
-
-  const strokeSpan = (from: number, to: number, width: number, color: string) => {
-    if (to <= from) return;
-    context.beginPath();
-    context.moveTo(spine[from].x, spine[from].y);
-    for (let i = from + 1; i <= to; i += 1) context.lineTo(spine[i].x, spine[i].y);
-    context.lineWidth = Math.max(1, width);
-    context.strokeStyle = color;
-    context.stroke();
-  };
-
-  context.lineCap = "round";
-  context.lineJoin = "round";
-
-  if (spine.length > 1) {
-    // Base colour per run of same-coloured points, so multi-colour skins keep
-    // their bands even before the sprites go on. Runs overlap by a point so no
-    // seam shows where the colour changes.
-    let runStart = 0;
-    let runRegion = skin.base[0] as WormateParentRegionId;
-    for (let index = 1; index <= spine.length - 1; index += 1) {
-      const region = skin.base[index % skin.base.length] as WormateParentRegionId;
-      const last = index === spine.length - 1;
-      if (region !== runRegion || last) {
-        const color = regionColor(skins, runRegion);
-        if (color) strokeSpan(runStart, last ? index : index, bodyWidth, color);
-        runStart = index;
-        runRegion = region;
-      }
-    }
-
-    // Pattern pass, clipped to the body that was just drawn.
-    context.save();
-    context.globalCompositeOperation = "source-atop";
-    const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
-    for (let index = spine.length - 1; index >= 1; index -= 1) {
-      const point = spine[index];
-      const ahead = spine[index - 1];
-      const spanX = ahead.x - point.x;
-      const spanY = ahead.y - point.y;
-      const span = Math.hypot(spanX, spanY);
-      const stamps = Math.max(1, Math.ceil(span / stampStep));
-      const baseRegion = skin.base[index % skin.base.length] as WormateParentRegionId;
-      const radius = options.bodyRadius * 1.12;
-      for (let step = 0; step < stamps; step += 1) {
-        const t = step / stamps;
-        const x = point.x + spanX * t;
-        const y = point.y + spanY * t;
-        if (
-          options.viewportWidth !== undefined &&
-          options.viewportHeight !== undefined &&
-          (
-            x + radius < 0 || y + radius < 0 ||
-            x - radius > options.viewportWidth || y - radius > options.viewportHeight
-          )
-        ) continue;
-        stampBodyRegion(context, skins, baseRegion, { x, y }, radius);
-      }
-    }
-    context.restore();
-  }
-
-  // The head has to be the biggest part of the worm. It was drawn at
-  // headRadius * 1.04 while segments drew at bodyRadius * 1.12 - and since
-  // bodyRadius is 0.98 of the player radius, that put the body at 1.098 and the
-  // head at 1.04. The head was genuinely smaller than the segments behind it,
-  // which is what made it read as a badge stuck on the front rather than a face
-  // leading the body.
-  {
-    const headPoint = points[0];
-    const headDrawRadius = options.headRadius * HEAD_RADIUS_SCALE;
-    const onScreen = options.viewportWidth === undefined ||
-      options.viewportHeight === undefined ||
-      !(
-        headPoint.x + headDrawRadius < 0 ||
-        headPoint.y + headDrawRadius < 0 ||
-        headPoint.x - headDrawRadius > options.viewportWidth ||
-        headPoint.y - headDrawRadius > options.viewportHeight
-      );
-    if (onScreen) {
-      drawBodySegment(
-        context,
-        skins,
-        skin.base[0] as WormateParentRegionId,
-        skin.glow[0] as WormateParentRegionId,
-        headPoint,
-        headDrawRadius,
-      );
-    }
+  // Parent worms are overlapping glossy round sprites. Paint tail-to-head so
+  // every forward segment cleanly overlaps the one behind it on tight turns.
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index];
+    const distanceFromTail = points.length - 1 - index;
+    const radiusScale = index === 0
+      ? 1
+      : distanceFromTail === 0
+        ? 0.72
+        : distanceFromTail === 1
+          ? 0.88
+          : distanceFromTail === 2
+            ? 0.97
+            : 1;
+    const radius = (
+      index === 0 ? options.headRadius * 1.04 : options.bodyRadius * 1.12
+    ) * radiusScale;
+    if (
+      options.viewportWidth !== undefined &&
+      options.viewportHeight !== undefined &&
+      (
+        point.x + radius < 0 ||
+        point.y + radius < 0 ||
+        point.x - radius > options.viewportWidth ||
+        point.y - radius > options.viewportHeight
+      )
+    ) continue;
+    drawBodySegment(
+      context,
+      skins,
+      skin.base[index % skin.base.length] as WormateParentRegionId,
+      skin.glow[index % skin.glow.length] as WormateParentRegionId,
+      point,
+      radius,
+    );
   }
 
   const head = points[0];
@@ -709,7 +534,6 @@ export function drawWormateParentWorm(
   context.save();
   context.translate(head.x, head.y);
   context.rotate(angle);
-  context.translate(options.headRadius * FACE_FORWARD_OFFSET, 0);
   for (const item of [
     getWormateParentWearable("eyes", outfit.eyeId),
     getWormateParentWearable("mouth", outfit.mouthId),
@@ -721,7 +545,7 @@ export function drawWormateParentWorm(
         context,
         wear,
         regionId as WormateParentRegionId,
-        options.headRadius * HEAD_RADIUS_SCALE,
+        options.headRadius,
       );
     }
   }
@@ -731,7 +555,7 @@ export function drawWormateParentWorm(
     context.strokeStyle = "rgba(225,255,252,0.86)";
     context.lineWidth = Math.max(1, options.headRadius * 0.09);
     context.beginPath();
-    context.arc(head.x, head.y, options.headRadius * HEAD_RADIUS_SCALE * 1.03, 0, TAU);
+    context.arc(head.x, head.y, options.headRadius * 1.03, 0, TAU);
     context.stroke();
   }
   context.restore();
