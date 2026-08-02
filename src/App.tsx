@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { ArenaCanvas } from "./components/ArenaCanvas";
 import { LiveArenaCanvas } from "./components/LiveArenaCanvas";
 import { PwaStatus } from "./components/PwaStatus";
+import { InstallAppCard } from "./components/InstallAppCard";
 import { SkinStudio } from "./components/SkinStudio";
 import { LegendVoyage } from "./components/LegendVoyage";
 import { BoardPicker } from "./components/BoardPicker";
@@ -1652,6 +1653,11 @@ export function App() {
       ))}
 
       {!playing && !settingsOpen && !captainLogOpen && !captainRoomsOpen && !legendVoyageOpen && !skinStudioOpen && !currencyStoreOpen && !passportOpen && !isCrazyGamesDistribution && (
+        <>
+        <InstallAppCard
+          platform={mobileWebEnvironment.platform}
+          installed={mobileWebEnvironment.installed}
+        />
         <nav className="site-guide-links" aria-label="Wormifi guides and policies">
           <a href="/how-to-play.html">How to play</a>
           <a href="/guides.html">Guides</a>
@@ -1660,6 +1666,7 @@ export function App() {
           <a href="/install.html" className="install-link">Install the app</a>
           <a href="/privacy.html">Privacy choices</a>
         </nav>
+        </>
       )}
       <footer
         className="build-mark"

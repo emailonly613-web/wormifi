@@ -2471,6 +2471,19 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   letter-spacing: 0.08em;
 }
 
+/*
+  Nothing that only a developer cares about should sit over a live arena. The
+  build stamp and the "LIVE - SERVER AUTHORITATIVE" badge were both pinned on
+  screen for the whole match: a version string and a piece of engineering
+  vocabulary, permanently occupying play space and meaning nothing to a player.
+  Both stay available on the menu and results screens, where there is room and
+  where the authority claim is actually worth reading.
+*/
+.app-shell[data-playing="true"] .build-mark,
+.app-shell[data-playing="true"] .live-authority-badge {
+  display: none;
+}
+
 .build-mark {
   position: absolute;
   z-index: 11;
@@ -6036,6 +6049,62 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 .platform-ad-lock b {
   font: 900 clamp(1.4rem, 5vw, 2.4rem)/1 "Baloo 2", system-ui, sans-serif;
   color: #ffd264;
+}
+
+/*
+  Getting the game onto a phone is a headline action, not a policy link. This
+  sits directly above the guide row and reads as a button, because "Install the
+  app" buried between "Treasure guide" and "Privacy choices" was never going to
+  be found.
+*/
+.install-app-card {
+  position: fixed;
+  left: 50%;
+  bottom: max(74px, calc(env(safe-area-inset-bottom) + 48px));
+  z-index: 26;
+  width: min(calc(100% - 32px), 420px);
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.install-app-card > button,
+.install-app-card > a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 11px 18px;
+  border: 1px solid rgba(116, 245, 229, 0.5);
+  border-radius: 16px;
+  color: #effffd;
+  background: linear-gradient(180deg, rgba(18, 74, 96, 0.96), rgba(7, 28, 46, 0.96));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.install-app-card strong {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.install-app-card small {
+  color: rgba(198, 240, 246, 0.86);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.install-app-steps {
+  margin: 8px 0 0;
+  padding: 10px 14px 10px 30px;
+  border-radius: 14px;
+  color: #dff7ff;
+  background: rgba(4, 17, 34, 0.96);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: left;
 }
 
 .site-guide-links {

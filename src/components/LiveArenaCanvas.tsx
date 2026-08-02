@@ -2176,7 +2176,8 @@ export function LiveArenaCanvas({
       <div className="game-hud live-game-hud">
         <aside className="leaderboard live-leaderboard mobile-intel-leaderboard" aria-label="Live score leaderboard">
           <h2>TOP 10 · LIVE RUN SCORE</h2>
-          <p className="leaderboard-rule">NAMES · SCORE · YOUR PLACE IN THE FIELD</p>
+          {/* The board is a name, a score and a rank. It does not need a line
+              explaining that it is a name, a score and a rank. */}
           <ol>
             {ui.leaderboard.map(({ player, rank }) => (
               <li
