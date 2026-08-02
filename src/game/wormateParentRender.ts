@@ -24,7 +24,7 @@ const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL.endsWith("/")
  * is smaller than the segments behind it. The face, hat and shield ring all
  * scale off this so they can never drift out of proportion with the sphere.
  */
-const HEAD_RADIUS_SCALE = 1.22;
+const HEAD_RADIUS_SCALE = 1.18;
 
 /**
  * Spine stamp spacing as a fraction of the body radius. Wormate's own bodies
@@ -37,6 +37,19 @@ const HEAD_RADIUS_SCALE = 1.22;
  * off-screen stamps are skipped before they cost anything.
  */
 const SMOOTH_BODY_STEP = 0.18;
+
+/**
+ * How far forward, in head radii, to move the origin before stamping the face.
+ *
+ * The parent's wear sprites are authored around a front-of-head origin, not the
+ * centre: the stock eye region has pivot px=75 in a 128-unit box while the
+ * sprite itself is only 42 wide, so drawn about our head centre it lands from
+ * -1.43 to -0.63 radii - entirely behind the head, sitting on the neck. That is
+ * why the face looked stuck on backwards. Moving the origin forward by roughly
+ * the amount that pivot assumes puts eyes, mouth, glasses and hat back on the
+ * head where they were drawn to sit.
+ */
+const FACE_FORWARD_OFFSET = 1.15;
 
 const SKIN_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_skins.png`;
 const WEAR_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_wear.png`;
@@ -606,6 +619,7 @@ export function drawWormateParentWorm(
   context.save();
   context.translate(head.x, head.y);
   context.rotate(angle);
+  context.translate(options.headRadius * FACE_FORWARD_OFFSET, 0);
   for (const item of [
     getWormateParentWearable("eyes", outfit.eyeId),
     getWormateParentWearable("mouth", outfit.mouthId),
