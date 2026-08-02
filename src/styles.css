@@ -6176,20 +6176,19 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 }
 
 /*
-  The consent panel is fixed to the bottom at z-index 10000, and on a phone it
-  spans the full width - it sat directly on top of this card and swallowed the
-  tap, so the install button was visible but dead. Raising the card's z-index
-  would only stack it over the panel; lifting it clear is the honest fix. Both
-  are dismissible surfaces, so this only applies while the panel is up.
+  Two fixed bottom surfaces cannot share the same screen edge. The consent panel
+  sits at z-index 10000 and, on a phone, is 200px tall - it swallowed taps on
+  this card. Lifting the card by a fixed offset only moved the collision: on a
+  390-wide viewport it landed on the Play button instead, which is far worse
+  than the bug it was meant to fix.
+
+  So the card waits its turn. The consent panel is dismissible and appears once;
+  the moment it is answered this becomes the only thing at the bottom of the
+  screen and there is nothing left to collide with. No offsets to keep in sync
+  with a viewport height.
 */
 body:has(.analytics-consent) .install-app-card {
-  bottom: max(232px, calc(env(safe-area-inset-bottom) + 206px));
-}
-
-@media (max-width: 640px) {
-  body:has(.analytics-consent) .install-app-card {
-    bottom: max(292px, calc(env(safe-area-inset-bottom) + 266px));
-  }
+  display: none;
 }
 
 .install-app-card > button,
