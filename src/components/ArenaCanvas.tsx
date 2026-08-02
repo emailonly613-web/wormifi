@@ -2418,12 +2418,14 @@ function drawLivingChain(
   const shielded = player.shieldTicksRemaining > 0;
   const points = chainPointScratch;
   const activeRelic = createActiveRelicCanvasModel(player.specialist, state.tick);
-  const parentSkinId = photoSkin
-    ? photoSkin.renderPlan.parentSkinId
-    : wormateParentSkinForIdentity(identity);
-  const parentOutfit = photoSkin
-    ? photoSkin.renderPlan.parentOutfit
-    : wormateParentOutfitForIdentity(identity);
+  // A photo skin whose theme does not map to a parent skin left these undefined
+  // and dropped the worm to the old procedural body. Parent-quality rendering is
+  // the floor for every worm, so fall back to the identity skin instead of out of
+  // the parent renderer entirely.
+  const parentSkinId = (photoSkin ? photoSkin.renderPlan.parentSkinId : undefined)
+    ?? wormateParentSkinForIdentity(identity);
+  const parentOutfit = (photoSkin ? photoSkin.renderPlan.parentOutfit : undefined)
+    ?? wormateParentOutfitForIdentity(identity);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorField(context, headScreen, headRadius, now, palette[0]);
@@ -2478,7 +2480,9 @@ function drawLivingChain(
     });
   }
 
-  if (parentSkinId === undefined) {
+  // Was tied to the procedural renderer, so seeing your own boost depended on a
+  // rendering accident. Show it for the player's own worm only.
+  if (player.id === PLAYER_ID) {
     drawTurboReserveGauge(context, {
       points,
       bodyRadius: followerRadius,

@@ -2885,12 +2885,17 @@ function drawNetworkChain(
   const parentAppearance = player.themeId
     ? wormateParentAppearanceFromThemeId(player.themeId)
     : undefined;
-  const parentSkinId = player.themeId
-    ? parentAppearance?.skinId
-    : wormateParentSkinForIdentity(identityNumber);
-  const parentOutfit = player.themeId
-    ? parentAppearance?.outfit
-    : wormateParentOutfitForIdentity(identityNumber);
+  // A themeId that does not map to a parent skin - every legacy pirate theme,
+  // for instance - used to leave these undefined, and the renderer then fell
+  // through to the old procedural body. That is why a player wearing
+  // "tideglass-corsair" appeared as flat capsules with a badge for a head while
+  // the AI around them, which carry no themeId, rendered as full parent skins.
+  // Parent-quality rendering is the floor for every worm, so an unmapped theme
+  // falls back to the identity skin rather than out of the parent renderer.
+  const parentSkinId = (player.themeId ? parentAppearance?.skinId : undefined)
+    ?? wormateParentSkinForIdentity(identityNumber);
+  const parentOutfit = (player.themeId ? parentAppearance?.outfit : undefined)
+    ?? wormateParentOutfitForIdentity(identityNumber);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorVortex(context, head, headRadius, now, palette[0]);
@@ -2945,7 +2950,10 @@ function drawNetworkChain(
     });
   }
 
-  if (parentSkinId === undefined) {
+  // The reserve gauge used to be tied to the procedural renderer, so whether you
+  // could see your own boost depended on whether your theme happened to map to a
+  // parent skin. Show it for the player's own worm and no one else's.
+  if (isLocal) {
     drawTurboReserveGauge(context, {
       points,
       bodyRadius,
