@@ -2422,10 +2422,14 @@ function drawLivingChain(
   // and dropped the worm to the old procedural body. Parent-quality rendering is
   // the floor for every worm, so fall back to the identity skin instead of out of
   // the parent renderer entirely.
-  const parentSkinId = (photoSkin ? photoSkin.renderPlan.parentSkinId : undefined)
-    ?? wormateParentSkinForIdentity(identity);
-  const parentOutfit = (photoSkin ? photoSkin.renderPlan.parentOutfit : undefined)
-    ?? wormateParentOutfitForIdentity(identity);
+  // Same parity rule as the live arena: an explicit skin choice is honoured,
+  // and only a worm without one takes the identity parent skin.
+  const parentSkinId = photoSkin
+    ? photoSkin.renderPlan.parentSkinId
+    : wormateParentSkinForIdentity(identity);
+  const parentOutfit = photoSkin
+    ? photoSkin.renderPlan.parentOutfit
+    : wormateParentOutfitForIdentity(identity);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorField(context, headScreen, headRadius, now, palette[0]);

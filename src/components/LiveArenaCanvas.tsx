@@ -2893,10 +2893,19 @@ function drawNetworkChain(
   // the AI around them, which carry no themeId, rendered as full parent skins.
   // Parent-quality rendering is the floor for every worm, so an unmapped theme
   // falls back to the identity skin rather than out of the parent renderer.
-  const parentSkinId = (player.themeId ? parentAppearance?.skinId : undefined)
-    ?? wormateParentSkinForIdentity(identityNumber);
-  const parentOutfit = (player.themeId ? parentAppearance?.outfit : undefined)
-    ?? wormateParentOutfitForIdentity(identityNumber);
+  // Honour the captain's theme exactly. A parent theme resolves to its parent
+  // skin; a Wormifi original resolves to nothing here on purpose, so the shared
+  // renderer paints that theme's own material - the same thing the Skin Studio
+  // previewed. Falling back to an identity parent skin here looked like a fix
+  // for the flat-bodied player worm, but it silently overrode every original:
+  // you picked a candy ribbon in the customizer and met a parent body in the
+  // arena. Only a worm with no theme at all - the AI - takes the identity skin.
+  const parentSkinId = player.themeId
+    ? parentAppearance?.skinId
+    : wormateParentSkinForIdentity(identityNumber);
+  const parentOutfit = player.themeId
+    ? parentAppearance?.outfit
+    : wormateParentOutfitForIdentity(identityNumber);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorVortex(context, head, headRadius, now, palette[0]);
