@@ -326,8 +326,13 @@ describe("privacy-first Photo Skin state", () => {
     expect(markup).toContain("BODY SKIN ONLY");
     expect(markup).toContain("FACE ONLY");
     expect(markup).toContain("COMPLETE STYLES");
-    expect(markup).toContain("PARENT LIBRARY · EXACT REVISION 100700");
-    expect(markup).toContain("190 AUTHORIZED BODY SKINS");
+    // The parent company's catalogue is a source of bodies, not a brand we put
+    // in front of players, and the copy has to read to a nine-year-old.
+    expect(markup).toContain("BODY LIBRARY");
+    expect(markup).toContain("190 BODIES TO PICK FROM");
+    expect(markup).not.toMatch(/Wormate/iu);
+    expect(markup).not.toMatch(/exact parent/iu);
+    expect(markup).not.toMatch(/PARENT LIBRARY|AUTHORIZED BODY SKINS/u);
     expect(markup).toContain("WORMIFI ORIGINALS · EXTRA COLLECTION");
     expect(markup).toContain("PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE");
     expect(markup).toContain("Other players see only your selected public cosmetic ID");

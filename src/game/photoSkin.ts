@@ -50,7 +50,7 @@ export const PHOTO_SKIN_ACCEPT = "image/jpeg,image/png,image/webp";
 
 export const PHOTO_SKIN_PRIVACY_PROMISE = "PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE.";
 export const PHOTO_SKIN_MULTIPLAYER_PROMISE =
-  "Other players see only your selected public cosmetic ID, including an exact parent outfit when equipped. Photos stay private until a separate moderated public-sharing contract is built and approved.";
+  "Other players see only your selected public cosmetic ID, including any outfit you have equipped. Photos stay private until a separate moderated public-sharing contract is built and approved.";
 export const PHOTO_SKIN_CONSENT_TEXT =
   "I have permission to use these photos and consent to processing and storing sanitized copies only in this browser on this device.";
 

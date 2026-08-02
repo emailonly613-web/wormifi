@@ -2207,7 +2207,7 @@ function drawDrops(
   height: number,
   now: number,
   tutorialSparkId?: string,
-  pickupThemeId: PickupThemeId = "parent-sweet-feast",
+  pickupThemeId: PickupThemeId = "pirate-hoard",
 ) {
   // Reuse both the list and each stable ground-item descriptor. Practice can
   // hold 1,050 drops, so rebuilding these objects every frame creates GC

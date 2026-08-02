@@ -534,7 +534,7 @@ export function SkinStudio({
       )}
 
       {customizationMode === "body" && <fieldset className="skin-studio-themes" data-testid="body-skin-catalog">
-        <legend>BODY SKIN ONLY · PARENT COLLECTION FIRST</legend>
+        <legend>PICK YOUR BODY</legend>
         <ParentSkinCarousel
           state={state}
           onSelect={(skinId) => {
@@ -578,7 +578,7 @@ export function SkinStudio({
       </fieldset>}
 
       {customizationMode === "face" && <fieldset className="skin-studio-themes skin-studio-faces" data-testid="face-only-catalog">
-        <legend>FACE + HEAD WEAR · PARENT COLLECTION FIRST</legend>
+        <legend>PICK YOUR FACE + HAT</legend>
         <ParentWearableStudio
           state={state}
           onSelect={(kind, wearable) => {
@@ -1070,8 +1070,8 @@ function ParentSkinCarousel({
       data-parent-skin-count={WORMATE_PARENT_SKINS.length}
     >
       <header>
-        <span>PARENT LIBRARY · EXACT REVISION {WORMATE_PARENT_REVISION}</span>
-        <strong>{WORMATE_PARENT_SKINS.length} AUTHORIZED BODY SKINS</strong>
+        <span>BODY LIBRARY</span>
+        <strong>{WORMATE_PARENT_SKINS.length} BODIES TO PICK FROM</strong>
       </header>
       <div>
         <button
@@ -1099,7 +1099,7 @@ function ParentSkinCarousel({
           onClick={() => selectOffset(1)}
         >›</button>
       </div>
-      <p>The exact parent atlas drives the arena body above. Wormifi originals stay available below as extras.</p>
+      <p>Pick a body and your worm changes right away. More colour sets below.</p>
     </section>
   );
 }
@@ -1108,10 +1108,10 @@ const PARENT_WEARABLE_COPY: Record<
   WormateParentWearableKind,
   { label: string; detail: string }
 > = {
-  eyes: { label: "EYES", detail: "20 exact parent eye sets" },
-  mouth: { label: "MOUTHS", detail: "94 exact parent expressions" },
-  glasses: { label: "GLASSES", detail: "28 exact parent frames" },
-  hat: { label: "HATS", detail: "119 exact parent headpieces" },
+  eyes: { label: "EYES", detail: "20 pairs of eyes" },
+  mouth: { label: "MOUTHS", detail: "94 faces" },
+  glasses: { label: "GLASSES", detail: "28 pairs of glasses" },
+  hat: { label: "HATS", detail: "119 hats" },
 };
 
 function selectedWearableId(
@@ -1167,7 +1167,7 @@ function ParentWearableStudio({
       }
     >
       <header>
-        <span>PARENT WEAR ATLAS · EXACT REVISION {WORMATE_PARENT_REVISION}</span>
+        <span>FACES, HATS + GLASSES</span>
         <strong>261 AUTHORIZED FACE + HEAD-WEAR CHOICES</strong>
       </header>
       <div className="skin-studio-parent-wearable-tabs" role="tablist" aria-label="Parent wearable category">

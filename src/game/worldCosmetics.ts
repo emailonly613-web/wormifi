@@ -38,25 +38,28 @@ export interface WorldCosmeticStorage {
 }
 
 export const PICKUP_THEME_CATALOG: readonly PickupTheme[] = Object.freeze([
+  // Every theme now draws Wormifi's own treasure. The ids are kept so stored
+  // player choices still load; what changed is that none of them reach for the
+  // parent company's food art, and none of them say its name to a player.
   Object.freeze({
     id: "parent-sweet-feast",
-    label: "WORMATE SWEET FEAST",
-    shortLabel: "FOOD",
-    description: "All 51 exact parent sweets rotate through the ordinary pickup field.",
-    mark: "🍰",
+    label: "PACKED HOARD",
+    shortLabel: "PACKED",
+    description: "Treasure everywhere you look. Grab it fast.",
+    mark: "🪙",
   }),
   Object.freeze({
     id: "pirate-hoard",
-    label: "CAPTAIN'S TREASURE HOARD",
+    label: "CAPTAIN'S TREASURE",
     shortLabel: "TREASURE",
-    description: "Coins, cut jewels, crowns, maps, and pirate bounty replace ordinary food.",
+    description: "Big shiny loot with room to swim.",
     mark: "💎",
   }),
   Object.freeze({
     id: "mixed-bounty",
-    label: "GRAND FAMILY BOUNTY",
-    shortLabel: "FOOD + TREASURE",
-    description: "Exact parent sweets and Wormifi treasure share one deterministic field.",
+    label: "BUSY SEAS",
+    shortLabel: "BUSY",
+    description: "A steady stream of loot the whole match.",
     mark: "✦",
   }),
 ]);
@@ -91,8 +94,8 @@ export const ARENA_VISUAL_THEME_CATALOG: readonly ArenaVisualTheme[] = Object.fr
 export const WORLD_COSMETIC_BUNDLES: readonly WorldCosmeticBundle[] = Object.freeze([
   Object.freeze({
     id: "sweet-fleet",
-    label: "SWEET FLEET",
-    description: "Exact parent food + Candy Nebula + gummy leviathan moat.",
+    label: "CANDY FLEET",
+    description: "Packed treasure in a bright candy-coloured sky.",
     pickupThemeId: "parent-sweet-feast",
     arenaThemeId: "candy-nebula",
   }),
@@ -120,7 +123,8 @@ export const WORLD_COSMETIC_BUNDLES: readonly WorldCosmeticBundle[] = Object.fre
 ]);
 
 export const DEFAULT_WORLD_COSMETICS: Readonly<WorldCosmeticState> = Object.freeze({
-  pickupThemeId: "parent-sweet-feast",
+  // Wormifi's own treasure is what a new player should meet first.
+  pickupThemeId: "pirate-hoard",
   arenaThemeId: "midnight-chart",
   updatedAtMs: 0,
 });
