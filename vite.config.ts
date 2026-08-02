@@ -132,6 +132,11 @@ export default defineConfig(({ mode }) => {
         install: page("install.html"),
         press: page("press.html"),
         privacy: page("privacy.html"),
+        wormGamesChromebook: page("worm-games-chromebook.html"),
+        gamesLikeAgarIo: page("games-like-agar-io.html"),
+        gamesLikeWormaxIo: page("games-like-wormax-io.html"),
+        wormifiVsWormsZone: page("wormifi-vs-worms-zone.html"),
+        wormifiVsLittleBigSnake: page("wormifi-vs-little-big-snake.html"),
       };
 
   return {
