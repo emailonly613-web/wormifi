@@ -79,9 +79,9 @@ export function CurrencyStoreLayout({
     >
       <header className="flagship-store__header">
         <div className="flagship-store__title">
-          <small>WORMIFI NEXT-GEN COSMETICS</small>
+          <small>WORMIFI SKINS</small>
           <h2 id="currency-store-title">FLAGSHIP STORE &amp; WARDROBE</h2>
-          <span>Best-of-family collection · one clear preview · one clear checkout</span>
+          <span>Look around. Big preview on every worm.</span>
         </div>
         <div className="flagship-store__balance" aria-label={`${doubloons.toLocaleString()} doubloons`}>
           <span aria-hidden="true">☀</span>
@@ -107,13 +107,13 @@ export function CurrencyStoreLayout({
         <div className="flagship-store__body">
           <aside className="flagship-store__rail" aria-label="Skin catalog filters">
             <button type="button" aria-pressed={filter === "featured"} onClick={() => setFilter("featured")}>
-              <span aria-hidden="true">★</span><b>ART READY</b><small>{WORMS_ZONE_VERIFIED_SKINS.length}</small>
+              <span aria-hidden="true">★</span><b>READY NOW</b><small>{WORMS_ZONE_VERIFIED_SKINS.length}</small>
             </button>
             <button type="button" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>
               <span aria-hidden="true">∞</span><b>ALL SKINS</b><small>{WORMS_ZONE_FLAGSHIP_SKIN_COUNT}</small>
             </button>
             <button type="button" aria-pressed={filter === "awaiting"} onClick={() => setFilter("awaiting")}>
-              <span aria-hidden="true">◇</span><b>ART PENDING</b><small>{WORMS_ZONE_SOURCE_PLACEHOLDER_SKINS.length}</small>
+              <span aria-hidden="true">◇</span><b>COMING SOON</b><small>{WORMS_ZONE_SOURCE_PLACEHOLDER_SKINS.length}</small>
             </button>
             <button type="button" onClick={() => setTab("studio")}>
               <span aria-hidden="true">✦</span><b>MAKE YOURS</b><small>Art Studio</small>
@@ -137,7 +137,7 @@ export function CurrencyStoreLayout({
             </div>
             <p>{selected.description}</p>
             <div className="flagship-store__price-context">
-              <small>FLAGSHIP SOURCE PRICE · CATALOG {WORMS_ZONE_FLAGSHIP_GAME_VERSION}</small>
+              <small>PRICE WHEN THE SHOP OPENS</small>
               <strong>{selected.sourcePriceLabel} USD</strong>
             </div>
             <button
@@ -147,12 +147,12 @@ export function CurrencyStoreLayout({
               onClick={() => onPurchase?.(selected.sku)}
               data-testid="flagship-checkout"
             >
-              {purchaseReady ? `CHECK OUT · ${selected.sourcePriceLabel}` : "CHECKOUT LOCKED · AUDIT REQUIRED"}
+              {purchaseReady ? `BUY · ${selected.sourcePriceLabel}` : "SHOP OPENS SOON"}
             </button>
             <small className="flagship-store__checkout-note">
               {purchaseReady
                 ? "Secure checkout opens once. Ownership restores from your account."
-                : "Browsing is live. Wormifi payment, ownership, refunds, and recovery are not yet approved."}
+                : "You can look at everything. Buying is not switched on yet - nothing here costs money today."}
             </small>
           </section>
 
@@ -178,7 +178,7 @@ export function CurrencyStoreLayout({
                       : <span className="flagship-product-card__pending" aria-label="Source artwork pending">?</span>}
                   </span>
                   <b>{skin.name}</b>
-                  <small>{skin.artworkStatus === "verified-local" ? "ART VERIFIED" : "SOURCE PLACEHOLDER"}</small>
+                  <small>{skin.artworkStatus === "verified-local" ? "READY" : "COMING SOON"}</small>
                   <strong>{skin.sourcePriceLabel} USD</strong>
                 </button>
               ))}
@@ -213,7 +213,7 @@ export function CurrencyStoreLayout({
                 <b>{pack.label}</b>
                 <strong>{pack.amount.toLocaleString()} DOUBLOONS</strong>
                 <button type="button" disabled={!purchaseReady} onClick={() => onPurchase?.(pack.sku)}>
-                  {purchaseReady ? "SELECT PACK" : "PAYMENT AUDIT REQUIRED"}
+                  {purchaseReady ? "SELECT PACK" : "SHOP OPENS SOON"}
                 </button>
               </article>
             ))}
