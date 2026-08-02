@@ -96,6 +96,44 @@ test("join parsing accepts only catalog theme IDs and rejects every photo or unk
   assert.equal(valid.ok, true);
   if (valid.ok) assert.equal(valid.value.themeId, "sunken-crown");
 
+  const validParentBody = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Parent Body",
+    themeId: "wormate-parent-32",
+  });
+  assert.equal(validParentBody.ok, true);
+  if (validParentBody.ok) assert.equal(validParentBody.value.themeId, "wormate-parent-32");
+
+  const validParentOutfit = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Parent Outfit",
+    themeId: "wormate-parent-32-e1-m1-g1-h1",
+  });
+  assert.equal(validParentOutfit.ok, true);
+  if (validParentOutfit.ok) {
+    assert.equal(validParentOutfit.value.themeId, "wormate-parent-32-e1-m1-g1-h1");
+  }
+
+  const unknownParentBody = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Forged Parent Body",
+    themeId: "wormate-parent-99999",
+  });
+  assert.equal(unknownParentBody.ok, false);
+  if (!unknownParentBody.ok) assert.equal(unknownParentBody.error.code, "INVALID_JOIN");
+
+  const forgedParentOutfit = parseJoinMessage({
+    type: "join",
+    roomId: "theme-proof",
+    name: "Forged Parent Outfit",
+    themeId: "wormate-parent-32-e1-m1-g1-h99999",
+  });
+  assert.equal(forgedParentOutfit.ok, false);
+  if (!forgedParentOutfit.ok) assert.equal(forgedParentOutfit.error.code, "INVALID_JOIN");
+
   const presenceCapable = parseJoinMessage({
     type: "join",
     roomId: "theme-proof",

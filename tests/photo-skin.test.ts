@@ -87,12 +87,13 @@ describe("privacy-first Photo Skin state", () => {
       updatedAtMs: 10,
     });
     expect(PHOTO_SKIN_PRIVACY_PROMISE).toContain("NEVER UPLOAD OR LEAVE THIS DEVICE");
-    expect(PHOTO_SKIN_MULTIPLAYER_PROMISE).toContain("authored Wormifi theme");
+    expect(PHOTO_SKIN_MULTIPLAYER_PROMISE).toContain("selected public cosmetic ID");
     expect(createPhotoSkinRenderPlan(state).multiplayerAppearance).toEqual({
-      themeId: "tideglass-corsair",
+      themeId: "wormate-parent-32",
       includesPhotos: false,
     });
-    expect(state.faceThemeId).toBe("tideglass-corsair");
+    expect(createPhotoSkinRenderPlan(state).parentSkinId).toBe(32);
+    expect(state.faceThemeId).toBe("wormate-parent-32");
     expect(createPhotoSkinRenderPlan(state).faceTheme.id).toBe("tideglass-corsair");
   });
 
@@ -101,7 +102,7 @@ describe("privacy-first Photo Skin state", () => {
     const bodyOnly = selectPhotoSkinTheme(original, "gumball-ocean", 2);
     expect(bodyOnly).toMatchObject({
       themeId: "gumball-ocean",
-      faceThemeId: "tideglass-corsair",
+      faceThemeId: "wormate-parent-32",
     });
 
     const faceOnly = selectPhotoSkinFace(bodyOnly, "gumball-berry", 3);
@@ -320,8 +321,11 @@ describe("privacy-first Photo Skin state", () => {
     expect(markup).toContain("BODY SKIN ONLY");
     expect(markup).toContain("FACE ONLY");
     expect(markup).toContain("COMPLETE STYLES");
+    expect(markup).toContain("PARENT LIBRARY · EXACT REVISION 100700");
+    expect(markup).toContain("190 AUTHORIZED BODY SKINS");
+    expect(markup).toContain("WORMIFI ORIGINALS · EXTRA COLLECTION");
     expect(markup).toContain("PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE");
-    expect(markup).toContain("Other players see only your authored Wormifi theme");
+    expect(markup).toContain("Other players see only your selected public cosmetic ID");
     expect(markup).toContain("EXPLICIT PHOTO CONSENT");
     expect(markup).toContain('accept="image/jpeg,image/png,image/webp"');
     expect(markup).toContain("multiple");

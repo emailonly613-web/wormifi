@@ -119,7 +119,8 @@ describe("Relic presentation contract", () => {
     expect(markup).toContain('data-relic-kind="pepper-cutlass"');
     expect(markup).toContain('data-carrier-tone="pepper-fire"');
     expect(markup).toContain('data-ground-sprite="pepper-cutlass"');
-    expect(markup).toContain('/assets/sprites/pirate-atlas/pepper-cutlass.png');
+    expect(markup).toContain('data-parent-ability-id="3"');
+    expect(markup).toContain('<canvas class="relic-status__icon"');
     expect(markup).toContain('aria-label="Pepper Cutlass. BOOST COST -25% · SAME TOP SPEED.');
     expect(markup).toContain("BOOST COST -25% · SAME TOP SPEED");
     expect(markup).toContain('role="status"');

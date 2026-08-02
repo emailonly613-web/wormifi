@@ -59,7 +59,7 @@ describe("live presentation interpolation", () => {
     }));
     pushAuthoritativeSnapshot(buffer, next, 1_067, 1 / 30);
 
-    const middle = getPresentedSnapshot(buffer, 1_105.333)!;
+    const middle = getPresentedSnapshot(buffer, 1_117)!;
     expect(middle.players[0].position.x).toBeCloseTo(10, 1);
     expect(middle.players[0].position.y).toBeCloseTo(5, 1);
     expect(middle.players[0].body[0].x).toBeCloseTo(-1, 1);
@@ -84,7 +84,7 @@ describe("live presentation interpolation", () => {
     })), 1_127, 1 / 30);
     const after = getPresentedSnapshot(buffer, 1_127)!.players[0].position.x;
 
-    expect(before).toBeGreaterThan(15);
+    expect(before).toBeGreaterThan(11);
     expect(before).toBeLessThan(20);
     expect(after).toBeCloseTo(before, 8);
   });
@@ -103,7 +103,7 @@ describe("live presentation interpolation", () => {
     }));
     pushAuthoritativeSnapshot(buffer, grown, 2_067, 1 / 30);
     const start = getPresentedSnapshot(buffer, 2_067)!;
-    const middle = getPresentedSnapshot(buffer, 2_105.333)!;
+    const middle = getPresentedSnapshot(buffer, 2_117)!;
     expect(start.players[0].body[3]).toEqual({ x: -30, y: 0 });
     expect(middle.players[0].body[3].x).toBeCloseTo(-35, 1);
   });
@@ -121,5 +121,70 @@ describe("live presentation interpolation", () => {
 
     resetLivePresentationBuffer(buffer);
     expect(getPresentedSnapshot(buffer, 4_000)).toBeNull();
+  });
+
+  it("predicts the local captain every display frame while remote authority stays buffered", () => {
+    const buffer = createLivePresentationBuffer();
+    pushAuthoritativeSnapshot(buffer, snapshot(10, player()), 1_000, 1 / 30);
+    pushAuthoritativeSnapshot(buffer, snapshot(12, player({
+      position: { x: 20, y: 0 },
+    })), 1_067, 1 / 30);
+    const options = {
+      playerId: "player-1",
+      direction: { x: 0, y: 1 },
+      baseSpeed: 100,
+      boostSpeed: 200,
+      arenaRadius: 2_000,
+      headRadius: 10,
+      bodyRadius: 8,
+    };
+    getPresentedSnapshot(buffer, 1_067, options);
+    const remote = getPresentedSnapshot(buffer, 1_083)!.players[0];
+    const local = getPresentedSnapshot(buffer, 1_083, options)!.players[0];
+
+    expect(local.position.x).toBeGreaterThan(remote.position.x);
+    expect(local.position.y).toBeGreaterThan(remote.position.y);
+    expect(local.direction.y).toBeGreaterThan(0);
+    expect(local.body[0].x - remote.body[0].x).toBeCloseTo(
+      local.position.x - remote.position.x,
+      8,
+    );
+  });
+
+  it("keeps bounded prediction continuous across correction packets and inside the arena", () => {
+    const buffer = createLivePresentationBuffer();
+    const nearWall = player({
+      position: { x: 980, y: 0 },
+      body: [{ x: 960, y: 0 }, { x: 940, y: 0 }, { x: 920, y: 0 }],
+    });
+    pushAuthoritativeSnapshot(buffer, snapshot(10, nearWall), 1_000, 1 / 30);
+    pushAuthoritativeSnapshot(buffer, snapshot(12, {
+      ...nearWall,
+      position: { x: 985, y: 0 },
+    }), 1_067, 1 / 30);
+    const options = {
+      playerId: "player-1",
+      direction: { x: 1, y: 0 },
+      baseSpeed: 235,
+      boostSpeed: 420,
+      arenaRadius: 1_000,
+      headRadius: 10,
+      bodyRadius: 8,
+    };
+    getPresentedSnapshot(buffer, 1_067, options);
+    const predicted = getPresentedSnapshot(buffer, 1_117, options)!;
+    const predictedPlayer = predicted.players[0];
+    expect(Math.hypot(predictedPlayer.position.x, predictedPlayer.position.y)).toBeLessThanOrEqual(990);
+    for (const bodyPoint of predictedPlayer.body) {
+      expect(Math.hypot(bodyPoint.x, bodyPoint.y)).toBeLessThanOrEqual(992);
+    }
+
+    const beforeCorrection = predictedPlayer.position.x;
+    pushAuthoritativeSnapshot(buffer, snapshot(14, {
+      ...nearWall,
+      position: { x: 984, y: 0 },
+    }), 1_117, 1 / 30);
+    const afterCorrection = getPresentedSnapshot(buffer, 1_117, options)!.players[0].position.x;
+    expect(afterCorrection).toBeCloseTo(beforeCorrection, 8);
   });
 });

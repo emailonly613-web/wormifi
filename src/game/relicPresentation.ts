@@ -8,6 +8,7 @@ import type {
   SpecialistKind,
   TreasureMultiplierTier,
 } from "./types";
+import type { WormateParentAbilityId } from "./wormateParentCatalog";
 
 const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL;
 
@@ -46,6 +47,7 @@ export interface RelicGroundSilhouette {
 
 export interface RelicPresentation {
   relicKind: PirateRelicKind;
+  parentAbilityId: WormateParentAbilityId;
   label: string;
   shortLabel: string;
   publishedDurationSeconds: 7 | 8 | 10 | 12;
@@ -101,6 +103,7 @@ export const RELIC_PRESENTATIONS: Readonly<
   Record<PirateRelicKind, RelicPresentation>
 > = Object.freeze({
   "loot-compass": presentation("loot-compass", {
+    parentAbilityId: 6,
     label: "Treasure Magnet",
     shortLabel: "MAGNET",
     publishedDurationSeconds: 12,
@@ -119,6 +122,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "emerald-spyglass": presentation("emerald-spyglass", {
+    parentAbilityId: 2,
     label: "Emerald Spyglass",
     shortLabel: "SPYGLASS",
     publishedDurationSeconds: 10,
@@ -137,6 +141,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "pepper-cutlass": presentation("pepper-cutlass", {
+    parentAbilityId: 3,
     label: "Pepper Cutlass",
     shortLabel: "CUTLASS",
     publishedDurationSeconds: 8,
@@ -155,6 +160,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "gale-pennant": presentation("gale-pennant", {
+    parentAbilityId: 0,
     label: "Gale Pennant",
     shortLabel: "GALE",
     publishedDurationSeconds: 8,
@@ -173,6 +179,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "maelstrom-wheel": presentation("maelstrom-wheel", {
+    parentAbilityId: 2,
     label: "Maelstrom Wheel",
     shortLabel: "ZERO TURN",
     publishedDurationSeconds: 8,
@@ -191,6 +198,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "storm-battery": presentation("storm-battery", {
+    parentAbilityId: 1,
     label: "Twin Turbo Lightning",
     shortLabel: "2× TANKS",
     publishedDurationSeconds: 7,
@@ -209,6 +217,7 @@ export const RELIC_PRESENTATIONS: Readonly<
     },
   }),
   "gilded-ledger": presentation("gilded-ledger", {
+    parentAbilityId: 3,
     label: "Treasure Multiplier",
     shortLabel: "MULTIPLIER",
     publishedDurationSeconds: 8,
@@ -245,6 +254,16 @@ export function getRelicEffectText(
   return relic.relicKind === "gilded-ledger" && tier
     ? `${tier}× ALL TREASURE`
     : relic.effectText;
+}
+
+export function getRelicParentAbilityId(
+  relic: Readonly<RelicPresentation>,
+  tier?: TreasureMultiplierTier,
+): WormateParentAbilityId {
+  if (relic.relicKind !== "gilded-ledger") return relic.parentAbilityId;
+  if (tier === 10) return 5;
+  if (tier === 5) return 4;
+  return 3;
 }
 
 export function getRelicRivalDisclosure(

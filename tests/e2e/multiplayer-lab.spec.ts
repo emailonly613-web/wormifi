@@ -230,7 +230,7 @@ test("Heat Ring UI reconciles a resolved hoard from the event's real death-drop 
       mass: 8.5,
       radius: 5.2,
       source: "death",
-      originPlayerId: botIds[1],
+      originPlayerId: botIds[0],
     },
   ];
   let resolved = false;
@@ -247,7 +247,7 @@ test("Heat Ring UI reconciles a resolved hoard from the event's real death-drop 
       players: [
         player(playerId, "Heat Proof", "human", { x: 0, y: 0 }),
         player(botIds[0], "Ruby Wake", "bot", { x: 300, y: 20 }, !resolved),
-        player(botIds[1], "Jade Jib", "bot", { x: 340, y: -20 }, !resolved),
+        player(botIds[1], "Jade Jib", "bot", { x: 340, y: -20 }, true),
       ],
       dropUpserts,
       removedDropIds: [],
@@ -305,17 +305,11 @@ test("Heat Ring UI reconciles a resolved hoard from the event's real death-drop 
           collisionTime: 0.42,
         },
         {
-          type: "playerDied",
-          tick,
-          playerId: botIds[1],
-          killerId: botIds[0],
-          cause: "collision",
-          collisionTime: 0.42,
-        },
-        {
           type: "heatRingResolved",
           tick,
           botIds,
+          winnerId: botIds[1],
+          defeatedId: botIds[0],
           dropIds: jewels.map((drop) => drop.id),
           totalMass: jewels.reduce((sum, drop) => sum + drop.mass, 0),
         },
@@ -349,6 +343,7 @@ test("Heat Ring UI reconciles a resolved hoard from the event's real death-drop 
   await expect(radar).toHaveAttribute("data-hazard-count", "0");
   await expect(radarHeatRing).toHaveCount(0);
   const callout = page.getByTestId("live-action-callout");
+  await expect(callout).toContainText("JADE JIB WINS");
   await expect(callout).toContainText("RIVAL HOARD RELEASED · 3 REAL JEWELS · 17.3 SIZE");
   await expect(callout).not.toContainText("VERIFYING");
   expect(pageErrors).toEqual([]);
@@ -1005,7 +1000,9 @@ test("live lesson uses touch anchor, score rank, real Sprint spend, and honest r
   const arena = page.getByTestId("live-arena-canvas");
   await expect(page.getByTestId("live-status")).toHaveText("LIVE · SERVER AUTHORITATIVE");
   await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
-  await expect(page.getByTestId("tutorial-coach")).toHaveAccessibleName("Turn your moving worm.");
+  const tutorial = page.getByTestId("tutorial-coach");
+  await expect(tutorial).toHaveAccessibleName("Turn your moving worm.");
+  await expect(tutorial).toContainText("TURN TO TAKE CONTROL");
   await expect(page.getByTestId("live-hud-rank")).toContainText("PLACE");
   await expect(page.getByTestId("live-hud-rank")).toHaveAccessibleName("Rank 2 of 2");
   await expect(page.getByLabel("Live score leaderboard")).toContainText(

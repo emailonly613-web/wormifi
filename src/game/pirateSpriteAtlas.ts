@@ -451,6 +451,7 @@ export function drawGroundTreasureSpriteField(
   width: number,
   height: number,
   now: number,
+  detail: "full" | "dense" = "full",
 ): void {
   // One mutable options record keeps a crowded field from allocating hundreds
   // of short-lived objects every frame. drawPirateAtlasSprite consumes the
@@ -464,7 +465,8 @@ export function drawGroundTreasureSpriteField(
   const rotationAtlas = typeof Image === "undefined"
     ? undefined
     : groundTreasureRotationAtlasFor(sourceScale);
-  const floatShadow = groundTreasureFloatShadow();
+  const denseField = detail === "dense";
+  const floatShadow = denseField ? undefined : groundTreasureFloatShadow();
   const glint = groundTreasureGlint();
   const treasureSizeScale = zoom * GROUND_TREASURE_RADIUS_SCALE;
   const minimumTreasureSize = height <= 500 || width <= 700
@@ -506,7 +508,9 @@ export function drawGroundTreasureSpriteField(
         screenY > height + verticalCullExtent
       ) continue;
 
-      const pulse = 0.97 + Math.sin(pulseTime + item.seed * 0.017) * 0.03;
+      const pulse = denseField
+        ? 1
+        : 0.97 + Math.sin(pulseTime + item.seed * 0.017) * 0.03;
       const size = baseSize * pulse;
       const lift = (Math.sin(bobTime + item.seed) + 1) * 0.5;
       spriteOptions.x = screenX;
@@ -557,7 +561,7 @@ export function drawGroundTreasureSpriteField(
       // field equally noisy and spent a large part of the crowded-frame
       // budget. Sparse deterministic glints create visual rarity without
       // flicker and keep the semantic treasure sprites themselves untouched.
-      if (glint && safeSeed % 3 === 0) {
+      if (glint && safeSeed % (denseField ? 8 : 3) === 0) {
         const twinkle = Math.max(
           0,
           Math.sin(now * 0.0042 + safeSeed * 0.73),

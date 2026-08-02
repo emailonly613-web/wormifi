@@ -47,6 +47,8 @@ describe("public-safe authored cosmetic themes", () => {
     expect(cosmeticThemeHeadHue(getCosmeticTheme("gumball-ocean"))).toBe(175);
     expect(cosmeticThemeHeadHue(getCosmeticTheme("tideglass-corsair"))).toBe(0);
     expect(isCosmeticThemeId("sunken-crown")).toBe(true);
+    expect(isCosmeticThemeId("wormate-parent-32")).toBe(true);
+    expect(isCosmeticThemeId("wormate-parent-99999")).toBe(false);
     expect(isCosmeticThemeId("data:image/webp;base64,private")).toBe(false);
     expect(isCosmeticThemeId("ghost-theme")).toBe(false);
     expect(getCosmeticTheme("ghost-theme").id).toBe(DEFAULT_COSMETIC_THEME_ID);
@@ -57,6 +59,7 @@ describe("public-safe authored cosmetic themes", () => {
     expect(PHOTO_SKIN_THEMES).toBe(COSMETIC_THEME_CATALOG);
     expect(PHOTO_SKIN_COSMETIC_THEME_CATALOG).toBe(COSMETIC_THEME_CATALOG);
     expect(getPhotoSkinTheme("coral-signal")).toBe(getCosmeticTheme("coral-signal"));
-    expect(createDefaultPhotoSkinState(1).themeId).toBe(DEFAULT_COSMETIC_THEME_ID);
+    expect(createDefaultPhotoSkinState(1).themeId).toBe("wormate-parent-32");
+    expect(createDefaultPhotoSkinState(1).faceThemeId).toBe("wormate-parent-32");
   });
 });
