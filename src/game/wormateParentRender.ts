@@ -17,6 +17,15 @@ import {
 const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL.endsWith("/")
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
+/**
+ * How much bigger the head sphere is than the collision head radius. The head
+ * must lead the body: segments draw at bodyRadius * 1.12, and bodyRadius is
+ * 0.98 of the player radius, so anything under ~1.10 here renders a head that
+ * is smaller than the segments behind it. The face, hat and shield ring all
+ * scale off this so they can never drift out of proportion with the sphere.
+ */
+const HEAD_RADIUS_SCALE = 1.22;
+
 const SKIN_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_skins.png`;
 const WEAR_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_wear.png`;
 const ABILITY_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_abilities.png`;
@@ -506,8 +515,14 @@ export function drawWormateParentWorm(
           : distanceFromTail === 2
             ? 0.97
             : 1;
+    // The head has to be the biggest part of the worm. It was drawn at
+    // headRadius * 1.04 while segments drew at bodyRadius * 1.12 - and since
+    // bodyRadius is 0.98 of the player radius, that put the body at 1.098 and
+    // the head at 1.04. The head was genuinely smaller than the segments behind
+    // it, which is what made it read as a badge stuck on the front rather than
+    // a face leading the body.
     const radius = (
-      index === 0 ? options.headRadius * 1.04 : options.bodyRadius * 1.12
+      index === 0 ? options.headRadius * HEAD_RADIUS_SCALE : options.bodyRadius * 1.12
     ) * radiusScale;
     if (
       options.viewportWidth !== undefined &&
@@ -545,7 +560,7 @@ export function drawWormateParentWorm(
         context,
         wear,
         regionId as WormateParentRegionId,
-        options.headRadius,
+        options.headRadius * HEAD_RADIUS_SCALE,
       );
     }
   }
@@ -555,7 +570,7 @@ export function drawWormateParentWorm(
     context.strokeStyle = "rgba(225,255,252,0.86)";
     context.lineWidth = Math.max(1, options.headRadius * 0.09);
     context.beginPath();
-    context.arc(head.x, head.y, options.headRadius * 1.03, 0, TAU);
+    context.arc(head.x, head.y, options.headRadius * HEAD_RADIUS_SCALE * 1.03, 0, TAU);
     context.stroke();
   }
   context.restore();
