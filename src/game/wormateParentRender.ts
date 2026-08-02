@@ -23,6 +23,28 @@ const ABILITY_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_a
 const PORTION_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_portions.png`;
 const TAU = Math.PI * 2;
 
+/**
+ * Spine stamp spacing as a fraction of the body radius. The parent's body art is
+ * a plain circle - its smoothness comes entirely from how tightly those circles
+ * are packed. One stamp per chain point leaves points bodyRadius * 1.64 apart
+ * against a drawn diameter of 2.24, only ~27% overlap, so every circle reads as
+ * its own bulge. At 0.18 consecutive stamps overlap so heavily that only the
+ * outer envelope shows.
+ */
+const SMOOTH_BODY_STEP = 0.18;
+
+/**
+ * How far forward, in head radii, the face is moved before it is stamped.
+ *
+ * The parent's wear sprites are authored around a front-of-head origin: the
+ * stock eye region has pivot px=75 in a 128-unit box while the sprite is only
+ * 42 wide, so drawn about our head centre it lands roughly -1.4 to -0.6 radii -
+ * behind the head, on the neck. Tuned by eye against the real arena at eight
+ * headings rather than computed, because the eyes, mouth, glasses and hat are
+ * authored as a set and only look right together.
+ */
+const FACE_FORWARD_OFFSET = 0.70;
+
 interface AtlasState {
   image?: HTMLImageElement;
   promise?: Promise<HTMLImageElement | undefined>;
@@ -492,41 +514,68 @@ export function drawWormateParentWorm(
   context.globalAlpha = 1;
   context.shadowBlur = 0;
 
-  // Parent worms are overlapping glossy round sprites. Paint tail-to-head so
-  // every forward segment cleanly overlaps the one behind it on tight turns.
-  for (let index = points.length - 1; index >= 0; index -= 1) {
+  // Walk the spine and stamp densely rather than once per chain point, so the
+  // circles merge into one tube instead of reading as separate beads. Painted
+  // tail-to-head so every forward stamp cleanly overlaps the one behind it.
+  const taperFor = (distanceFromTail: number) => distanceFromTail === 0
+    ? 0.72
+    : distanceFromTail === 1
+      ? 0.88
+      : distanceFromTail === 2
+        ? 0.97
+        : 1;
+  const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
+  const tailIndex = points.length - 1;
+
+  for (let index = tailIndex; index >= 1; index -= 1) {
     const point = points[index];
-    const distanceFromTail = points.length - 1 - index;
-    const radiusScale = index === 0
-      ? 1
-      : distanceFromTail === 0
-        ? 0.72
-        : distanceFromTail === 1
-          ? 0.88
-          : distanceFromTail === 2
-            ? 0.97
-            : 1;
-    const radius = (
-      index === 0 ? options.headRadius * 1.04 : options.bodyRadius * 1.12
-    ) * radiusScale;
-    if (
-      options.viewportWidth !== undefined &&
+    const ahead = points[index - 1];
+    const taper = taperFor(tailIndex - index);
+    const aheadTaper = taperFor(tailIndex - index + 1);
+    const spanX = ahead.x - point.x;
+    const spanY = ahead.y - point.y;
+    const span = Math.hypot(spanX, spanY);
+    const stamps = Math.max(1, Math.ceil(span / stampStep));
+    const baseRegion = skin.base[index % skin.base.length] as WormateParentRegionId;
+    const glowRegion = skin.glow[index % skin.glow.length] as WormateParentRegionId;
+    for (let step = 0; step < stamps; step += 1) {
+      const t = step / stamps;
+      const x = point.x + spanX * t;
+      const y = point.y + spanY * t;
+      // Taper interpolated across the span so the tail thins evenly.
+      const radius = options.bodyRadius * 1.12 * (taper + (aheadTaper - taper) * t);
+      if (
+        options.viewportWidth !== undefined &&
+        options.viewportHeight !== undefined &&
+        (
+          x + radius < 0 || y + radius < 0 ||
+          x - radius > options.viewportWidth || y - radius > options.viewportHeight
+        )
+      ) continue;
+      drawBodySegment(context, skins, baseRegion, glowRegion, { x, y }, radius);
+    }
+  }
+
+  {
+    const headPoint = points[0];
+    const headRadius = options.headRadius * 1.04;
+    const offScreen = options.viewportWidth !== undefined &&
       options.viewportHeight !== undefined &&
       (
-        point.x + radius < 0 ||
-        point.y + radius < 0 ||
-        point.x - radius > options.viewportWidth ||
-        point.y - radius > options.viewportHeight
-      )
-    ) continue;
-    drawBodySegment(
-      context,
-      skins,
-      skin.base[index % skin.base.length] as WormateParentRegionId,
-      skin.glow[index % skin.glow.length] as WormateParentRegionId,
-      point,
-      radius,
-    );
+        headPoint.x + headRadius < 0 || headPoint.y + headRadius < 0 ||
+        headPoint.x - headRadius > options.viewportWidth ||
+        headPoint.y - headRadius > options.viewportHeight
+      );
+    if (!offScreen) {
+      drawBodySegment(
+        context,
+        skins,
+        skin.base[0] as WormateParentRegionId,
+        skin.glow[0] as WormateParentRegionId,
+        headPoint,
+        headRadius,
+      );
+    }
   }
 
   const head = points[0];
@@ -534,6 +583,7 @@ export function drawWormateParentWorm(
   context.save();
   context.translate(head.x, head.y);
   context.rotate(angle);
+  context.translate(options.headRadius * FACE_FORWARD_OFFSET, 0);
   for (const item of [
     getWormateParentWearable("eyes", outfit.eyeId),
     getWormateParentWearable("mouth", outfit.mouthId),
