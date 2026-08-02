@@ -1233,7 +1233,7 @@ export function App() {
                     <b>{passportProfile ? "CAPTAIN PASSPORT CONNECTED" : "SAVE YOUR CAPTAIN"}</b>
                     <small>{passportProfile
                       ? `${passportProfile.progression.xp.toLocaleString()} verified XP · manage devices`
-                      : "Optional passkey or email link · never required to play"}</small>
+                      : "Optional. You never need one to play."}</small>
                   </span>
                 </button>}
 
@@ -1476,7 +1476,7 @@ export function App() {
 
           <div className="launch-five-second-promise" id="game-promise">
             <strong>HUNT TREASURE. GROW. CUT RIVALS.</strong>
-            <span>Rule the tide before they circle you.</span>
+            <span>Eat treasure, get huge, cut off everyone else.</span>
           </div>
 
           <div className="quick-start">
@@ -1568,7 +1568,7 @@ export function App() {
                       ? `${passportProfile.progression.xp.toLocaleString()} verified XP · returns across devices`
                       : captainProgression.completedRuns > 0
                         ? "Keep future verified live progress on every device"
-                        : "Optional after you play · passkey or email link"}</span>
+                        : "Optional. Save your progress after you play."}</span>
                   </button>
                 )}
                 {!isCrazyGamesDistribution && (
@@ -1579,7 +1579,7 @@ export function App() {
                     onClick={() => setCaptainRoomsOpen(true)}
                   >
                     <b>HOST A PRIVATE ROOM</b>
-                    <span>Free instant link · 10 · 20 · 30 invited players</span>
+                    <span>Get a link. Send it to friends. Play together.</span>
                   </button>
                 )}
               </div>
@@ -1611,7 +1611,7 @@ export function App() {
                   ? `${roomIdentityLabel(roomDraft)} · one click to the arena`
                   : challenge
                   ? "Same seed · beat the target"
-                  : `${roomIdentityLabel(roomDraft)} · humans + labeled AI backfill`}
+                  : `${roomIdentityLabel(roomDraft)} · real players plus friendly bots`}
               </small>
             </button>
 
@@ -1624,12 +1624,12 @@ export function App() {
                 <b>{mode === "endless" ? "ENDLESS SOLO" : "90s SOLO"}</b>
                 <small>PLAY ALONE</small>
               </button>}
-              <button className="quick-play-button" aria-label="Practice with labeled bots" onClick={() => {
+              <button className="quick-play-button" aria-label="Practice against bots" onClick={() => {
                 setChallenge(null);
                 start("practice");
               }}>
                 <b>PRACTICE</b>
-                <small>LABELED BOTS</small>
+                <small>AGAINST BOTS</small>
               </button>
             </div>
 
