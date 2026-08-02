@@ -777,7 +777,7 @@ export function ArenaCanvas({
     let animationFrame = 0;
     let cancelled = false;
 
-    const commitResult = (player: PlayerState, cause: string, heading = "CHAIN RELEASED") => {
+    const commitResult = (player: PlayerState, cause: string, heading = "YOU CRASHED") => {
       const runtime = runtimeRef.current;
       if (!runtime || runtime.resultCommitted || !running) return;
       runtime.resultCommitted = true;
@@ -952,8 +952,8 @@ export function ArenaCanvas({
             }
             const killer = event.killerId ? runtime.state.players[event.killerId] : undefined;
             const cause = event.cause === "boundary"
-              ? "The arena edge caught your Core."
-              : `You hit ${killer?.name ?? "a rival"}’s living chain.`;
+              ? "You swam off the edge of the map."
+              : `You bumped into ${killer?.name ?? "another worm"}.`;
             window.setTimeout(() => commitResult(victim, cause), 220);
           }
         }
@@ -1419,7 +1419,7 @@ export function ArenaCanvas({
     const url = `${window.location.origin}/?c=${encodeURIComponent(token)}`;
     return {
       title: "Beat my Wormifi run",
-      text: `I scored ${result?.score ?? hud.score} in Wormifi. Can your living chain beat mine?`,
+      text: `I scored ${result?.score ?? hud.score} in Wormifi. Think you can beat that?`,
       url,
     };
   };
@@ -1660,7 +1660,7 @@ export function ArenaCanvas({
           otherPlayers={radarIntel.visiblePlayers}
           stations={radarStations}
           dangerBearings={radarIntel.dangerBearings}
-          downLabel={localReplay ? "REPLAY · LAST POSITION" : result ? "RUN ENDED" : "CHAIN RELEASED"}
+          downLabel={localReplay ? "REPLAY · LAST POSITION" : result ? "RUN ENDED" : "YOU CRASHED"}
           competition={{
             rank: hud.rank,
             rankTotal: Object.values(radarRuntime.state.players).filter((player) => player.alive).length,
@@ -1784,7 +1784,7 @@ export function ArenaCanvas({
             aria-labelledby="result-heading"
             aria-describedby="result-cause"
           >
-            <span className="results-kicker">RIVALRY LINK READY</span>
+            <span className="results-kicker">NICE RUN</span>
             <h2 id="result-heading">{result.heading}</h2>
             <p className="death-cause" id="result-cause">{result.cause}</p>
             <dl className="result-stats">
@@ -1827,7 +1827,7 @@ export function ArenaCanvas({
                   <span className="result-highlight-mark" aria-hidden="true"><i /><i /><i /></span>
                   <span>
                     <b>SHARE THIS RUN</b>
-                    <small>FINAL FRAME + PLAYABLE CHALLENGE LINK</small>
+                    <small>SEND IT TO A FRIEND AND DARE THEM</small>
                   </span>
                 </div>
                 <nav className="result-social-links" aria-label="Share result on social media">
@@ -1855,7 +1855,7 @@ export function ArenaCanvas({
                     onClick={() => void shareChallenge()}
                   >
                     <b>↗ SHARE HIGHLIGHT</b>
-                    <small>IMAGE + SCORE + RIVALRY LINK</small>
+                    <small>A PICTURE, YOUR SCORE AND A LINK TO PLAY</small>
                   </button>
                 </nav>
               </aside>
@@ -1866,8 +1866,8 @@ export function ArenaCanvas({
                 data-testid="watch-local-replay"
                 onClick={startLocalReplay}
               >
-                <span>WATCH FINAL 6S</span>
-                <small>LOCAL REPLAY · RECORDED INPUTS</small>
+                <span>WATCH THE LAST 6 SECONDS</span>
+                <small>SEE HOW IT HAPPENED</small>
               </button>
               <button
                 ref={restartButtonRef}
