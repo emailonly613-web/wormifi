@@ -1,5 +1,11 @@
 # Wormifi — read this first
 
+## Start here
+
+**[SESSION-HANDOFF-2026-08-02.md](./SESSION-HANDOFF-2026-08-02.md)** — what the last
+session learned, including the mistakes and the traps that cost the most time. Read it
+before touching the renderer, the deploy path, or any measurement of live gameplay.
+
 ## Standing order: the daily SEO run
 
 **[SEO-GAMEPLAN.md](./SEO-GAMEPLAN.md) is the owner's standing instruction. Read it
