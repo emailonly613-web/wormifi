@@ -1,8 +1,4 @@
 import { WORM_MATERIAL_PATTERNS, type WormMaterialPattern } from "./wormMaterialPatterns";
-import {
-  isWormateParentThemeId,
-  type WormateParentThemeId,
-} from "./wormateParentCatalog";
 
 /**
  * Visual-complexity ladder for the catalog. Every tier is free and equippable
@@ -189,22 +185,15 @@ if (UNUSED_PATTERNS.length > 0) {
 }
 
 export type CosmeticTheme = typeof COSMETIC_THEME_CATALOG[number];
-export type AuthoredCosmeticThemeId = CosmeticTheme["id"];
-/**
- * Parent skin IDs share the existing public-safe theme wire field. This keeps
- * protocol v5 tuple shape stable while making all authorized Wormate bodies
- * visible to every client. Wormifi originals remain authored catalog entries.
- */
-export type CosmeticThemeId = AuthoredCosmeticThemeId | WormateParentThemeId;
-export const DEFAULT_COSMETIC_THEME_ID: AuthoredCosmeticThemeId = "tideglass-corsair";
+export type CosmeticThemeId = CosmeticTheme["id"];
+export const DEFAULT_COSMETIC_THEME_ID: CosmeticThemeId = "tideglass-corsair";
 
 const COSMETIC_THEME_IDS: ReadonlySet<string> = new Set(
   COSMETIC_THEME_CATALOG.map((theme) => theme.id),
 );
 
 export function isCosmeticThemeId(value: unknown): value is CosmeticThemeId {
-  return (typeof value === "string" && COSMETIC_THEME_IDS.has(value)) ||
-    isWormateParentThemeId(value);
+  return typeof value === "string" && COSMETIC_THEME_IDS.has(value);
 }
 
 export function isCosmeticTheme(value: unknown): value is CosmeticTheme {

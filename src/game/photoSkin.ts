@@ -6,14 +6,6 @@ import {
   type CosmeticThemeId,
 } from "./cosmeticThemes";
 import {
-  DEFAULT_WORMATE_PARENT_SKIN_ID,
-  wormateParentOutfitFromThemeId,
-  wormateParentSkinIdFromThemeId,
-  wormateParentThemeId,
-  type WormateParentOutfit,
-  type WormateParentSkinId,
-} from "./wormateParentCatalog";
-import {
   DEFAULT_CAPTAIN_EXPRESSION_STYLE,
   DEFAULT_CAPTAIN_EYE_STYLE,
   DEFAULT_CAPTAIN_FACE_MODE,
@@ -49,7 +41,7 @@ export const PHOTO_SKIN_ACCEPT = "image/jpeg,image/png,image/webp";
 
 export const PHOTO_SKIN_PRIVACY_PROMISE = "PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE.";
 export const PHOTO_SKIN_MULTIPLAYER_PROMISE =
-  "Other players see only your selected public cosmetic ID, including an exact parent outfit when equipped. Photos stay private until a separate moderated public-sharing contract is built and approved.";
+  "Other players see only your authored Wormifi theme. Photos stay private until a separate moderated public-sharing contract is built and approved.";
 export const PHOTO_SKIN_CONSENT_TEXT =
   "I have permission to use these photos and consent to processing and storing sanitized copies only in this browser on this device.";
 
@@ -131,12 +123,7 @@ export interface PhotoSkinCoverCrop {
 }
 
 export interface PhotoSkinRenderPlan {
-  themeId: PhotoSkinThemeId;
   theme: typeof PHOTO_SKIN_THEMES[number];
-  /** Exact first-party parent body, when the primary collection is selected. */
-  parentSkinId?: WormateParentSkinId;
-  /** Exact first-party parent face and head wear, encoded in the same safe ID. */
-  parentOutfit?: WormateParentOutfit;
   faceTheme: typeof PHOTO_SKIN_THEMES[number];
   faceMode: CaptainFaceMode;
   eyeStyle: CaptainEyeStyle;
@@ -156,9 +143,7 @@ const ALLOWED_PHOTO_MIME_TYPES = new Set<SanitizedPhotoMimeType>([
   "image/webp",
 ]);
 
-const DEFAULT_THEME_ID: PhotoSkinThemeId = wormateParentThemeId(
-  DEFAULT_WORMATE_PARENT_SKIN_ID,
-);
+const DEFAULT_THEME_ID: PhotoSkinThemeId = DEFAULT_COSMETIC_THEME_ID;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0.5));
@@ -715,10 +700,7 @@ export function getPhotoSkinTheme(themeId: PhotoSkinThemeId) {
 export function createPhotoSkinRenderPlan(state: PhotoSkinState): PhotoSkinRenderPlan {
   const localPhotosEnabled = state.enabled && isPhotoSkinReady(state);
   return {
-    themeId: state.themeId,
     theme: getPhotoSkinTheme(state.themeId),
-    parentSkinId: wormateParentSkinIdFromThemeId(state.themeId),
-    parentOutfit: wormateParentOutfitFromThemeId(state.themeId),
     faceTheme: getPhotoSkinTheme(state.faceThemeId),
     faceMode: state.faceMode,
     eyeStyle: state.eyeStyle,

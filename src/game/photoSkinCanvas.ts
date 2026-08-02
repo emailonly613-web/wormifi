@@ -7,11 +7,6 @@
  * authored theme instead of creating a blank or network-loaded body.
  */
 
-import type {
-  WormateParentOutfit,
-  WormateParentSkinId,
-} from "./wormateParentCatalog";
-
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
 const EPSILON = 0.0001;
@@ -37,9 +32,6 @@ export interface PhotoSkinCanvasPhoto {
 
 /** Structurally compatible with PhotoSkinRenderPlan without importing it. */
 export interface PhotoSkinCanvasRenderPlan {
-  /** Exact parent atlas body selected through the shared cosmetic theme slot. */
-  parentSkinId?: WormateParentSkinId;
-  parentOutfit?: WormateParentOutfit;
   theme: {
     id?: string;
     palette: readonly string[];

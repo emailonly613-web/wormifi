@@ -273,12 +273,12 @@ describe("approved deterministic ground loop", () => {
 
     const giantState = createGameState("giant-rival-echo-bank", {
       arenaRadius: 5_000,
-      baseSpeed: 1_000,
-      boostSpeed: 1_000,
+      baseSpeed: 0,
+      boostSpeed: 0,
     });
     const giant = spawnPlayer(giantState, {
       id: "giant",
-      position: { x: 5_000, y: 0 },
+      position: { x: 6_000, y: 0 },
       direction: { x: 1, y: 0 },
       mass: 400_000,
       shieldSeconds: 0,

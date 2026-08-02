@@ -19,10 +19,6 @@ Current proof:
 - server snapshots own the collectible field, arena radius, player score, and
   the human/AI roster rendered by the browser;
 - released players are respawned by server policy rather than a client command.
-- collision candidates resolve in sub-tick contact order; once a body owner is
-  defeated it cannot earn a later reciprocal kill from the same tick, so one
-  two-worm contact cannot kill both worms. Exact mathematical ties use stable
-  server ordering and never size, payment, or client latency privilege;
 - protocol v5 publishes a compact low-frequency full-room presence roster for
   honest rank/radar/population plus high-frequency packed body paths only for
   the local visible/collision neighborhood;
@@ -33,8 +29,8 @@ Current proof:
 - the shared game core remains the only reach authority: Collector can extend
   neutral/own-boost reach but never vacuums rival remains or another beacon.
 - a first human can receive one fail-closed Heat Ring: two ordinary AI inputs
-  resolve to one ordinary collision winner and one loser, then expose only the
-  loser's real, conserved Rival Hoard jewel IDs and mass.
+  resolve through the normal collision law and expose only real, conserved
+  Rival Hoard jewel IDs and mass.
 - an opt-in room board can publish wrap charging landmarks; the shared core
   alone validates a docked head plus contiguous body coil, awards bounded match
   mass, and owns interruption, decay, reset and cooldown. Omitted board config

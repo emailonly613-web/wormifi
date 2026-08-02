@@ -56,7 +56,6 @@ async function expectLauncher(page: Page) {
   );
   await expect(page.getByTestId("launcher-selected-look")).toHaveText("TIDEGLASS CORSAIR");
   await expect(page.getByTestId("launcher-choose-look")).toBeVisible();
-  await expect(page.getByTestId("launcher-open-store")).toBeVisible();
   await expect(page.getByLabel("Your arena name")).toBeEditable();
   await expect(page.getByRole("button", { name: /play live/i })).toBeVisible();
   await expect(page.getByTestId("solo-run-button")).toBeVisible();
@@ -279,9 +278,7 @@ test.describe("first Wormifi session", () => {
     await page.getByTestId("solo-run-button").click();
 
     await expectActiveArena(page);
-    const tutorial = page.getByTestId(gameContract.tutorial);
-    await expect(tutorial).toBeVisible();
-    await expect(tutorial).toContainText("TURN TO START");
+    await expect(page.getByTestId(gameContract.tutorial)).toBeVisible();
     const arena = page.getByTestId(gameContract.arena);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "steer");
     if (testInfo.project.name.includes("mobile")) {
@@ -322,7 +319,6 @@ test.describe("first Wormifi session", () => {
     const startY = Number(await arena.getAttribute("data-player-y"));
     await page.keyboard.press("ArrowDown");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "spark");
-    await expect(tutorial).toContainText("COLLECT THE RINGED GEM");
     await expect
       .poll(async () => Number(await arena.getAttribute("data-player-y")), {
         message: "the player should visibly move after the accepted steering input",
@@ -332,21 +328,17 @@ test.describe("first Wormifi session", () => {
 
     await steerToHighlightedSpark(page);
     await expect(arena).toHaveAttribute("data-tutorial-stage", "sprint");
-    await expect(tutorial).toContainText("HOLD TURBO");
     await page.keyboard.down("Space");
     await expect(arena).toHaveAttribute("data-boosting", "true");
     await expect(arena).toHaveAttribute("data-tutorial-stage", "sprint-release");
-    await expect(tutorial).toContainText("RELEASE TURBO");
     await expect(arena).toHaveAttribute("data-tutorial-sprint-spent", "true");
     await page.keyboard.up("Space");
     await expect(arena).toHaveAttribute("data-boosting", "false", { timeout: 1_000 });
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collision");
-    await expect(tutorial).toContainText("MAKE A RIVAL HIT YOUR CREW");
     await expect(page.getByTestId(gameContract.tutorial)).toHaveAccessibleName(
       "Keep your head safe and make a rival head hit your crew.",
     );
     await expect(arena).toHaveAttribute("data-tutorial-stage", "collector", { timeout: 3_000 });
-    await expect(tutorial).toContainText("COLLECT THE COMPASS RELIC");
 
     await page.getByTestId(gameContract.exit).click();
     await expectLauncher(page);

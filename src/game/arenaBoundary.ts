@@ -54,33 +54,3 @@ export function clipCanvasToArenaCircle(
   context.arc(center.x, center.y, radius, 0, Math.PI * 2);
   context.clip();
 }
-
-/**
- * Fast annulus/viewport test shared by local and authoritative renderers. The
- * generous paint spread includes guardian silhouettes, glow, shake, and soft
- * canvas-shadow tails, so visual culling can never hide a visible wall.
- */
-export function arenaBoundaryIntersectsViewport(
-  center: Readonly<Vec2>,
-  radius: number,
-  lineWidth: number,
-  shadowBlur: number,
-  width: number,
-  height: number,
-): boolean {
-  const clampCoordinate = (value: number, minimum: number, maximum: number) =>
-    Math.max(minimum, Math.min(maximum, value));
-  const paintSpread = lineWidth / 2 + Math.max(160, shadowBlur * 3 + Math.SQRT2 * 9);
-  const innerRadius = Math.max(0, radius - paintSpread);
-  const outerRadius = radius + paintSpread;
-  const closestX = clampCoordinate(center.x, 0, width);
-  const closestY = clampCoordinate(center.y, 0, height);
-  const closestDeltaX = center.x - closestX;
-  const closestDeltaY = center.y - closestY;
-  const minimumDistanceSquared = closestDeltaX ** 2 + closestDeltaY ** 2;
-  const farthestDeltaX = Math.max(Math.abs(center.x), Math.abs(center.x - width));
-  const farthestDeltaY = Math.max(Math.abs(center.y), Math.abs(center.y - height));
-  const maximumDistanceSquared = farthestDeltaX ** 2 + farthestDeltaY ** 2;
-  return minimumDistanceSquared <= outerRadius ** 2 &&
-    (innerRadius === 0 || maximumDistanceSquared >= innerRadius ** 2);
-}

@@ -4,7 +4,7 @@ import type { Vec2 } from "./types";
  * Camera response is expressed in real time so identical play feels identical
  * on 30 Hz phones, 60 Hz laptops, and high-refresh desktop displays.
  */
-export const CAMERA_RESPONSE_HALF_LIFE_SECONDS = 0.055;
+export const CAMERA_RESPONSE_HALF_LIFE_SECONDS = 0.1;
 
 /**
  * Ordinary sprinting cannot create a gap this large. Crossing it means the

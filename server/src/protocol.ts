@@ -170,10 +170,6 @@ export type HeatRingEvent =
       type: "heatRingResolved";
       tick: number;
       botIds: readonly [string, string];
-      /** Ordinary collision winner; additive for older protocol-v5 clients. */
-      winnerId?: string;
-      /** The one defeated participant whose real drops form the hoard. */
-      defeatedId?: string;
       /** IDs of the real death drops still present in this authoritative frame. */
       dropIds: string[];
       /** Sum of those exact drops, not a presentation estimate. */

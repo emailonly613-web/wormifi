@@ -3,10 +3,8 @@ import {
   getActiveRelicPresentation,
   getGroundRelicPresentation,
   getRelicEffectText,
-  getRelicParentAbilityId,
   type RelicPresentation,
 } from "./relicPresentation";
-import { drawWormateParentAbility } from "./wormateParentRender";
 import type {
   ActiveSpecialist,
   PirateRelicKind,
@@ -321,17 +319,6 @@ export function drawGroundRelicPickup(
   const beaconRadius = Math.max(8, options.beaconRadius);
   context.save();
   if (relic.relicKind === "gilded-ledger" && drop.relicTier) {
-    if (
-      (drop.relicTier === 2 || drop.relicTier === 5 || drop.relicTier === 10) &&
-      drawWormateParentAbility(
-        context,
-        getRelicParentAbilityId(relic, drop.relicTier),
-        { x: 0, y: -beaconRadius * 0.12, size: beaconRadius * 2.05 },
-      )
-    ) {
-      context.restore();
-      return model;
-    }
     drawGildedMultiplierPickup(
       context,
       drop.relicTier,
@@ -365,17 +352,7 @@ export function drawGroundRelicPickup(
 
   const spriteSize = beaconRadius * 2 * relic.ground.scale;
   const groundSprite = relic.ground.spriteName;
-  const drewParentAbility = drawWormateParentAbility(
-    context,
-    getRelicParentAbilityId(relic, drop.relicTier),
-    {
-      x: 0,
-      y: 0,
-      size: spriteSize * 0.82,
-      rotation: model.spriteRotation * 0.16,
-    },
-  );
-  const drewGroundAtlas = !drewParentAbility && relic.relicKind !== "loot-compass" &&
+  const drewGroundAtlas = relic.relicKind !== "loot-compass" &&
     groundSprite !== "treasure-multiplier" &&
     groundSprite !== "storm-battery" &&
     drawPirateAtlasSprite(context, groundSprite, {
@@ -385,11 +362,9 @@ export function drawGroundRelicPickup(
       rotation: model.spriteRotation,
     });
   if (
-    !drewParentAbility && (
-      relic.relicKind === "loot-compass" ||
-      relic.relicKind === "storm-battery" ||
-      !drewGroundAtlas
-    )
+    relic.relicKind === "loot-compass" ||
+    relic.relicKind === "storm-battery" ||
+    !drewGroundAtlas
   ) {
     drawRelicFallback(context, relic, beaconRadius * 0.78);
   }
@@ -547,12 +522,7 @@ export function drawRelicCarrierBadge(
   } else {
     const rotation = spriteRotation(relic.relicKind, safeNow) * 0.48;
     const carrierSprite = relic.ground.spriteName;
-    const drewParentAbility = drawWormateParentAbility(
-      context,
-      getRelicParentAbilityId(relic, model.relicTier),
-      { x: 0, y: 0, size: radius * 1.62, rotation: rotation * 0.16 },
-    );
-    const drewCarrierAtlas = !drewParentAbility && relic.relicKind !== "loot-compass" &&
+    const drewCarrierAtlas = relic.relicKind !== "loot-compass" &&
       carrierSprite !== "treasure-multiplier" &&
       carrierSprite !== "storm-battery" &&
       drawPirateAtlasSprite(context, carrierSprite, {
@@ -562,11 +532,9 @@ export function drawRelicCarrierBadge(
         rotation,
       });
     if (
-      !drewParentAbility && (
-        relic.relicKind === "loot-compass" ||
-        relic.relicKind === "storm-battery" ||
-        !drewCarrierAtlas
-      )
+      relic.relicKind === "loot-compass" ||
+      relic.relicKind === "storm-battery" ||
+      !drewCarrierAtlas
     ) {
       drawRelicFallback(context, relic, radius * 0.74, model.timerRatio);
     }

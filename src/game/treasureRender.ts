@@ -8,13 +8,6 @@ import type {
   CaptainEyeStyle,
   CaptainFaceMode,
 } from "./captainFeatures";
-import {
-  drawWormateParentWorm,
-} from "./wormateParentRender";
-import type {
-  WormateParentOutfit,
-  WormateParentSkinId,
-} from "./wormateParentCatalog";
 
 const TAU = Math.PI * 2;
 const gemSpriteCache = new Map<string, HTMLCanvasElement>();
@@ -108,9 +101,7 @@ export function arenaBackingScale(
   // The 28-bot / 1,050-treasure scene and full 24-actor rooms need a slightly
   // leaner desktop backing than ordinary scenes. CSS geometry, authored art,
   // HUD, hitboxes and mobile density are unchanged.
-  // Exact parent sprites remain comfortably sampled at this density while the
-  // reduced pixel area leaves repeatable headroom through deaths/restarts.
-  const desktopScale = groundDropCount >= 900 ? 0.5 : 0.85;
+  const desktopScale = groundDropCount >= 900 ? 0.64 : 0.85;
   return Math.max(desktopScale, cappedDeviceScale * desktopScale);
 }
 
@@ -860,13 +851,6 @@ export interface ContinuousPirateWormOptions {
   expressionStyle?: CaptainExpressionStyle;
   /** True only while the authoritative Treasure Magnet attraction is active. */
   magnetized?: boolean;
-  /** Authorized exact Wormate.io parent body. Wormifi originals remain fallback/extras. */
-  parentSkinId?: WormateParentSkinId;
-  /** Exact authorized parent eyes, mouth, glasses and hat. */
-  parentOutfit?: Readonly<WormateParentOutfit>;
-  /** Logical viewport bounds used only to skip fully off-screen parent sprites. */
-  viewportWidth?: number;
-  viewportHeight?: number;
 }
 
 export interface UprightHeadPose {
@@ -1450,10 +1434,6 @@ export function drawContinuousPirateWorm(
     eyeStyle = "round",
     expressionStyle = "grin",
     magnetized = false,
-    parentSkinId,
-    parentOutfit,
-    viewportWidth,
-    viewportHeight,
   } = options;
   if (points.length < 2 || headRadius <= 0 || bodyRadius <= 0) return;
 
@@ -1462,48 +1442,6 @@ export function drawContinuousPirateWorm(
   const highlight = palette[2] ?? "#a0fff0";
   const facePalette = cinematicHeadPalette ?? palette;
   const faceHighlight = facePalette[2] ?? highlight;
-
-  if (
-    parentSkinId !== undefined &&
-    drawWormateParentWorm(context, {
-      points,
-      headRadius,
-      bodyRadius,
-      direction,
-      skinId: parentSkinId,
-      outfit: parentOutfit,
-      shielded,
-      viewportWidth,
-      viewportHeight,
-    })
-  ) {
-    if (magnetized) {
-      drawPirateBowWave(context, points[0], headRadius, direction, palette, identity, now);
-    }
-    if (boosting) {
-      drawSprintHullSignal(
-        context,
-        points,
-        bodyRadius,
-        direction,
-        palette,
-        identity,
-        now,
-        materialMotion ?? 1,
-      );
-      context.save();
-      context.globalAlpha = materialMotion === 0
-        ? 0.7
-        : 0.64 + Math.sin(now * 0.021 + identity * 0.73) * 0.12;
-      context.strokeStyle = highlight;
-      context.lineWidth = Math.max(1, headRadius * 0.1);
-      context.beginPath();
-      context.arc(points[0].x, points[0].y, headRadius * 0.74, 0, TAU);
-      context.stroke();
-      context.restore();
-    }
-    return;
-  }
 
   context.save();
   context.lineCap = "round";

@@ -81,7 +81,6 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await page.keyboard.press("Enter");
 
     const settingsClose = page.getByTestId("settings-close");
-    const captainLog = page.getByTestId("captain-log-settings");
     const captainPassport = page.getByTestId("captain-passport-settings");
     const captainRooms = page.getByTestId("captain-rooms-settings");
     const customizeSkin = page.getByTestId("skin-studio-launch");
@@ -111,7 +110,6 @@ test.describe("Wormifi accessibility and browser resilience", () => {
     await expect(endless).toHaveAttribute("aria-pressed", "false");
 
     for (const control of [
-      captainLog,
       captainPassport,
       captainRooms,
       customizeSkin,

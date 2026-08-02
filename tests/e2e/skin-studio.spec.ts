@@ -3,14 +3,14 @@ import { resolve } from "node:path";
 
 import { PHOTO_SKIN_STORAGE_KEY } from "../../src/game/photoSkin";
 
-test("opens and closes the four-layer Captain Customizer from the launcher", async ({ page }) => {
+test("opens and closes the three-way Captain Customizer from the launcher", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("settings-button").click();
 
   const customize = page.getByTestId("skin-studio-launch");
   await expect(customize).toBeVisible();
-  await expect(customize).toContainText("CUSTOMIZE CAPTAIN & WORLD");
-  await expect(customize).toContainText("BODY · FACE · COMPLETE · FOOD · TREASURE · ARENA");
+  await expect(customize).toContainText("CUSTOMIZE FACE & SKIN");
+  await expect(customize).toContainText("BODY ONLY · FACE ONLY · COMPLETE STYLES");
 
   await customize.click();
 
@@ -18,32 +18,11 @@ test("opens and closes the four-layer Captain Customizer from the launcher", asy
   await expect(studio).toBeVisible();
   await expect(studio).toHaveAttribute("data-photo-sharing", "authored-theme-only");
   await expect(studio).toContainText("PHOTOS NEVER UPLOAD OR LEAVE THIS DEVICE");
-  await expect(studio).toContainText("Other players see only your selected public cosmetic ID");
+  await expect(studio).toContainText("Other players see only your authored Wormifi theme");
   await expect(page.getByTestId("customizer-mode-body")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("body-skin-catalog")).toBeVisible();
-  const parentCatalog = page.getByTestId("parent-skin-catalog");
-  await expect(parentCatalog).toHaveAttribute("data-parent-revision", "100700");
-  await expect(parentCatalog).toHaveAttribute("data-parent-skin-count", "190");
-  await expect(page.getByTestId("parent-skin-current")).toContainText("SIMPLE · 0032");
-  await expect(parentCatalog.locator("canvas.skin-studio-parent-strip")).toBeVisible();
-  await page.getByTestId("parent-skin-next").click();
-  await expect(page.getByTestId("parent-skin-current")).toContainText("SIMPLE · 0033");
-  await expect.poll(async () => page.evaluate((storageKey) => {
-    const saved = window.localStorage.getItem(storageKey);
-    return saved ? JSON.parse(saved).themeId : undefined;
-  }, PHOTO_SKIN_STORAGE_KEY)).toBe("wormate-parent-33");
   await page.getByTestId("customizer-mode-face").click();
   await expect(page.getByTestId("face-only-catalog")).toBeVisible();
-  const parentWearables = page.getByTestId("parent-wearable-catalog");
-  await expect(parentWearables).toHaveAttribute("data-parent-wearable-count", "261");
-  await expect(page.getByTestId("parent-wearable-grid-eyes").locator("button")).toHaveCount(20);
-  await page.getByTestId("parent-wearable-tab-hat").click();
-  await expect(page.getByTestId("parent-wearable-grid-hat").locator("button")).toHaveCount(119);
-  await page.getByTestId("parent-wearable-grid-hat").locator('[data-parent-wearable-id="1"]').click();
-  await expect.poll(async () => page.evaluate((storageKey) => {
-    const saved = window.localStorage.getItem(storageKey);
-    return saved ? JSON.parse(saved).themeId : undefined;
-  }, PHOTO_SKIN_STORAGE_KEY)).toBe("wormate-parent-33-e0-m0-g0-h1");
   await page.getByTestId("customizer-mode-complete").click();
   await expect(page.getByTestId("complete-style-catalog")).toBeVisible();
   await expect(page.getByRole("radio", { name: /GUMBALL ARMADA COMPLETE IDENTITY/i })).toBeVisible();

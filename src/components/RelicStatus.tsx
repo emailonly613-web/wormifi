@@ -1,14 +1,5 @@
-import { useEffect, useRef } from "react";
 import type { ActiveSpecialist } from "../game/types";
-import {
-  createRelicStatusModel,
-  getRelicParentAbilityId,
-} from "../game/relicPresentation";
-import type { WormateParentAbilityId } from "../game/wormateParentCatalog";
-import {
-  drawWormateParentAbility,
-  preloadWormateParentVisuals,
-} from "../game/wormateParentRender";
+import { createRelicStatusModel } from "../game/relicPresentation";
 
 export interface RelicStatusProps {
   active?: Readonly<ActiveSpecialist>;
@@ -21,31 +12,6 @@ export interface RelicStatusProps {
 
 function secondsText(seconds: number): string {
   return `${seconds.toFixed(1)}S`;
-}
-
-function ParentAbilityIcon({ abilityId }: { abilityId: WormateParentAbilityId }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const paint = async () => {
-      const ready = await preloadWormateParentVisuals();
-      if (!ready || cancelled || !canvasRef.current) return;
-      const canvas = canvasRef.current;
-      const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      canvas.width = Math.round(54 * ratio);
-      canvas.height = Math.round(54 * ratio);
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      context.clearRect(0, 0, 54, 54);
-      drawWormateParentAbility(context, abilityId, { x: 27, y: 27, size: 54 });
-    };
-    void paint();
-    return () => {
-      cancelled = true;
-    };
-  }, [abilityId]);
-  return <canvas ref={canvasRef} className="relic-status__icon" aria-hidden="true" />;
 }
 
 /**
@@ -65,11 +31,9 @@ export function RelicStatus({
   if (!model) return null;
 
   const relic = model.presentation;
-  const multiplierGlyph = relic.relicKind === "gilded-ledger" &&
-      (active?.relicTier === 3 || active?.relicTier === 4)
+  const multiplierGlyph = relic.relicKind === "gilded-ledger" && active?.relicTier
     ? `${active.relicTier}×`
     : undefined;
-  const parentAbilityId = getRelicParentAbilityId(relic, active?.relicTier);
   const classes = ["relic-status", `relic-status--${relic.relicKind}`, className]
     .filter(Boolean)
     .join(" ");
@@ -82,7 +46,6 @@ export function RelicStatus({
       data-carrier-tone={relic.carrierTone}
       data-carrier-accent={relic.carrierAccent}
       data-ground-sprite={relic.ground.spriteName}
-      data-parent-ability-id={parentAbilityId}
       data-relic-tier={active?.relicTier}
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-motion={reducedMotion ? "static" : relic.ground.motion}
@@ -102,7 +65,12 @@ export function RelicStatus({
           {multiplierGlyph ? (
             <span className="relic-status__multiplier" aria-hidden="true">{multiplierGlyph}</span>
           ) : (
-            <ParentAbilityIcon abilityId={parentAbilityId} />
+            <img
+              className="relic-status__icon"
+              src={relic.ground.assetPath}
+              alt=""
+              aria-hidden="true"
+            />
           )}
         </div>
       </div>

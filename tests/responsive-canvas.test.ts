@@ -21,7 +21,7 @@ describe("responsive canvas backing resolution", () => {
 
   it("scales large desktop backing stores without changing CSS geometry", () => {
     expect(arenaBackingScale(1_920, 1_080, 2, 500)).toBeCloseTo(1.4875);
-    expect(arenaBackingScale(1_920, 1_080, 2, 1_000)).toBeCloseTo(0.875);
+    expect(arenaBackingScale(1_920, 1_080, 2, 1_000)).toBeCloseTo(1.12);
   });
 
   it("builds cached screen layers at the final crowded backing scale", () => {

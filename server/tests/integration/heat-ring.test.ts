@@ -139,7 +139,7 @@ test("fresh-room Heat Rings resolve through ordinary collisions into conserved r
 
         while (
           room.state.tick < descriptor.deadlineTick &&
-          descriptor.botIds.every((id) => room.state.players[id]?.alive)
+          descriptor.botIds.some((id) => room.state.players[id]?.alive)
         ) {
           surface.simulationStep();
           if (room.state.tick < descriptor.earliestResolveTick) {
@@ -151,36 +151,38 @@ test("fresh-room Heat Rings resolve through ordinary collisions into conserved r
         }
 
         assert.ok(human.alive, "the default-path first human survives the encounter");
-        assert.equal(descriptor.botIds.filter((id) => room.state.players[id]?.alive).length, 1);
+        assert.ok(descriptor.botIds.every((id) => room.state.players[id]?.alive === false));
         const snapshot = surface.snapshot();
         const resolved = heatEvent(snapshot, "heatRingResolved");
-        assert.ok(resolved, "the server must verify one ordinary collision winner before announcing a hoard");
+        assert.ok(resolved, "the server must verify the mutual collision before announcing a hoard");
         assert.ok(resolved.tick >= descriptor.earliestResolveTick);
         assert.ok(resolved.tick <= descriptor.deadlineTick);
 
         const deaths = snapshot.events.filter((event) =>
           event.type === "playerDied" && descriptor.botIds.includes(event.playerId)
         );
-        assert.equal(deaths.length, 1);
-        const death = deaths[0];
-        assert.equal(death.type, "playerDied");
-        assert.equal(death.cause, "collision");
-        assert.equal(death.playerId, resolved.defeatedId);
-        assert.equal(death.killerId, resolved.winnerId);
-        assert.equal(room.state.players[resolved.winnerId!]?.alive, true);
+        assert.equal(deaths.length, 2);
+        for (const death of deaths) {
+          assert.equal(death.type, "playerDied");
+          assert.equal(death.cause, "collision");
+          assert.equal(
+            death.killerId,
+            descriptor.botIds.find((id) => id !== death.playerId),
+          );
+        }
 
         const released = resolved.dropIds.map((id) => room.state.drops.find((drop) => drop.id === id));
         assert.ok(released.every(Boolean));
         assert.ok(released.every((drop) =>
           drop?.source === "death" &&
           drop.originPlayerId !== undefined &&
-          drop.originPlayerId === resolved.defeatedId
+          descriptor.botIds.includes(drop.originPlayerId)
         ));
         const releasedMass = released.reduce((sum, drop) => sum + (drop?.mass ?? 0), 0);
         assert.ok(Math.abs(releasedMass - resolved.totalMass) <= 1e-8);
         assert.ok(
-          releasedMass > 0 && releasedMass <= room.state.config.startMass + 1e-8,
-          `the event must name a real non-inflated subset of the loser hoard (received ${releasedMass})`,
+          releasedMass + 1e-8 >= 96,
+          `the two mass-48 rivals cannot release less than their initial 96 size (received ${releasedMass})`,
         );
         const minimumDeathDrops = Math.ceil(
           resolved.totalMass / DEFAULT_GAME_CONFIG.deathDropTargetMass,
@@ -188,7 +190,7 @@ test("fresh-room Heat Rings resolve through ordinary collisions into conserved r
         assert.ok(
           resolved.dropIds.length >= minimumDeathDrops &&
             resolved.dropIds.length <= minimumDeathDrops + 1,
-          "the single real death output uses the configured target mass",
+          "two independently rounded death outputs use the configured target mass",
         );
 
         const wireBytes = Buffer.byteLength(JSON.stringify(packSnapshotForWire(snapshot)));

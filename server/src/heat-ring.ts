@@ -593,16 +593,16 @@ export class HeatRingController {
       event.type === "playerDied" && heatIds.has(event.playerId)
     );
     if (heatDeaths.length > 0) {
-      const defeated = heatDeaths[0];
-      const winnerId = this.descriptor.botIds.find((id) => id !== defeated?.playerId);
-      const ordinaryDuelWin = heatDeaths.length === 1 &&
-        defeated?.cause === "collision" &&
-        defeated.killerId === winnerId &&
-        winnerId !== undefined &&
-        this.state.players[winnerId]?.alive === true;
+      const [firstId, secondId] = this.descriptor.botIds;
+      const firstDeath = heatDeaths.find((event) => event.playerId === firstId);
+      const secondDeath = heatDeaths.find((event) => event.playerId === secondId);
+      const mutualCollision = firstDeath?.cause === "collision" &&
+        secondDeath?.cause === "collision" &&
+        firstDeath.killerId === secondId &&
+        secondDeath.killerId === firstId;
       if (
         this.state.tick < this.descriptor.earliestResolveTick ||
-        !ordinaryDuelWin
+        !mutualCollision
       ) {
         return this.abort(
           this.state.tick < this.descriptor.earliestResolveTick
@@ -616,10 +616,14 @@ export class HeatRingController {
         .filter((drop) =>
           !previousDropIds.has(drop.id) &&
           drop.source === "death" &&
-          drop.originPlayerId === defeated.playerId
+          drop.originPlayerId !== undefined &&
+          heatIds.has(drop.originPlayerId)
         )
         .sort((first, second) => first.id.localeCompare(second.id));
-      if (drops.length === 0) {
+      if (
+        drops.length === 0 ||
+        !this.descriptor.botIds.every((id) => drops.some((drop) => drop.originPlayerId === id))
+      ) {
         return this.abort("unsafe-state");
       }
 
@@ -629,8 +633,6 @@ export class HeatRingController {
         type: "heatRingResolved",
         tick: this.state.tick,
         botIds: this.descriptor.botIds,
-        winnerId,
-        defeatedId: defeated.playerId,
         dropIds: drops.map((drop) => drop.id),
         totalMass: drops.reduce((sum, drop) => sum + drop.mass, 0),
       }];

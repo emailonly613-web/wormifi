@@ -104,7 +104,7 @@ export function CaptainLog({
           </i>
         </div>
         <dl>
-          <div><dt>RUNS</dt><dd data-testid="captain-log-runs">{compactNumber(log.totalRuns)}</dd></div>
+          <div><dt>RUNS</dt><dd>{compactNumber(log.totalRuns)}</dd></div>
           <div><dt>BEST</dt><dd>{compactNumber(log.bestScore)}</dd></div>
           <div><dt>CUTS</dt><dd>{compactNumber(log.totalKills)}</dd></div>
           <div><dt>MEDALS</dt><dd>{earnedMasteries}/{masteries.length}</dd></div>
@@ -160,11 +160,7 @@ export function CaptainLog({
       <section className="captain-log__panel captain-log__history" data-testid="captain-log-history">
         <header>
           <div>
-            <span>{log.recentRuns.length > 0
-              ? `LAST ${Math.min(8, log.recentRuns.length)} VOYAGES`
-              : log.totalRuns > 0
-                ? "NEW VOYAGES APPEAR HERE"
-                : "NO VOYAGES YET"}</span>
+            <span>LAST {Math.min(8, log.recentRuns.length)} VOYAGES</span>
             <h3>RECENT WAKE</h3>
           </div>
           {log.bestRank > 0 && <strong>BEST FINISH #{log.bestRank}</strong>}
@@ -183,10 +179,8 @@ export function CaptainLog({
           </ol>
         ) : (
           <div className="captain-log__empty">
-            <strong>{log.totalRuns > 0 ? "NEW VOYAGE DETAILS START HERE" : "YOUR FIRST WAKE STARTS NOW"}</strong>
-            <span>{log.totalRuns > 0
-              ? "Earlier run and score totals were carried forward. Finish another run to add its exact details."
-              : "Finish one run to place it in the log and earn your first mastery mark."}</span>
+            <strong>YOUR FIRST WAKE STARTS NOW</strong>
+            <span>Finish one run to place it in the log and earn your first mastery mark.</span>
           </div>
         )}
       </section>

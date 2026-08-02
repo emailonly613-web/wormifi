@@ -7,6 +7,7 @@ import { LegendVoyage } from "./components/LegendVoyage";
 import { BoardPicker } from "./components/BoardPicker";
 import { PacePicker } from "./components/PacePicker";
 import { buildVersionLabel, readBuildRevision } from "./buildRevision";
+import { CurrencyStoreLayout } from "./components/CurrencyStoreLayout";
 import {
   RoomIdentity,
   RoomInviteDialog,
@@ -67,11 +68,6 @@ import {
 } from "./game/photoSkin";
 import { DEFAULT_COSMETIC_THEME_ID, isPremiumCosmeticThemeId } from "./game/cosmeticThemes";
 import {
-  readWorldCosmetics,
-  writeWorldCosmetics,
-  type WorldCosmeticState,
-} from "./game/worldCosmetics";
-import {
   isFounderPackUnlocked,
 } from "./game/premiumSkins";
 import { captainPortraitSource } from "./game/cinematicHeads";
@@ -87,7 +83,6 @@ import {
   captainMasteryProgress,
   captainOrderProgress,
   readCaptainLog,
-  reconcileCaptainLogHistory,
   type CaptainDepthRunUpdate,
 } from "./game/captainLog";
 import {
@@ -125,11 +120,6 @@ const CaptainRooms = lazy(async () => {
 const CaptainLog = lazy(async () => {
   const module = await import("./components/CaptainLog");
   return { default: module.CaptainLog };
-});
-
-const CurrencyStoreLayout = lazy(async () => {
-  const module = await import("./components/CurrencyStoreLayout");
-  return { default: module.CurrencyStoreLayout };
 });
 
 export type GameMode = "rush" | "endless" | "practice";
@@ -330,12 +320,9 @@ export function App() {
   const [passportNudgePending, setPassportNudgePending] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [captainProgression, setCaptainProgression] = useState(readCaptainProgression);
-  const [captainLog, setCaptainLog] = useState(() =>
-    reconcileCaptainLogHistory(readCaptainLog(), readCaptainProgression())
-  );
+  const [captainLog, setCaptainLog] = useState(readCaptainLog);
   const [captainLogOpen, setCaptainLogOpen] = useState(false);
   const [photoSkinState, setPhotoSkinState] = useState<PhotoSkinState>(() => readPhotoSkinState().state);
-  const [worldCosmetics, setWorldCosmetics] = useState<WorldCosmeticState>(readWorldCosmetics);
   const [decodedPhotoImages, setDecodedPhotoImages] = useState<ReadonlyMap<string, CanvasImageSource>>(() => new Map());
   const [copyStatus, setCopyStatus] = useState("");
   const [adActive, setAdActive] = useState(false);
@@ -381,7 +368,6 @@ export function App() {
     && monetizationConfig.menuMode === "rewarded-skin";
   const currencyStoreMenuEnabled = isCrazyGamesDistribution
     && monetizationConfig.menuMode === "currency-store";
-  const flagshipStoreVisible = !isCrazyGamesDistribution || currencyStoreMenuEnabled;
   const boardSelection = useMemo(
     () => resolveRoomBoardPreference(requestedBoardId, authoritativeBoardId),
     [authoritativeBoardId, requestedBoardId],
@@ -430,10 +416,6 @@ export function App() {
   useEffect(() => {
     writeControlScheme(controlScheme);
   }, [controlScheme]);
-
-  useEffect(() => {
-    writeWorldCosmetics(worldCosmetics);
-  }, [worldCosmetics]);
 
   useEffect(() => {
     const synchronizeOrientation = () => {
@@ -928,7 +910,6 @@ export function App() {
           paceId={paceIdForJoin(paceSelection)}
           themeId={photoSkinRenderPlan.multiplayerAppearance.themeId}
           photoSkin={localPhotoSkinAppearance}
-          worldCosmetics={worldCosmetics}
           controlScheme={controlScheme}
           onBoardResolved={setAuthoritativeBoardId}
           onPaceResolved={setAuthoritativePaceId}
@@ -951,7 +932,6 @@ export function App() {
           boardId={boardSelection.boardId}
           paceId={paceSelection.paceId}
           photoSkin={localPhotoSkinAppearance}
-          worldCosmetics={worldCosmetics}
           controlScheme={controlScheme}
           onExit={() => {
             setPlaying(false);
@@ -1135,8 +1115,6 @@ export function App() {
           <SkinStudio
             initialState={photoSkinState}
             onStateChange={setPhotoSkinState}
-            initialWorldCosmetics={worldCosmetics}
-            onWorldCosmeticsChange={setWorldCosmetics}
             onClose={() => {
               setSkinStudioOpen(false);
               setSettingsOpen(skinStudioReturnToSettingsRef.current);
@@ -1146,21 +1124,12 @@ export function App() {
               setLegendVoyageOpen(true);
             }}
           />
-        ) : currencyStoreOpen && flagshipStoreVisible ? (
-          <Suspense fallback={<p className="passport-status" role="status">OPENING FLAGSHIP STORE…</p>}>
-            <CurrencyStoreLayout
-              open
-              authorized={currencyStoreMenuEnabled && monetizationConfig.iapAuthorized}
-              doubloons={doubloons}
-              currentThemeId={photoSkinState.themeId}
-              onClose={() => setCurrencyStoreOpen(false)}
-              onOpenWardrobe={!isCrazyGamesDistribution ? () => {
-                skinStudioReturnToSettingsRef.current = false;
-                setCurrencyStoreOpen(false);
-                setSkinStudioOpen(true);
-              } : undefined}
-            />
-          </Suspense>
+        ) : currencyStoreOpen && currencyStoreMenuEnabled ? (
+          <CurrencyStoreLayout
+            open
+            authorized={monetizationConfig.iapAuthorized}
+            onClose={() => setCurrencyStoreOpen(false)}
+          />
         ) : settingsOpen ? (
           <section className="settings-panel" data-testid="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
             <header className="settings-header">
@@ -1265,8 +1234,8 @@ export function App() {
                     setSkinStudioOpen(true);
                   }}
                 >
-                  <b>CUSTOMIZE CAPTAIN &amp; WORLD</b>
-                  <small>BODY · FACE · COMPLETE · FOOD · TREASURE · ARENA</small>
+                  <b>CUSTOMIZE FACE &amp; SKIN</b>
+                  <small>BODY ONLY · FACE ONLY · COMPLETE STYLES</small>
                 </button>}
 
                 {!isCrazyGamesDistribution && <button
@@ -1418,7 +1387,7 @@ export function App() {
                 </div>
               </section>}
 
-              {(rewardedSkinMenuEnabled || flagshipStoreVisible) && (
+              {(rewardedSkinMenuEnabled || currencyStoreMenuEnabled) && (
                 <section className="settings-group settings-extras-group" aria-label="Optional cosmetic extras">
                   {rewardedSkinMenuEnabled && (
                     <section className="monetization-menu-card rewarded-ad-card" aria-label="Optional rewarded skin unlock" data-testid="rewarded-skin-menu">
@@ -1434,13 +1403,13 @@ export function App() {
                       </div>
                     </section>
                   )}
-                  {flagshipStoreVisible && (
+                  {currencyStoreMenuEnabled && (
                     <section className="monetization-menu-card currency-store-card" aria-label="Cosmetic currency store" data-testid="currency-store-menu">
                       <div>
-                        <b>FLAGSHIP STORE · 84 SKINS + ART STUDIO</b>
-                        <small>Ship&apos;s purse: {doubloons.toLocaleString()} doubloons · browsing live · checkout audit locked</small>
+                        <b>SHIP'S PURSE: {doubloons.toLocaleString()} DOUBLOONS</b>
+                        <small>Cosmetic packs only · never active-game advantage</small>
                       </div>
-                      <button type="button" onClick={() => setCurrencyStoreOpen(true)}>BROWSE STORE &amp; WARDROBE</button>
+                      <button type="button" onClick={() => setCurrencyStoreOpen(true)}>OPEN CAPTAIN'S TREASURY</button>
                     </section>
                   )}
                 </section>
@@ -1505,14 +1474,6 @@ export function App() {
                   }}
                 >
                   CHOOSE LOOK
-                </button>}
-                {!isCrazyGamesDistribution && <button
-                  type="button"
-                  className="captain-launch-profile__choose captain-launch-profile__store"
-                  data-testid="launcher-open-store"
-                  onClick={() => setCurrencyStoreOpen(true)}
-                >
-                  FLAGSHIP STORE
                 </button>}
               </div>
 
