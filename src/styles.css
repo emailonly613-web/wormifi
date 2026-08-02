@@ -4440,6 +4440,114 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
 .skin-world-palette { display: flex !important; width: 34px; height: 34px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .22); border-radius: 50%; }
 .skin-world-palette i { flex: 1; }
 
+/*
+  The body library used to be one worm behind a pair of arrows - 190 bodies,
+  visible one at a time, at "25 / 190". Tapping next swapped a single small
+  picture while the rest of the page sat still. This is the same catalogue laid
+  out so you can actually see it: grouped, scrollable, every worm drawn from the
+  real atlas, and picking one is a single tap on the worm itself.
+*/
+.skin-studio-parent-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgba(116, 245, 229, 0.28);
+  border-radius: 18px;
+  background: rgba(6, 22, 38, 0.72);
+}
+
+.skin-studio-parent-grid > header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.skin-studio-parent-grid > header span {
+  color: rgba(150, 226, 236, 0.9);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.skin-studio-parent-grid > header strong {
+  color: #eafeff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.skin-studio-parent-grid > p {
+  margin: 0;
+  color: rgba(198, 240, 246, 0.82);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.skin-studio-parent-group h4 {
+  margin: 12px 0 6px;
+  color: rgba(150, 226, 236, 0.86);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.skin-studio-parent-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.skin-studio-parent-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px 6px;
+  border: 1px solid rgba(116, 245, 229, 0.22);
+  border-radius: 14px;
+  color: #dff7ff;
+  background: rgba(9, 32, 52, 0.9);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.skin-studio-parent-tile canvas {
+  width: 100%;
+  max-width: 132px;
+  height: auto;
+}
+
+.skin-studio-parent-tile span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.skin-studio-parent-tile:hover,
+.skin-studio-parent-tile:focus-visible {
+  transform: translateY(-3px) scale(1.04);
+  border-color: rgba(138, 255, 234, 0.75);
+  background: rgba(16, 52, 78, 0.96);
+}
+
+.skin-studio-parent-tile.selected {
+  border-color: #8affea;
+  background: rgba(22, 74, 96, 0.96);
+  box-shadow: 0 0 0 2px rgba(138, 255, 234, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin-studio-parent-tile {
+    transition: none;
+  }
+  .skin-studio-parent-tile:hover,
+  .skin-studio-parent-tile:focus-visible {
+    transform: none;
+  }
+}
+
 .skin-studio-parent-carousel {
   margin-bottom: 12px;
   padding: 11px;

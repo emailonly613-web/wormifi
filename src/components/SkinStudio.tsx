@@ -1055,16 +1055,18 @@ function ParentSkinCarousel({
     WORMATE_PARENT_SKINS.findIndex((skin) => skin.id === selectedId),
   );
   const current = WORMATE_PARENT_SKINS[currentIndex];
-  const selectOffset = (offset: number) => {
-    const nextIndex = (
-      currentIndex + offset + WORMATE_PARENT_SKINS.length
-    ) % WORMATE_PARENT_SKINS.length;
-    onSelect(WORMATE_PARENT_SKINS[nextIndex].id);
-  };
+  type ParentSkinEntry = (typeof WORMATE_PARENT_SKINS)[number];
+  const groups: { label: string; skins: ParentSkinEntry[] }[] = [];
+  for (const skin of WORMATE_PARENT_SKINS) {
+    const label = skin.groupLabel.toUpperCase();
+    const bucket = groups.at(-1);
+    if (bucket?.label === label) bucket.skins.push(skin);
+    else groups.push({ label, skins: [skin] });
+  }
 
   return (
     <section
-      className="skin-studio-parent-carousel"
+      className="skin-studio-parent-grid"
       data-testid="parent-skin-catalog"
       data-parent-revision={WORMATE_PARENT_REVISION}
       data-parent-skin-count={WORMATE_PARENT_SKINS.length}
@@ -1073,33 +1075,32 @@ function ParentSkinCarousel({
         <span>BODY LIBRARY</span>
         <strong>{WORMATE_PARENT_SKINS.length} BODIES TO PICK FROM</strong>
       </header>
-      <div>
-        <button
-          type="button"
-          aria-label="Previous parent body skin"
-          data-testid="parent-skin-previous"
-          onClick={() => selectOffset(-1)}
-        >‹</button>
-        <button
-          type="button"
-          className="skin-studio-parent-current"
-          aria-pressed={wormateParentSkinIdFromThemeId(state.themeId) === current.id}
-          data-testid="parent-skin-current"
-          onClick={() => onSelect(current.id)}
-        >
-          <ParentSkinStrip skinId={current.id} />
-          <small>{current.groupLabel.toUpperCase()}</small>
-          <strong>{wormateParentSkinLabel(current)}</strong>
-          <span>{currentIndex + 1} / {WORMATE_PARENT_SKINS.length}</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Next parent body skin"
-          data-testid="parent-skin-next"
-          onClick={() => selectOffset(1)}
-        >›</button>
-      </div>
-      <p>Pick a body and your worm changes right away. More colour sets below.</p>
+      <p>Tap any worm to wear it. Your body changes right away.</p>
+      {groups.map((group) => (
+        <div className="skin-studio-parent-group" key={group.label}>
+          <h4>{group.label}</h4>
+          <div className="skin-studio-parent-tiles">
+            {group.skins.map((skin) => {
+              const selected = skin.id === current.id;
+              return (
+                <button
+                  type="button"
+                  key={skin.id}
+                  className={`skin-studio-parent-tile${selected ? " selected" : ""}`}
+                  aria-pressed={selected}
+                  data-testid={`parent-skin-tile-${skin.id}`}
+                  data-selected={selected ? "true" : "false"}
+                  onClick={() => onSelect(skin.id)}
+                  title={wormateParentSkinLabel(skin)}
+                >
+                  <ParentSkinStrip skinId={skin.id} />
+                  <span>{wormateParentSkinLabel(skin)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </section>
   );
 }
@@ -1258,10 +1259,34 @@ function ParentWearableThumbnail({
   return <canvas ref={canvasRef} width="72" height="58" aria-hidden="true" />;
 }
 
+/**
+ * One worm drawn from the parent atlas. The library shows all 190 at once, so a
+ * tile only paints once it has actually been scrolled near - painting every
+ * canvas up front would mean 190 atlas composites before the first frame.
+ */
 function ParentSkinStrip({ skinId }: { skinId: WormateParentSkinId }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "320px" });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     const paint = async () => {
       const ready = await preloadWormateParentVisuals();
@@ -1291,7 +1316,7 @@ function ParentSkinStrip({ skinId }: { skinId: WormateParentSkinId }) {
     return () => {
       cancelled = true;
     };
-  }, [skinId]);
+  }, [skinId, visible]);
 
   return (
     <canvas

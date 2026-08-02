@@ -24,10 +24,13 @@ test("opens and closes the four-layer Captain Customizer from the launcher", asy
   const parentCatalog = page.getByTestId("parent-skin-catalog");
   await expect(parentCatalog).toHaveAttribute("data-parent-revision", "100700");
   await expect(parentCatalog).toHaveAttribute("data-parent-skin-count", "190");
-  await expect(page.getByTestId("parent-skin-current")).toContainText("SIMPLE · 0032");
-  await expect(parentCatalog.locator("canvas.skin-studio-parent-strip")).toBeVisible();
-  await page.getByTestId("parent-skin-next").click();
-  await expect(page.getByTestId("parent-skin-current")).toContainText("SIMPLE · 0033");
+  // The library is a grid of every body, not one worm behind a pair of arrows,
+  // so picking is a single tap on the worm itself.
+  await expect(parentCatalog.locator(".skin-studio-parent-tile").first()).toBeVisible();
+  await expect(parentCatalog.locator("canvas.skin-studio-parent-strip").first()).toBeVisible();
+  await page.getByTestId("parent-skin-tile-33").scrollIntoViewIfNeeded();
+  await page.getByTestId("parent-skin-tile-33").click();
+  await expect(page.getByTestId("parent-skin-tile-33")).toHaveAttribute("data-selected", "true");
   await expect.poll(async () => page.evaluate((storageKey) => {
     const saved = window.localStorage.getItem(storageKey);
     return saved ? JSON.parse(saved).themeId : undefined;
