@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_CAPTAIN_EXPRESSION_STYLE,
+  DEFAULT_CAPTAIN_EYE_STYLE,
+  DEFAULT_CAPTAIN_FACE_MODE,
+} from "../src/game/captainFeatures";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SkinStudio } from "../src/components/SkinStudio";
@@ -160,9 +165,12 @@ describe("privacy-first Photo Skin state", () => {
       eyeStyle: "unknown-eyes",
       expressionStyle: "unknown-expression",
     }, 5)).toMatchObject({
-      faceMode: "captain",
-      eyeStyle: "round",
-      expressionStyle: "grin",
+      // Unknown values repair to the documented defaults rather than to a
+      // literal, so changing what a new captain starts with cannot silently
+      // change what a corrupted save repairs to.
+      faceMode: DEFAULT_CAPTAIN_FACE_MODE,
+      eyeStyle: DEFAULT_CAPTAIN_EYE_STYLE,
+      expressionStyle: DEFAULT_CAPTAIN_EXPRESSION_STYLE,
     });
   });
 

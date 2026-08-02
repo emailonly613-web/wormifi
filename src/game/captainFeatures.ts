@@ -12,7 +12,15 @@ export const CAPTAIN_EXPRESSION_STYLES = [
 ] as const;
 export type CaptainExpressionStyle = typeof CAPTAIN_EXPRESSION_STYLES[number];
 
-export const DEFAULT_CAPTAIN_FACE_MODE: CaptainFaceMode = "captain";
+/**
+ * "captain" pastes a pre-rendered portrait on the front of the worm. It is only
+ * ever drawn on your own worm, it does not take the body's material, and at
+ * arena scale it reads as a token stuck to the head rather than a face - on a
+ * candy body it looked like a bug. Drawn features match the body, match how
+ * every other worm in the room looks, and are legible at any size, so that is
+ * what a new captain starts with. The portrait stays selectable.
+ */
+export const DEFAULT_CAPTAIN_FACE_MODE: CaptainFaceMode = "features";
 export const DEFAULT_CAPTAIN_EYE_STYLE: CaptainEyeStyle = "round";
 export const DEFAULT_CAPTAIN_EXPRESSION_STYLE: CaptainExpressionStyle = "grin";
 
