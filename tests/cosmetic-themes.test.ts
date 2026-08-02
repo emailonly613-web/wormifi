@@ -59,7 +59,13 @@ describe("public-safe authored cosmetic themes", () => {
     expect(PHOTO_SKIN_THEMES).toBe(COSMETIC_THEME_CATALOG);
     expect(PHOTO_SKIN_COSMETIC_THEME_CATALOG).toBe(COSMETIC_THEME_CATALOG);
     expect(getPhotoSkinTheme("coral-signal")).toBe(getCosmeticTheme("coral-signal"));
-    expect(createDefaultPhotoSkinState(1).themeId).toBe("wormate-parent-32");
+    // The default body is seeded from the catalog, so pin the properties that
+    // matter rather than one id: it is always a valid theme the server will
+    // accept, it is stable for a given seed, and different captains differ.
+    const seeded = createDefaultPhotoSkinState(1).themeId;
+    expect(isCosmeticThemeId(seeded)).toBe(true);
+    expect(createDefaultPhotoSkinState(1).themeId).toBe(seeded);
+    expect(createDefaultPhotoSkinState(2).themeId).not.toBe(seeded);
     expect(createDefaultPhotoSkinState(1).faceThemeId).toBe("wormate-parent-32");
   });
 });

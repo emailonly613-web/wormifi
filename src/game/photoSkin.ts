@@ -8,6 +8,7 @@ import {
 import {
   DEFAULT_WORMATE_PARENT_SKIN_ID,
   wormateParentOutfitFromThemeId,
+  wormateParentSkinForIdentity,
   wormateParentSkinIdFromThemeId,
   wormateParentThemeId,
   type WormateParentOutfit,
@@ -230,11 +231,17 @@ function privacyContract(): typeof PHOTO_SKIN_PRIVACY_CONTRACT {
 }
 
 export function createDefaultPhotoSkinState(timestamp = nowMs()): PhotoSkinState {
+  // Skin 32 is the first entry of the "Simple" group - the plainest body in a
+  // 190-skin catalog. Handing it to every new captain meant the one worm the
+  // player watches all match was the dullest thing on screen, while the AI
+  // around them drew varied skins from the same catalog. Seed a body from the
+  // full catalog the way AI worms do; it is persisted on first save, so the
+  // captain keeps it. DEFAULT_THEME_ID stays the validation fallback.
   return {
     version: PHOTO_SKIN_STATE_VERSION,
     consented: false,
     enabled: false,
-    themeId: DEFAULT_THEME_ID,
+    themeId: wormateParentThemeId(wormateParentSkinForIdentity(timestamp)),
     faceThemeId: DEFAULT_THEME_ID,
     faceMode: DEFAULT_CAPTAIN_FACE_MODE,
     eyeStyle: DEFAULT_CAPTAIN_EYE_STYLE,

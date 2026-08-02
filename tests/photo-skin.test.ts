@@ -88,11 +88,16 @@ describe("privacy-first Photo Skin state", () => {
     });
     expect(PHOTO_SKIN_PRIVACY_PROMISE).toContain("NEVER UPLOAD OR LEAVE THIS DEVICE");
     expect(PHOTO_SKIN_MULTIPLAYER_PROMISE).toContain("selected public cosmetic ID");
+    // A new captain is seeded a body from the full parent catalog rather than
+    // always the plainest one, so assert the contract instead of a literal id:
+    // the broadcast cosmetic is exactly the body the captain is wearing, it is
+    // a real parent theme, and it resolves to a parent skin.
+    expect(state.themeId).toMatch(/^wormate-parent-\d+$/u);
     expect(createPhotoSkinRenderPlan(state).multiplayerAppearance).toEqual({
-      themeId: "wormate-parent-32",
+      themeId: state.themeId,
       includesPhotos: false,
     });
-    expect(createPhotoSkinRenderPlan(state).parentSkinId).toBe(32);
+    expect(typeof createPhotoSkinRenderPlan(state).parentSkinId).toBe("number");
     expect(state.faceThemeId).toBe("wormate-parent-32");
     expect(createPhotoSkinRenderPlan(state).faceTheme.id).toBe("tideglass-corsair");
   });
