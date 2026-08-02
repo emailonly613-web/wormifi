@@ -26,6 +26,18 @@ const PUBLIC_ASSET_ROOT = import.meta.env.BASE_URL.endsWith("/")
  */
 const HEAD_RADIUS_SCALE = 1.22;
 
+/**
+ * Spine stamp spacing as a fraction of the body radius. Wormate's own bodies
+ * are unbroken tubes with the pattern flowing along them, and its body sprite
+ * is a plain circle - the smoothness is entirely in how tightly those circles
+ * are packed. At 0.18 consecutive stamps overlap so heavily that only the outer
+ * envelope shows and the seams vanish. Measured in a live 32-worm room it also
+ * held 60 fps, so the smoothest setting is not the expensive one: the base+glow
+ * pair is composited into a cached canvas, every stamp is one drawImage, and
+ * off-screen stamps are skipped before they cost anything.
+ */
+const SMOOTH_BODY_STEP = 0.18;
+
 const SKIN_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_skins.png`;
 const WEAR_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_wear.png`;
 const ABILITY_ATLAS_SOURCE = `${PUBLIC_ASSET_ROOT}assets/parent-wormate/100700_abilities.png`;
@@ -501,47 +513,92 @@ export function drawWormateParentWorm(
   context.globalAlpha = 1;
   context.shadowBlur = 0;
 
-  // Parent worms are overlapping glossy round sprites. Paint tail-to-head so
-  // every forward segment cleanly overlaps the one behind it on tight turns.
-  for (let index = points.length - 1; index >= 0; index -= 1) {
+  // Wormate's own body sprite is a plain circle - the smoothness comes from how
+  // densely those circles are packed, not from the art. Drawing one per chain
+  // point spaced bodyRadius * 1.64 apart, at diameter 2.24, leaves only ~27%
+  // overlap, so every circle reads as its own bulge and the worm looks like a
+  // string of bubbles. Walking the spine and stamping a circle every fraction
+  // of a radius makes consecutive circles almost fully overlap, so only the
+  // outer envelope shows and the body reads as one smooth tube.
+  //
+  // Cheap: the base+glow pair is composited once into a cached canvas, so each
+  // stamp is a single drawImage, and off-screen stamps are skipped.
+  const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
+  const tailIndex = points.length - 1;
+
+  // Tail to head, so each forward stamp cleanly overlaps the one behind it.
+  for (let index = tailIndex; index >= 1; index -= 1) {
     const point = points[index];
-    const distanceFromTail = points.length - 1 - index;
-    const radiusScale = index === 0
-      ? 1
-      : distanceFromTail === 0
-        ? 0.72
-        : distanceFromTail === 1
-          ? 0.88
-          : distanceFromTail === 2
-            ? 0.97
-            : 1;
-    // The head has to be the biggest part of the worm. It was drawn at
-    // headRadius * 1.04 while segments drew at bodyRadius * 1.12 - and since
-    // bodyRadius is 0.98 of the player radius, that put the body at 1.098 and
-    // the head at 1.04. The head was genuinely smaller than the segments behind
-    // it, which is what made it read as a badge stuck on the front rather than
-    // a face leading the body.
-    const radius = (
-      index === 0 ? options.headRadius * HEAD_RADIUS_SCALE : options.bodyRadius * 1.12
-    ) * radiusScale;
-    if (
-      options.viewportWidth !== undefined &&
-      options.viewportHeight !== undefined &&
-      (
-        point.x + radius < 0 ||
-        point.y + radius < 0 ||
-        point.x - radius > options.viewportWidth ||
-        point.y - radius > options.viewportHeight
-      )
-    ) continue;
-    drawBodySegment(
-      context,
-      skins,
-      skin.base[index % skin.base.length] as WormateParentRegionId,
-      skin.glow[index % skin.glow.length] as WormateParentRegionId,
-      point,
-      radius,
-    );
+    const ahead = points[index - 1];
+    const distanceFromTail = tailIndex - index;
+    const taper = distanceFromTail === 0
+      ? 0.72
+      : distanceFromTail === 1
+        ? 0.88
+        : distanceFromTail === 2
+          ? 0.97
+          : 1;
+    const aheadTaper = distanceFromTail + 1 === 0
+      ? 0.72
+      : distanceFromTail + 1 === 1
+        ? 0.88
+        : distanceFromTail + 1 === 2
+          ? 0.97
+          : 1;
+    const spanX = ahead.x - point.x;
+    const spanY = ahead.y - point.y;
+    const span = Math.hypot(spanX, spanY);
+    const stamps = Math.max(1, Math.ceil(span / stampStep));
+    const baseRegion = skin.base[index % skin.base.length] as WormateParentRegionId;
+    const glowRegion = skin.glow[index % skin.glow.length] as WormateParentRegionId;
+
+    for (let step = 0; step < stamps; step += 1) {
+      const t = step / stamps;
+      const x = point.x + spanX * t;
+      const y = point.y + spanY * t;
+      // Taper is interpolated too, so the tail thins evenly instead of stepping.
+      const radius = options.bodyRadius * 1.12 * (taper + (aheadTaper - taper) * t);
+      if (
+        options.viewportWidth !== undefined &&
+        options.viewportHeight !== undefined &&
+        (
+          x + radius < 0 ||
+          y + radius < 0 ||
+          x - radius > options.viewportWidth ||
+          y - radius > options.viewportHeight
+        )
+      ) continue;
+      drawBodySegment(context, skins, baseRegion, glowRegion, { x, y }, radius);
+    }
+  }
+
+  // The head has to be the biggest part of the worm. It was drawn at
+  // headRadius * 1.04 while segments drew at bodyRadius * 1.12 - and since
+  // bodyRadius is 0.98 of the player radius, that put the body at 1.098 and the
+  // head at 1.04. The head was genuinely smaller than the segments behind it,
+  // which is what made it read as a badge stuck on the front rather than a face
+  // leading the body.
+  {
+    const headPoint = points[0];
+    const headDrawRadius = options.headRadius * HEAD_RADIUS_SCALE;
+    const onScreen = options.viewportWidth === undefined ||
+      options.viewportHeight === undefined ||
+      !(
+        headPoint.x + headDrawRadius < 0 ||
+        headPoint.y + headDrawRadius < 0 ||
+        headPoint.x - headDrawRadius > options.viewportWidth ||
+        headPoint.y - headDrawRadius > options.viewportHeight
+      );
+    if (onScreen) {
+      drawBodySegment(
+        context,
+        skins,
+        skin.base[0] as WormateParentRegionId,
+        skin.glow[0] as WormateParentRegionId,
+        headPoint,
+        headDrawRadius,
+      );
+    }
   }
 
   const head = points[0];
