@@ -188,6 +188,67 @@ function combinedBodySprite(
   return canvas;
 }
 
+/**
+ * The flat colour of a body region, sampled once from the atlas and cached.
+ *
+ * Stamping overlapping soft-edged discs along the spine can never be perfectly
+ * smooth: the anti-aliased rims beat against each other and show as fine ridges
+ * across the body. A stroked path with round caps and joins is smooth by
+ * construction, so the body is drawn as strokes - and to stroke it we need the
+ * region's colour rather than its pixels. The parent's body discs are flat
+ * fills, so one sample from the centre is the whole disc.
+ */
+const regionColorCache = new Map<string, string>();
+
+function regionColor(
+  image: CanvasImageSource,
+  regionId: WormateParentRegionId,
+): string | undefined {
+  const cached = regionColorCache.get(regionId);
+  if (cached) return cached;
+  if (typeof document === "undefined") return undefined;
+  const region = WORMATE_PARENT_REGIONS[regionId];
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return undefined;
+  context.drawImage(
+    image,
+    region.x + region.w / 2,
+    region.y + region.h / 2,
+    1,
+    1,
+    0,
+    0,
+    1,
+    1,
+  );
+  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+  if (a === 0) return undefined;
+  const value = `rgb(${r},${g},${b})`;
+  regionColorCache.set(regionId, value);
+  return value;
+}
+
+/**
+ * Stamps one region of the body sprite. The parent's body art is two layers: a
+ * flat filled disc and a soft coloured ring. Composited together at every dense
+ * stamp, those rings pile up through the interior of the worm and read as hard
+ * banding. Kept apart, the rings can be laid down first and then covered by the
+ * discs, so only the rim of the outer envelope survives - which is what gives
+ * the parent's worms their clean outlined, rounded look.
+ */
+function stampBodyRegion(
+  context: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  regionId: WormateParentRegionId,
+  point: Readonly<Vec2>,
+  radius: number,
+) {
+  drawRoundRegion(context, image, regionId, point, radius);
+}
+
 function drawBodySegment(
   context: CanvasRenderingContext2D,
   image: CanvasImageSource,
@@ -539,49 +600,46 @@ export function drawWormateParentWorm(
   const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
   const tailIndex = points.length - 1;
 
-  // Tail to head, so each forward stamp cleanly overlaps the one behind it.
-  for (let index = tailIndex; index >= 1; index -= 1) {
-    const point = points[index];
-    const ahead = points[index - 1];
-    const distanceFromTail = tailIndex - index;
-    const taper = distanceFromTail === 0
-      ? 0.72
-      : distanceFromTail === 1
-        ? 0.88
-        : distanceFromTail === 2
-          ? 0.97
-          : 1;
-    const aheadTaper = distanceFromTail + 1 === 0
-      ? 0.72
-      : distanceFromTail + 1 === 1
-        ? 0.88
-        : distanceFromTail + 1 === 2
-          ? 0.97
-          : 1;
-    const spanX = ahead.x - point.x;
-    const spanY = ahead.y - point.y;
-    const span = Math.hypot(spanX, spanY);
-    const stamps = Math.max(1, Math.ceil(span / stampStep));
-    const baseRegion = skin.base[index % skin.base.length] as WormateParentRegionId;
-    const glowRegion = skin.glow[index % skin.glow.length] as WormateParentRegionId;
+  // The body is stroked, not stamped. Overlapping soft-edged discs beat against
+  // each other and show as fine ridges no matter how densely they are packed; a
+  // stroked path with round caps and joins is smooth by construction. The rim
+  // goes down first as one slightly wider stroke over the whole spine, then each
+  // colour band is stroked on top, so only the silhouette keeps its edge.
+  const spine = points.slice(0, tailIndex + 1);
+  const bodyWidth = options.bodyRadius * 2 * 1.12;
 
-    for (let step = 0; step < stamps; step += 1) {
-      const t = step / stamps;
-      const x = point.x + spanX * t;
-      const y = point.y + spanY * t;
-      // Taper is interpolated too, so the tail thins evenly instead of stepping.
-      const radius = options.bodyRadius * 1.12 * (taper + (aheadTaper - taper) * t);
-      if (
-        options.viewportWidth !== undefined &&
-        options.viewportHeight !== undefined &&
-        (
-          x + radius < 0 ||
-          y + radius < 0 ||
-          x - radius > options.viewportWidth ||
-          y - radius > options.viewportHeight
-        )
-      ) continue;
-      drawBodySegment(context, skins, baseRegion, glowRegion, { x, y }, radius);
+  const strokeSpan = (from: number, to: number, width: number, color: string) => {
+    if (to <= from) return;
+    context.beginPath();
+    context.moveTo(spine[from].x, spine[from].y);
+    for (let i = from + 1; i <= to; i += 1) context.lineTo(spine[i].x, spine[i].y);
+    context.lineWidth = Math.max(1, width);
+    context.strokeStyle = color;
+    context.stroke();
+  };
+
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  // Rim first, across the whole body.
+  const rimColor = regionColor(skins, skin.glow[0] as WormateParentRegionId);
+  if (rimColor && spine.length > 1) {
+    strokeSpan(0, spine.length - 1, bodyWidth * 1.16, rimColor);
+  }
+
+  // Then each run of same-coloured points, so multi-colour skins keep their
+  // bands. Runs overlap by one point so the joins never show a seam.
+  if (spine.length > 1) {
+    let runStart = 0;
+    let runRegion = skin.base[0 % skin.base.length] as WormateParentRegionId;
+    for (let index = 1; index <= spine.length - 1; index += 1) {
+      const region = skin.base[index % skin.base.length] as WormateParentRegionId;
+      if (region !== runRegion || index === spine.length - 1) {
+        const color = regionColor(skins, runRegion);
+        if (color) strokeSpan(runStart, index, bodyWidth, color);
+        runStart = index;
+        runRegion = region;
+      }
     }
   }
 
