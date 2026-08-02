@@ -154,7 +154,9 @@ test("two clients receive the same server-owned board, charge, reward, and coold
     assert.ok(firstSnapshot.events.some((event) =>
       event.type === "chargingCompleted" &&
       event.playerId === captain.id &&
-      event.massAwarded === STATION.massReward
+      // A finished charge pays the captain's mass from when it began, so
+      // completing it doubles them. 300 in, 300 awarded, 600 out.
+      Math.abs(event.massAwarded - 300) <= 1e-8
     ));
     assert.deepEqual(firstSnapshot.chargingStations, [{
       stationId: STATION.id,
@@ -165,15 +167,15 @@ test("two clients receive the same server-owned board, charge, reward, and coold
       requiredTicks: 2,
       graceTicksRemaining: 0,
       cooldownTicksRemaining: 600,
-      massAwarded: 10,
+      massAwarded: 300,
     }]);
     assert.equal(
       firstSnapshot.players.find((player) => player.id === captain.id)?.mass,
-      310,
+      600,
     );
     assert.equal(
       secondSnapshot.players.find((player) => player.id === captain.id)?.mass,
-      310,
+      600,
     );
   } finally {
     room.stop();
@@ -233,10 +235,10 @@ test("an ordinary room publishes and authoritatively pays all Open Seas growth p
       event.type === "chargingCompleted" &&
       event.stationId === krakenAtoll.id &&
       event.playerId === captain.id &&
-      event.massAwarded === krakenAtoll.massReward
+      Math.abs(event.massAwarded - startingMass) <= 1e-8
     ));
     assert.equal(room.state.chargingStations[krakenAtoll.id].phase, "cooldown");
-    assert.ok(Math.abs(captain.mass - (startingMass + krakenAtoll.massReward)) <= 1e-8);
+    assert.ok(Math.abs(captain.mass - startingMass * 2) <= 1e-8);
   } finally {
     room.stop();
   }

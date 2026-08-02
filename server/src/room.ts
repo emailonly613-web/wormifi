@@ -821,10 +821,13 @@ export class ArenaRoom {
       }
     }
 
-    if (this.hasGroundCollectorBeacon()) return;
-    if (Object.values(this.state.players).some((player) =>
-      isSpecialistActive(this.state, player, "collector")
-    )) return;
+    // One beacon in a 1450-unit arena shared by thirty-odd worms meant a
+    // player could go whole matches without ever seeing a power-up - measured
+    // live, not one of 32 players held a specialist across 45 seconds of play.
+    // Scale the field with the population so the reward layer is actually part
+    // of the game, while keeping the per-beacon respawn discipline intact.
+    const target = this.targetCollectorBeaconCount();
+    if (this.groundCollectorBeaconCount() >= target) return;
 
     this.nextCollectorBeaconTick ??= this.state.tick + this.collectorBeaconRespawnTicks;
     if (this.state.tick < this.nextCollectorBeaconTick) return;
@@ -832,12 +835,24 @@ export class ArenaRoom {
     this.nextCollectorBeaconTick = undefined;
   }
 
+  private targetCollectorBeaconCount(): number {
+    const alive = Object.values(this.state.players).filter((player) => player.alive).length;
+    return Math.max(1, Math.min(6, Math.ceil(alive / 6)));
+  }
+
+  private groundCollectorBeaconCount(): number {
+    return this.state.drops.reduce(
+      (total, drop) => total + (drop.specialist === "collector" ? 1 : 0),
+      0,
+    );
+  }
+
   private hasGroundCollectorBeacon(): boolean {
-    return this.state.drops.some((drop) => drop.specialist === "collector");
+    return this.groundCollectorBeaconCount() > 0;
   }
 
   private spawnCollectorBeacon(): void {
-    if (this.hasGroundCollectorBeacon()) return;
+    if (this.groundCollectorBeaconCount() >= this.targetCollectorBeaconCount()) return;
     const point = randomPointInCircle(
       this.state.randomState,
       Math.max(1, this.state.config.arenaRadius - 140),
