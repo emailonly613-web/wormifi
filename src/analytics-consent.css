@@ -19,6 +19,17 @@
   font: 600 14px/1.45 Inter, system-ui, sans-serif;
 }
 
+/*
+  The consent panel mounts once at startup and stays until the player answers,
+  so on a first visit it sat over the live arena and covered the control hint
+  underneath it - the worst possible moment to interrupt someone. Hide it while
+  a run is in progress; the menu and the results screen are both fine places to
+  ask, and the panel returns there on its own.
+*/
+body:has(.app-shell[data-playing="true"]) .analytics-consent {
+  display: none;
+}
+
 .analytics-consent strong {
   display: block;
   margin-bottom: 4px;
