@@ -600,11 +600,17 @@ export function drawWormateParentWorm(
   const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
   const tailIndex = points.length - 1;
 
-  // The body is stroked, not stamped. Overlapping soft-edged discs beat against
-  // each other and show as fine ridges no matter how densely they are packed; a
-  // stroked path with round caps and joins is smooth by construction. The rim
-  // goes down first as one slightly wider stroke over the whole spine, then each
-  // colour band is stroked on top, so only the silhouette keeps its edge.
+  // Smooth silhouette AND full pattern.
+  //
+  // Stamping discs alone gives the pattern but never a clean edge - every disc
+  // carries an anti-aliased rim and hundreds of them beat into ridges. Stroking
+  // alone gives a perfect tube but flattens each skin to one sampled colour,
+  // which erased the pattern on all 190 bodies.
+  //
+  // So: stroke the spine first to lay down a smooth, correctly shaped body,
+  // then stamp the real sprites over it with "source-atop", which paints only
+  // where the stroke already is. The stroke owns the silhouette, the sprites
+  // own the detail, and no stamp can spill past the edge.
   const spine = points.slice(0, tailIndex + 1);
   const bodyWidth = options.bodyRadius * 2 * 1.12;
 
@@ -621,26 +627,52 @@ export function drawWormateParentWorm(
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  // Rim first, across the whole body.
-  const rimColor = regionColor(skins, skin.glow[0] as WormateParentRegionId);
-  if (rimColor && spine.length > 1) {
-    strokeSpan(0, spine.length - 1, bodyWidth * 1.16, rimColor);
-  }
-
-  // Then each run of same-coloured points, so multi-colour skins keep their
-  // bands. Runs overlap by one point so the joins never show a seam.
   if (spine.length > 1) {
+    // Base colour per run of same-coloured points, so multi-colour skins keep
+    // their bands even before the sprites go on. Runs overlap by a point so no
+    // seam shows where the colour changes.
     let runStart = 0;
-    let runRegion = skin.base[0 % skin.base.length] as WormateParentRegionId;
+    let runRegion = skin.base[0] as WormateParentRegionId;
     for (let index = 1; index <= spine.length - 1; index += 1) {
       const region = skin.base[index % skin.base.length] as WormateParentRegionId;
-      if (region !== runRegion || index === spine.length - 1) {
+      const last = index === spine.length - 1;
+      if (region !== runRegion || last) {
         const color = regionColor(skins, runRegion);
-        if (color) strokeSpan(runStart, index, bodyWidth, color);
+        if (color) strokeSpan(runStart, last ? index : index, bodyWidth, color);
         runStart = index;
         runRegion = region;
       }
     }
+
+    // Pattern pass, clipped to the body that was just drawn.
+    context.save();
+    context.globalCompositeOperation = "source-atop";
+    const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
+    for (let index = spine.length - 1; index >= 1; index -= 1) {
+      const point = spine[index];
+      const ahead = spine[index - 1];
+      const spanX = ahead.x - point.x;
+      const spanY = ahead.y - point.y;
+      const span = Math.hypot(spanX, spanY);
+      const stamps = Math.max(1, Math.ceil(span / stampStep));
+      const baseRegion = skin.base[index % skin.base.length] as WormateParentRegionId;
+      const radius = options.bodyRadius * 1.12;
+      for (let step = 0; step < stamps; step += 1) {
+        const t = step / stamps;
+        const x = point.x + spanX * t;
+        const y = point.y + spanY * t;
+        if (
+          options.viewportWidth !== undefined &&
+          options.viewportHeight !== undefined &&
+          (
+            x + radius < 0 || y + radius < 0 ||
+            x - radius > options.viewportWidth || y - radius > options.viewportHeight
+          )
+        ) continue;
+        stampBodyRegion(context, skins, baseRegion, { x, y }, radius);
+      }
+    }
+    context.restore();
   }
 
   // The head has to be the biggest part of the worm. It was drawn at
