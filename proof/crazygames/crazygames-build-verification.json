@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-31T17:00:14.801Z",
+  "generatedAt": "2026-08-02T16:43:19.154Z",
   "status": "PASS",
   "platform": "CrazyGames HTML5 SDK v3",
   "distributionRuntime": "crazygames-v3",
-  "fileCount": 40,
-  "totalBytes": 11531928,
-  "totalMegabytes": 10.998,
+  "fileCount": 41,
+  "totalBytes": 11780252,
+  "totalMegabytes": 11.235,
   "underCrazyGamesMobileHomepageTarget": true,
   "sdkLifecycle": [
     "loadingStart",
@@ -26,29 +26,34 @@
       "sha256": "79d516438b16bbbbc20d3bfbd506d63a7a78217200e94c543d1c01814acbebdd"
     },
     {
-      "path": "assets/CaptainLog-BjyH8jo7.js",
-      "bytes": 6401,
-      "sha256": "2d62563bd69f6ac3441221c764e70a116ad55f289ed590dff425a9d6dc1b2c7f"
+      "path": "assets/CaptainLog-DLrMpzNE.js",
+      "bytes": 6667,
+      "sha256": "8b33266e3964cb8159cca9089456ef8136e93135ba955019d87291e522837b5d"
     },
     {
-      "path": "assets/CaptainPassport-bQPBlBqH.js",
-      "bytes": 11575,
-      "sha256": "dc4afc43569dc790e897711c4c7f72f2a84dfde538aca930989e7f7c4ceca799"
+      "path": "assets/CaptainPassport-Dipy0NDw.js",
+      "bytes": 11585,
+      "sha256": "381b17f5b0921a50af90fa8156994e32bab8f66fe00e60a3b46a90935d8a1e75"
     },
     {
-      "path": "assets/CaptainRooms-Bh9eODFM.js",
+      "path": "assets/CaptainRooms-Rn-kxOPR.js",
       "bytes": 2647,
-      "sha256": "dcee288bfb24b79ebd9ffbd047390c25804ae63c1821719fdd5e976108fede3a"
+      "sha256": "6c81be76091c7bb62aebb3dc70d3d09f735d0d5abd771d9b11a4d7548b378b91"
     },
     {
-      "path": "assets/game-B-n3E0O3.css",
-      "bytes": 135405,
-      "sha256": "66b3c4524e5165af1e9b9e8eadbfa587986e33d3bbd1b809b7c56784c9b2c62c"
+      "path": "assets/CurrencyStoreLayout-DbkbJ6Nv.js",
+      "bytes": 41187,
+      "sha256": "8c856667cdf7a56ce7192275aa31a3a1c59ff1f355863bb26f5fcdfdb6b2accb"
     },
     {
-      "path": "assets/game-DzqSmhuj.js",
-      "bytes": 526692,
-      "sha256": "a4eb9efaab61497497879cfa6f5c45669b8be4f8d18732154c7d56bacfc693ca"
+      "path": "assets/game-CTuVbnIx.js",
+      "bytes": 706392,
+      "sha256": "118088934efe0be16928d6138b9233d67bb27486f2ee834b81672b6fbb30665c"
+    },
+    {
+      "path": "assets/game-DOV-RThW.css",
+      "bytes": 162539,
+      "sha256": "13d5e0080b2d62b1aab44c2d0f56d9b030828acc6e33f02fc39e2623d6120397"
     },
     {
       "path": "assets/sprites/pirate-atlas/doubloon-stack.png",
@@ -172,13 +177,13 @@
     },
     {
       "path": "assets/sprites/pirate-atlas/treasure-float-shadow-v1.svg",
-      "bytes": 745,
-      "sha256": "7e47c45699322eec431ffcfcda4293765d46cf2dac138a5914d4850782f5cb7e"
+      "bytes": 760,
+      "sha256": "ebe1dffca93e208da6659646cbc7ddd43d74f47c3990ad95a926c0c7abc4d5de"
     },
     {
       "path": "assets/sprites/pirate-atlas/treasure-glint-v1.svg",
-      "bytes": 573,
-      "sha256": "7080dc25fd3b1c7012addd5d9a4c4f7a9a16557b73ff954e628c497b62b324e2"
+      "bytes": 585,
+      "sha256": "d068e53a0a136ae8b1f2c40c014a583ca1188c1c0a30d826b1eac8bfc66c6c20"
     },
     {
       "path": "assets/sprites/pirate-atlas/treasure-map.png",
@@ -218,7 +223,7 @@
     {
       "path": "index.html",
       "bytes": 1652,
-      "sha256": "4df9e5c82ba412d79d75751958b368b5a72dfbc4f71e3ae7575bde147587b57e"
+      "sha256": "3d72a8907591c3df089eb8b5c247c02a87c78749870da1ba94ef82fe3350dd04"
     }
   ]
 }

@@ -1598,15 +1598,17 @@ export function App() {
               className="play-button play-button--primary"
               data-testid="live-lab-button"
               onClick={() => {
-                if (isCrazyGamesDistribution) start(mode === "live" ? "rush" : mode);
-                else if (challenge) start(mode);
+                // Wormifi is a multiplayer game everywhere it is played. The
+                // portal build used to swap live play for a solo run, which meant
+                // portal players never met anyone.
+                if (challenge && !isCrazyGamesDistribution) start(mode);
                 else start("live", publicMatchmaking);
               }}
             >
               <span>{isCrazyGamesDistribution ? "PLAY NOW" : challenge ? "ACCEPT CHALLENGE" : "PLAY LIVE"}</span>
               <small>
                 {isCrazyGamesDistribution
-                  ? `${mode === "endless" ? "Endless solo" : "90-second solo"} · one click to the arena`
+                  ? `${roomIdentityLabel(roomDraft)} · one click to the arena`
                   : challenge
                   ? "Same seed · beat the target"
                   : `${roomIdentityLabel(roomDraft)} · humans + labeled AI backfill`}
