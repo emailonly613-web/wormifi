@@ -431,6 +431,87 @@ describe("deterministic game core", () => {
     }));
   });
 
+  it("never lets a mutual head-on contact kill both worms", () => {
+    const state = createGameState("single-winner-head-on", {
+      fixedStepSeconds: 1,
+      arenaRadius: 1_000,
+      baseSpeed: 20,
+      boostSpeed: 20,
+      baseRadius: 2,
+      massRadiusFactor: 0,
+      bodyRadiusFactor: 1,
+      segmentSpacingFactor: 3.75,
+      startingBodySegments: 3,
+      minimumBodySegments: 3,
+      massPerSegment: 1_000,
+    });
+    const lighter = spawnPlayer(state, {
+      id: "anchor",
+      position: { x: -10, y: 0 },
+      direction: { x: 1, y: 0 },
+      mass: 80,
+      shieldSeconds: 0,
+    });
+    const heavier = spawnPlayer(state, {
+      id: "behemoth",
+      position: { x: 10, y: 0 },
+      direction: { x: -1, y: 0 },
+      mass: 120,
+      shieldSeconds: 0,
+    });
+
+    const result = stepGame(state, {
+      anchor: { sequence: 1, direction: { x: 1, y: 0 }, boost: false },
+      behemoth: { sequence: 1, direction: { x: -1, y: 0 }, boost: false },
+    });
+    const deaths = result.events.filter((event) => event.type === "playerDied");
+
+    expect(deaths).toHaveLength(1);
+    expect(lighter.alive).toBe(true);
+    expect(lighter.stats.kills).toBe(1);
+    expect(heavier.alive).toBe(false);
+    expect(heavier.killedBy).toBe(lighter.id);
+  });
+
+  it("resolves an otherwise exact mutual-contact tie deterministically to one survivor", () => {
+    const state = createGameState("single-winner-equal-head-on", {
+      fixedStepSeconds: 1,
+      arenaRadius: 1_000,
+      baseSpeed: 20,
+      boostSpeed: 20,
+      baseRadius: 2,
+      massRadiusFactor: 0,
+      bodyRadiusFactor: 1,
+      segmentSpacingFactor: 3.75,
+      startingBodySegments: 3,
+      minimumBodySegments: 3,
+      massPerSegment: 1_000,
+    });
+    const alpha = spawnPlayer(state, {
+      id: "alpha",
+      position: { x: -10, y: 0 },
+      direction: { x: 1, y: 0 },
+      mass: 100,
+      shieldSeconds: 0,
+    });
+    const beta = spawnPlayer(state, {
+      id: "beta",
+      position: { x: 10, y: 0 },
+      direction: { x: -1, y: 0 },
+      mass: 100,
+      shieldSeconds: 0,
+    });
+
+    const result = stepGame(state, {
+      alpha: { sequence: 1, direction: { x: 1, y: 0 }, boost: false },
+      beta: { sequence: 1, direction: { x: -1, y: 0 }, boost: false },
+    });
+
+    expect(result.events.filter((event) => event.type === "playerDied")).toHaveLength(1);
+    expect([alpha, beta].filter((player) => player.alive)).toHaveLength(1);
+    expect([alpha, beta].filter((player) => !player.alive)).toHaveLength(1);
+  });
+
   it("protects only the spawning head while its visible body stays lethal", () => {
     const { state, attacker, owner } = collisionFixture(2);
 
@@ -499,6 +580,110 @@ describe("deterministic game core", () => {
     const result = stepGame(state);
 
     expect(player.shieldTicksRemaining).toBeGreaterThan(0);
+    expect(player.alive).toBe(false);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "playerDied",
+      playerId: player.id,
+      cause: "boundary",
+    }));
+  });
+
+  it("repairs explicit outside and non-finite heads before exposing a living spawn", () => {
+    const outsideState = createGameState("outside-explicit-spawn", {
+      arenaRadius: 200,
+      baseSpeed: 0,
+      boostSpeed: 0,
+      spawnShieldSeconds: 0,
+    });
+    const outside = spawnPlayer(outsideState, {
+      id: "outside-explicit-spawn",
+      position: { x: 10_000, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const maximumHeadCenterRadius =
+      outsideState.config.arenaRadius - getPlayerRadius(outside, outsideState.config);
+    expect(outside.alive).toBe(true);
+    expect(Math.hypot(outside.position.x, outside.position.y))
+      .toBeCloseTo(maximumHeadCenterRadius, 8);
+    expect(outside.previousPosition).toEqual(outside.position);
+    expect(isPlayerGeometryInsideArena(outside, outsideState.config)).toBe(true);
+
+    const malformedState = createGameState("non-finite-explicit-spawn", {
+      arenaRadius: 200,
+      spawnShieldSeconds: 0,
+    });
+    const malformed = spawnPlayer(malformedState, {
+      id: "non-finite-explicit-spawn",
+      position: { x: Number.NaN, y: Number.POSITIVE_INFINITY },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    expect(malformed.position).toEqual({ x: 0, y: 0 });
+    expect(malformed.previousPosition).toEqual({ x: 0, y: 0 });
+    expect(isPlayerGeometryInsideArena(malformed, malformedState.config)).toBe(true);
+    for (let sequence = 1; sequence <= 5; sequence += 1) {
+      stepGame(malformedState, {
+        [malformed.id]: {
+          sequence,
+          direction: { x: 1, y: 0 },
+          boost: false,
+        },
+      });
+      expect(malformed.alive).toBe(true);
+      expect(isPlayerGeometryInsideArena(malformed, malformedState.config)).toBe(true);
+    }
+  });
+
+  it("rejects spawn scalars that could create impossible or immortal living state", () => {
+    const state = createGameState("invalid-spawn-scalars", {
+      arenaRadius: 200,
+    });
+    expect(() => spawnPlayer(state, {
+      id: "nan-mass",
+      mass: Number.NaN,
+    })).toThrow(/mass must be finite/u);
+    expect(() => spawnPlayer(state, {
+      id: "infinite-mass",
+      mass: Number.POSITIVE_INFINITY,
+    })).toThrow(/mass must be finite/u);
+    expect(() => spawnPlayer(state, {
+      id: "oversized-mass",
+      mass: 1_000_000,
+    })).toThrow(/geometry must fit inside the arena/u);
+    expect(() => spawnPlayer(state, {
+      id: "infinite-shield",
+      shieldSeconds: Number.POSITIVE_INFINITY,
+    })).toThrow(/shield must be finite/u);
+    expect(() => spawnPlayer(state, {
+      id: "unsafe-shield",
+      shieldSeconds: Number.MAX_VALUE,
+    })).toThrow(/safe tick range/u);
+    expect(Object.keys(state.players)).toHaveLength(0);
+  });
+
+  it("resolves growth that makes solid geometry larger than the arena in the same tick", () => {
+    const state = createGameState("oversized-growth", {
+      arenaRadius: 100,
+      baseSpeed: 0,
+      boostSpeed: 0,
+      spawnShieldSeconds: 0,
+    });
+    const player = spawnPlayer(state, {
+      id: "oversized-growth",
+      position: { x: 0, y: 0 },
+      shieldSeconds: 0,
+    });
+    spawnDrop(state, {
+      id: "oversized-growth-hoard",
+      position: { x: 0, y: 0 },
+      mass: 100_000,
+      radius: 5,
+      source: "arena",
+    });
+
+    const result = stepGame(state);
+
     expect(player.alive).toBe(false);
     expect(result.events).toContainEqual(expect.objectContaining({
       type: "playerDied",

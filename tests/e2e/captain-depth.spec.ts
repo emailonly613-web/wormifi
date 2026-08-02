@@ -80,6 +80,7 @@ test("keeps the seeded depth dashboard readable on desktop and landscape mobile"
   const log = page.getByTestId("captain-log");
   await expect(log).toBeVisible();
   await expect(log).toContainText("LV 5");
+  await expect(page.getByTestId("captain-log-runs")).toHaveText("8");
   await expect(page.getByTestId("captain-log-orders")).toBeVisible();
   await expect(page.getByTestId("captain-log-masteries")).toContainText("CROWN TIDE");
   await expect(page.getByTestId("captain-log-history")).toContainText("LIVE WATER");
@@ -94,4 +95,50 @@ test("keeps the seeded depth dashboard readable on desktop and landscape mobile"
   const proofDirectory = path.resolve("proof", "browser", "captain-depth", testInfo.project.name);
   await mkdir(proofDirectory, { recursive: true });
   await page.screenshot({ path: path.join(proofDirectory, "02-depth-dashboard.png"), fullPage: true });
+});
+
+test("reconciles pre-Log lifetime runs without inventing voyage details", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("wormifi.captain-progression.v1", JSON.stringify({
+      version: 1,
+      xp: 7_885,
+      completedRuns: 295,
+      totalScore: 94_200,
+      lastAwardXp: 30,
+      updatedAtMs: 2_000,
+    }));
+    localStorage.setItem("wormifi.captain-log.v1", JSON.stringify({
+      version: 1,
+      totalRuns: 21,
+      totalScore: 8_400,
+      totalKills: 4,
+      bestScore: 614,
+      bestRank: 19,
+      bestPeakMass: 74,
+      liveRuns: 5,
+      soloRuns: 16,
+      daily: {
+        dayKey: "",
+        runs: 0,
+        bestScore: 0,
+        kills: 0,
+        bestRank: 0,
+        peakMass: 0,
+        liveRuns: 0,
+      },
+      recentRuns: [],
+      updatedAtMs: 1_000,
+    }));
+  });
+
+  await page.goto("/");
+  await page.getByTestId("captain-log-launch").click();
+  await expect(page.getByTestId("captain-log-runs")).toHaveText("295");
+  await expect(page.getByTestId("captain-log-masteries")).toContainText("LONG VOYAGE");
+  await expect(page.getByTestId("captain-log-history")).toContainText("NEW VOYAGE DETAILS START HERE");
+  await expect(page.getByTestId("captain-log-history")).toContainText("Earlier run and score totals were carried forward.");
+
+  await page.reload();
+  await page.getByTestId("captain-log-launch").click();
+  await expect(page.getByTestId("captain-log-runs")).toHaveText("295");
 });

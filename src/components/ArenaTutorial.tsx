@@ -152,6 +152,21 @@ export function ArenaTutorial({
           : stage === "collision"
             ? "Keep your head safe and make a rival head hit your crew."
             : "Collect the compass relic.";
+  const visibleLabel = stage === "steer"
+    ? touch && controlScheme !== "drag-anywhere"
+      ? `TURN WITH ${controlScheme === "left-helm" ? "LEFT" : "RIGHT"} HELM`
+      : alreadyMoving
+        ? "TURN TO TAKE CONTROL"
+        : "TURN TO START"
+    : stage === "spark"
+      ? "COLLECT THE RINGED GEM"
+      : stage === "sprint"
+        ? "HOLD TURBO"
+        : stage === "sprint-release"
+          ? "RELEASE TURBO"
+          : stage === "collision"
+            ? "MAKE A RIVAL HIT YOUR CREW"
+            : "COLLECT THE COMPASS RELIC";
 
   return (
     <section
@@ -164,7 +179,8 @@ export function ArenaTutorial({
       aria-atomic="true"
       aria-label={accessibleLabel}
     >
-      <span aria-hidden="true">{cue}</span>
+      <span className="tutorial-cue__icon" aria-hidden="true">{cue}</span>
+      <strong className="tutorial-cue__label" aria-hidden="true">{visibleLabel}</strong>
     </section>
   );
 }

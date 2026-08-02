@@ -58,6 +58,40 @@ import {
   canEquipTheme,
   isFounderPackUnlocked,
 } from "../game/premiumSkins";
+import {
+  DEFAULT_WORMATE_PARENT_SKIN_ID,
+  WORMATE_PARENT_REVISION,
+  WORMATE_PARENT_SKINS,
+  WORMATE_PARENT_WEARABLE_CATALOGS,
+  getWormateParentSkin,
+  wormateParentAppearanceFromThemeId,
+  wormateParentSkinIdFromThemeId,
+  wormateParentSkinLabel,
+  wormateParentThemeIdWithSkin,
+  wormateParentThemeIdWithWearable,
+  wormateParentWearableLabel,
+  type WormateParentOutfit,
+  type WormateParentSkinId,
+  type WormateParentWearable,
+  type WormateParentWearableKind,
+} from "../game/wormateParentCatalog";
+import {
+  drawWormateParentWorm,
+  preloadWormateParentVisuals,
+} from "../game/wormateParentRender";
+import {
+  ARENA_VISUAL_THEME_CATALOG,
+  PICKUP_THEME_CATALOG,
+  WORLD_COSMETIC_BUNDLES,
+  equipWorldCosmeticBundle,
+  normalizeWorldCosmetics,
+  readWorldCosmetics,
+  selectArenaVisualTheme,
+  selectPickupTheme,
+  writeWorldCosmetics,
+  type WorldCosmeticState,
+} from "../game/worldCosmetics";
+import { getBoundaryGuardianSpec } from "../game/boundaryGuardians";
 
 const MOTION_LEVEL_COPY: Record<MaterialMotionLevel, { label: string; detail: string }> = {
   full: { label: "FULL", detail: "Materials flow at full speed." },
@@ -98,10 +132,12 @@ export interface SkinStudioProps {
   onStateChange?: (state: PhotoSkinState) => void;
   onClose?: () => void;
   onOpenLegendVoyage?: () => void;
+  initialWorldCosmetics?: WorldCosmeticState;
+  onWorldCosmeticsChange?: (state: WorldCosmeticState) => void;
   className?: string;
 }
 
-type CustomizationMode = "body" | "face" | "complete";
+type CustomizationMode = "body" | "face" | "complete" | "world";
 
 export function SkinStudio({
   initialState,
@@ -109,6 +145,8 @@ export function SkinStudio({
   onStateChange,
   onClose,
   onOpenLegendVoyage,
+  initialWorldCosmetics,
+  onWorldCosmeticsChange,
   className = "",
 }: SkinStudioProps) {
   const titleId = useId();
@@ -125,6 +163,11 @@ export function SkinStudio({
   }
 
   const [state, setState] = useState<PhotoSkinState>(loadedRef.current.state);
+  const [worldCosmetics, setWorldCosmetics] = useState<WorldCosmeticState>(() =>
+    initialWorldCosmetics
+      ? normalizeWorldCosmetics(initialWorldCosmetics, initialWorldCosmetics.updatedAtMs)
+      : readWorldCosmetics()
+  );
   const [renderPrefs, setRenderPrefs] = useState<RenderPreferences>(() => readRenderPreferences());
   const [founderUnlocked] = useState(() => isFounderPackUnlocked());
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
@@ -155,6 +198,15 @@ export function SkinStudio({
       setError(storageError instanceof Error ? storageError.message : "Photo Skin could not be saved locally.");
     }
   }, [onStateChange, state, storage]);
+
+  useEffect(() => {
+    onWorldCosmeticsChange?.(worldCosmetics);
+    try {
+      writeWorldCosmetics(worldCosmetics);
+    } catch {
+      setStorageStatus("WORLD STYLE COULD NOT BE SAVED");
+    }
+  }, [onWorldCosmeticsChange, worldCosmetics]);
 
   useEffect(() => {
     const canvas = previewCanvasRef.current;
@@ -229,6 +281,8 @@ export function SkinStudio({
         faceMode: previewThemeId ? "captain" : renderPlan.faceMode,
         eyeStyle: renderPlan.eyeStyle,
         expressionStyle: renderPlan.expressionStyle,
+        parentSkinId: previewThemeId ? undefined : renderPlan.parentSkinId,
+        parentOutfit: previewThemeId ? undefined : renderPlan.parentOutfit,
       });
       drawPhotoSkinCanvas(context, {
         points: points.slice(1),
@@ -240,6 +294,9 @@ export function SkinStudio({
     };
 
     paintPreview(0);
+    void preloadWormateParentVisuals().then(() => {
+      if (active) paintPreview(0);
+    });
     void Promise.all(renderPlan.localPhotos.map(async (photo) => {
       try {
         return [photo.id, await previewImageCacheRef.current.get(photo)] as const;
@@ -270,6 +327,12 @@ export function SkinStudio({
 
   const commit = (next: PhotoSkinState, nextStatus: string) => {
     setState(next);
+    setStatus(nextStatus);
+    setError("");
+  };
+
+  const commitWorldCosmetics = (next: WorldCosmeticState, nextStatus: string) => {
+    setWorldCosmetics(next);
     setStatus(nextStatus);
     setError("");
   };
@@ -332,9 +395,9 @@ export function SkinStudio({
     >
       <header className="skin-studio-header">
         <div>
-          <span className="skin-studio-kicker">THREE CLEAR WAYS TO BUILD YOUR CAPTAIN</span>
+          <span className="skin-studio-kicker">FOUR LAYERS · ONE COMPLETE CAPTAIN WORLD</span>
           <h2 id={titleId}>CAPTAIN CUSTOMIZER</h2>
-          <p>Change the body, change the face, or equip one art-directed complete identity.</p>
+          <p>Build the body, face, complete identity, then theme the food, treasure, and arena around it.</p>
         </div>
         <div className="skin-studio-header-actions">
           {onOpenLegendVoyage && (
@@ -356,6 +419,7 @@ export function SkinStudio({
           ["body", "1", "BODY SKIN ONLY", "Face stays exactly the same."],
           ["face", "2", "FACE ONLY", "Body skin stays exactly the same."],
           ["complete", "3", "COMPLETE STYLES", "Matched face + skin made together."],
+          ["world", "4", "WORLD THEMES", "Food, treasure + arena skin."],
         ] as const).map(([mode, number, label, detail]) => (
           <button
             key={mode}
@@ -377,8 +441,112 @@ export function SkinStudio({
         ))}
       </div>
 
+      {customizationMode === "world" && (
+        <fieldset className="skin-studio-world" data-testid="world-theme-studio">
+          <legend>WORLD STYLE · VISUAL ONLY · AUTHORITATIVE BOARD RULES NEVER CHANGE</legend>
+          <div className="skin-world-depth-meter" aria-label="World customization depth">
+            <span><strong>3</strong> food/treasure fields</span>
+            <span><strong>4</strong> arena + living moat skins</span>
+            <span><strong>4</strong> coordinated world sets</span>
+            <span><strong>0</strong> gameplay advantages</span>
+          </div>
+          <section className="skin-world-bundles" aria-labelledby={`${titleId}-world-bundles`}>
+            <header>
+              <small>ONE-CLICK COORDINATED SETS</small>
+              <h3 id={`${titleId}-world-bundles`}>THEMED WORLDS</h3>
+            </header>
+            <div>
+              {WORLD_COSMETIC_BUNDLES.map((bundle) => {
+                const selected = worldCosmetics.pickupThemeId === bundle.pickupThemeId &&
+                  worldCosmetics.arenaThemeId === bundle.arenaThemeId;
+                return (
+                  <button
+                    type="button"
+                    key={bundle.id}
+                    aria-pressed={selected}
+                    data-testid={`world-bundle-${bundle.id}`}
+                    onClick={() => commitWorldCosmetics(
+                      equipWorldCosmeticBundle(worldCosmetics, bundle),
+                      `${bundle.label} complete world equipped. Gameplay rules did not change.`,
+                    )}
+                  >
+                    <span className={`skin-world-bundle-art world-${bundle.arenaThemeId}`} aria-hidden="true">
+                      <i>{PICKUP_THEME_CATALOG.find((theme) => theme.id === bundle.pickupThemeId)?.mark}</i>
+                    </span>
+                    <strong>{bundle.label}</strong>
+                    <small>{bundle.description}</small>
+                    <b>{selected ? "EQUIPPED" : "EQUIP COMPLETE SET"}</b>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="skin-world-layer" aria-labelledby={`${titleId}-pickup-layer`}>
+            <header><small>INDEPENDENT LAYER</small><h3 id={`${titleId}-pickup-layer`}>FOOD &amp; TREASURE FIELD</h3></header>
+            <div>
+              {PICKUP_THEME_CATALOG.map((theme) => (
+                <label key={theme.id} className={worldCosmetics.pickupThemeId === theme.id ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    name={`${titleId}-pickup-theme`}
+                    value={theme.id}
+                    checked={worldCosmetics.pickupThemeId === theme.id}
+                    onChange={() => commitWorldCosmetics(
+                      selectPickupTheme(worldCosmetics, theme.id),
+                      `${theme.label} pickup field selected.`,
+                    )}
+                  />
+                  <span aria-hidden="true">{theme.mark}</span>
+                  <strong>{theme.label}</strong>
+                  <small>{theme.description}</small>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="skin-world-layer" aria-labelledby={`${titleId}-arena-layer`}>
+            <header><small>INDEPENDENT LAYER</small><h3 id={`${titleId}-arena-layer`}>ARENA + LIVING MOAT SKIN</h3></header>
+            <div>
+              {ARENA_VISUAL_THEME_CATALOG.map((theme) => (
+                <label key={theme.id} className={worldCosmetics.arenaThemeId === theme.id ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    name={`${titleId}-arena-theme`}
+                    value={theme.id}
+                    checked={worldCosmetics.arenaThemeId === theme.id}
+                    onChange={() => commitWorldCosmetics(
+                      selectArenaVisualTheme(worldCosmetics, theme.id),
+                      `${theme.label} arena skin selected. Board geometry and rules did not change.`,
+                    )}
+                  />
+                  <span className="skin-world-palette" aria-hidden="true">
+                    {theme.colors.map((color) => <i key={color} style={{ backgroundColor: color }} />)}
+                  </span>
+                  <strong>{theme.label}</strong>
+                  <small>{theme.description}</small>
+                  <b>{getBoundaryGuardianSpec(theme.id).label}</b>
+                </label>
+              ))}
+            </div>
+          </section>
+        </fieldset>
+      )}
+
       {customizationMode === "body" && <fieldset className="skin-studio-themes" data-testid="body-skin-catalog">
-        <legend>BODY SKIN ONLY · PICK A MATERIAL</legend>
+        <legend>BODY SKIN ONLY · PARENT COLLECTION FIRST</legend>
+        <ParentSkinCarousel
+          state={state}
+          onSelect={(skinId) => {
+            setPreviewThemeId(null);
+            const skin = getWormateParentSkin(skinId);
+            commit(
+              selectPhotoSkinTheme(state, wormateParentThemeIdWithSkin(state.themeId, skin.id)),
+              `${wormateParentSkinLabel(skin)} parent body selected.`,
+            );
+          }}
+        />
+        <h3 className="skin-studio-originals-heading">WORMIFI ORIGINALS · EXTRA COLLECTION</h3>
         <div>
           {PHOTO_SKIN_THEMES.filter((theme) => !isPremiumCosmeticThemeId(theme.id)).map((theme) => (
             <label key={theme.id} className={state.themeId === theme.id ? "selected" : ""}>
@@ -410,7 +578,21 @@ export function SkinStudio({
       </fieldset>}
 
       {customizationMode === "face" && <fieldset className="skin-studio-themes skin-studio-faces" data-testid="face-only-catalog">
-        <legend>FACE ONLY · COMPLETE CAPTAIN OR MIX YOUR OWN FEATURES</legend>
+        <legend>FACE + HEAD WEAR · PARENT COLLECTION FIRST</legend>
+        <ParentWearableStudio
+          state={state}
+          onSelect={(kind, wearable) => {
+            setPreviewThemeId(null);
+            commit(
+              selectPhotoSkinTheme(
+                state,
+                wormateParentThemeIdWithWearable(state.themeId, kind, wearable.id),
+              ),
+              `${wormateParentWearableLabel(kind, wearable)} equipped for public play.`,
+            );
+          }}
+        />
+        <h3 className="skin-studio-originals-heading">WORMIFI ORIGINAL FACES · EXTRA COLLECTION</h3>
         <div className="captain-feature-modes" role="group" aria-label="Face construction mode">
           {([
             ["captain", "COMPLETE CAPTAIN", "An art-directed face."],
@@ -457,7 +639,7 @@ export function SkinStudio({
                 />
               </span>
               <strong>{theme.label}</strong>
-              <small>FACE ONLY · body remains {getCosmeticTheme(state.themeId).label}</small>
+              <small>FACE ONLY · body remains {bodySkinLabel(state.themeId)}</small>
             </label>
           ))}
         </div>}
@@ -511,7 +693,7 @@ export function SkinStudio({
               </fieldset>
             )}
             <small className="captain-feature-boundary">
-              YOUR DEVICE PREVIEW · PUBLIC ROOMS STILL SHARE ONLY THE AUTHORED BODY THEME
+              WORMIFI ORIGINAL FACE FEATURES STAY ON THIS DEVICE · PARENT OUTFITS ABOVE ARE PUBLIC
             </small>
           </div>
         )}
@@ -676,7 +858,7 @@ export function SkinStudio({
         <canvas
           ref={previewCanvasRef}
           role="img"
-          aria-label={`${getCosmeticTheme(state.faceThemeId).label} face with ${getCosmeticTheme(state.themeId).label} body preview`}
+          aria-label={`${getCosmeticTheme(state.faceThemeId).label} face with ${bodySkinLabel(state.themeId)} body preview`}
         >
           Continuous Wormifi skin preview.
         </canvas>
@@ -844,10 +1026,280 @@ export function SkinStudio({
 }
 
 function getPreviewLabel(state: PhotoSkinState): string {
-  const body = getCosmeticTheme(state.themeId).label;
+  const body = bodySkinLabel(state.themeId);
   const face = getCosmeticTheme(state.faceThemeId).label;
   if (state.enabled && isPhotoSkinReady(state)) {
     return `${face} FACE · ${body} BODY · ${state.photos.length} PRIVATE BANDS`;
   }
   return `${face} FACE · ${body} BODY`;
+}
+
+function bodySkinLabel(themeId: PhotoSkinState["themeId"]): string {
+  const parentSkinId = wormateParentSkinIdFromThemeId(themeId);
+  return parentSkinId === undefined
+    ? getCosmeticTheme(themeId).label
+    : wormateParentSkinLabel(getWormateParentSkin(parentSkinId));
+}
+
+function ParentSkinCarousel({
+  state,
+  onSelect,
+}: {
+  state: PhotoSkinState;
+  onSelect: (skinId: typeof WORMATE_PARENT_SKINS[number]["id"]) => void;
+}) {
+  const selectedId = wormateParentSkinIdFromThemeId(state.themeId) ??
+    DEFAULT_WORMATE_PARENT_SKIN_ID;
+  const currentIndex = Math.max(
+    0,
+    WORMATE_PARENT_SKINS.findIndex((skin) => skin.id === selectedId),
+  );
+  const current = WORMATE_PARENT_SKINS[currentIndex];
+  const selectOffset = (offset: number) => {
+    const nextIndex = (
+      currentIndex + offset + WORMATE_PARENT_SKINS.length
+    ) % WORMATE_PARENT_SKINS.length;
+    onSelect(WORMATE_PARENT_SKINS[nextIndex].id);
+  };
+
+  return (
+    <section
+      className="skin-studio-parent-carousel"
+      data-testid="parent-skin-catalog"
+      data-parent-revision={WORMATE_PARENT_REVISION}
+      data-parent-skin-count={WORMATE_PARENT_SKINS.length}
+    >
+      <header>
+        <span>PARENT LIBRARY · EXACT REVISION {WORMATE_PARENT_REVISION}</span>
+        <strong>{WORMATE_PARENT_SKINS.length} AUTHORIZED BODY SKINS</strong>
+      </header>
+      <div>
+        <button
+          type="button"
+          aria-label="Previous parent body skin"
+          data-testid="parent-skin-previous"
+          onClick={() => selectOffset(-1)}
+        >‹</button>
+        <button
+          type="button"
+          className="skin-studio-parent-current"
+          aria-pressed={wormateParentSkinIdFromThemeId(state.themeId) === current.id}
+          data-testid="parent-skin-current"
+          onClick={() => onSelect(current.id)}
+        >
+          <ParentSkinStrip skinId={current.id} />
+          <small>{current.groupLabel.toUpperCase()}</small>
+          <strong>{wormateParentSkinLabel(current)}</strong>
+          <span>{currentIndex + 1} / {WORMATE_PARENT_SKINS.length}</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Next parent body skin"
+          data-testid="parent-skin-next"
+          onClick={() => selectOffset(1)}
+        >›</button>
+      </div>
+      <p>The exact parent atlas drives the arena body above. Wormifi originals stay available below as extras.</p>
+    </section>
+  );
+}
+
+const PARENT_WEARABLE_COPY: Record<
+  WormateParentWearableKind,
+  { label: string; detail: string }
+> = {
+  eyes: { label: "EYES", detail: "20 exact parent eye sets" },
+  mouth: { label: "MOUTHS", detail: "94 exact parent expressions" },
+  glasses: { label: "GLASSES", detail: "28 exact parent frames" },
+  hat: { label: "HATS", detail: "119 exact parent headpieces" },
+};
+
+function selectedWearableId(
+  outfit: Readonly<WormateParentOutfit>,
+  kind: WormateParentWearableKind,
+): number {
+  if (kind === "eyes") return outfit.eyeId;
+  if (kind === "mouth") return outfit.mouthId;
+  if (kind === "glasses") return outfit.glassesId;
+  return outfit.hatId;
+}
+
+function outfitWithWearable(
+  outfit: Readonly<WormateParentOutfit>,
+  kind: WormateParentWearableKind,
+  wearableId: number,
+): WormateParentOutfit {
+  if (kind === "eyes") return { ...outfit, eyeId: wearableId as WormateParentOutfit["eyeId"] };
+  if (kind === "mouth") return { ...outfit, mouthId: wearableId as WormateParentOutfit["mouthId"] };
+  if (kind === "glasses") return { ...outfit, glassesId: wearableId as WormateParentOutfit["glassesId"] };
+  return { ...outfit, hatId: wearableId as WormateParentOutfit["hatId"] };
+}
+
+function ParentWearableStudio({
+  state,
+  onSelect,
+}: {
+  state: PhotoSkinState;
+  onSelect: (kind: WormateParentWearableKind, wearable: WormateParentWearable) => void;
+}) {
+  const [kind, setKind] = useState<WormateParentWearableKind>("eyes");
+  const appearance = wormateParentAppearanceFromThemeId(state.themeId) ?? {
+    skinId: DEFAULT_WORMATE_PARENT_SKIN_ID,
+    outfit: {
+      eyeId: 0,
+      mouthId: 0,
+      glassesId: 0,
+      hatId: 0,
+    } as WormateParentOutfit,
+  };
+  const catalog = WORMATE_PARENT_WEARABLE_CATALOGS[kind] as readonly WormateParentWearable[];
+  const selectedId = selectedWearableId(appearance.outfit, kind);
+
+  return (
+    <section
+      className="skin-studio-parent-wearables"
+      data-testid="parent-wearable-catalog"
+      data-parent-wearable-count={
+        WORMATE_PARENT_WEARABLE_CATALOGS.eyes.length +
+        WORMATE_PARENT_WEARABLE_CATALOGS.mouth.length +
+        WORMATE_PARENT_WEARABLE_CATALOGS.glasses.length +
+        WORMATE_PARENT_WEARABLE_CATALOGS.hat.length
+      }
+    >
+      <header>
+        <span>PARENT WEAR ATLAS · EXACT REVISION {WORMATE_PARENT_REVISION}</span>
+        <strong>261 AUTHORIZED FACE + HEAD-WEAR CHOICES</strong>
+      </header>
+      <div className="skin-studio-parent-wearable-tabs" role="tablist" aria-label="Parent wearable category">
+        {(Object.keys(PARENT_WEARABLE_COPY) as WormateParentWearableKind[]).map((candidate) => (
+          <button
+            key={candidate}
+            type="button"
+            role="tab"
+            aria-selected={kind === candidate}
+            className={kind === candidate ? "selected" : ""}
+            data-testid={`parent-wearable-tab-${candidate}`}
+            onClick={() => setKind(candidate)}
+          >
+            <strong>{PARENT_WEARABLE_COPY[candidate].label}</strong>
+            <small>{PARENT_WEARABLE_COPY[candidate].detail}</small>
+          </button>
+        ))}
+      </div>
+      <div
+        className="skin-studio-parent-wearable-grid"
+        role="radiogroup"
+        aria-label={`Exact parent ${PARENT_WEARABLE_COPY[kind].label.toLowerCase()}`}
+        data-testid={`parent-wearable-grid-${kind}`}
+      >
+        {catalog.map((wearable) => {
+          const selected = wearable.id === selectedId &&
+            wormateParentSkinIdFromThemeId(state.themeId) !== undefined;
+          return (
+            <button
+              key={wearable.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={wormateParentWearableLabel(kind, wearable)}
+              className={selected ? "selected" : ""}
+              data-parent-wearable-id={wearable.id}
+              onClick={() => onSelect(kind, wearable)}
+            >
+              <ParentWearableThumbnail
+                skinId={appearance.skinId}
+                outfit={outfitWithWearable(appearance.outfit, kind, wearable.id)}
+              />
+              <small>{String(wearable.id).padStart(4, "0")}</small>
+            </button>
+          );
+        })}
+      </div>
+      <p>Every choice above is rendered from the parent wear atlas and travels in the public cosmetic ID.</p>
+    </section>
+  );
+}
+
+function ParentWearableThumbnail({
+  skinId,
+  outfit,
+}: {
+  skinId: WormateParentSkinId;
+  outfit: Readonly<WormateParentOutfit>;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const paint = async () => {
+      const ready = await preloadWormateParentVisuals();
+      if (!ready || cancelled || !canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.width = Math.round(72 * ratio);
+      canvas.height = Math.round(58 * ratio);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, 72, 58);
+      drawWormateParentWorm(context, {
+        points: [{ x: 42, y: 29 }, { x: 20, y: 29 }],
+        headRadius: 23,
+        bodyRadius: 18,
+        direction: { x: 1, y: 0 },
+        skinId,
+        outfit,
+      });
+    };
+    void paint();
+    return () => {
+      cancelled = true;
+    };
+  }, [skinId, outfit.eyeId, outfit.mouthId, outfit.glassesId, outfit.hatId]);
+  return <canvas ref={canvasRef} width="72" height="58" aria-hidden="true" />;
+}
+
+function ParentSkinStrip({ skinId }: { skinId: WormateParentSkinId }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const paint = async () => {
+      const ready = await preloadWormateParentVisuals();
+      if (!ready || cancelled || !canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const width = 164;
+      const height = 54;
+      const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.width = Math.round(width * pixelRatio);
+      canvas.height = Math.round(height * pixelRatio);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      drawWormateParentWorm(context, {
+        points: Array.from({ length: 7 }, (_, index) => ({
+          x: 137 - index * 22,
+          y: 27,
+        })),
+        headRadius: 22,
+        bodyRadius: 20,
+        direction: { x: 1, y: 0 },
+        skinId,
+      });
+    };
+    void paint();
+    return () => {
+      cancelled = true;
+    };
+  }, [skinId]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="skin-studio-parent-strip"
+      width="164"
+      height="54"
+      aria-hidden="true"
+    />
+  );
 }

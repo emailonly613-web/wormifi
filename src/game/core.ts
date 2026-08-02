@@ -308,11 +308,13 @@ function getSegmentSpacing(player: PlayerState, config: GameConfig): number {
   return getBodyRadius(player, config) * 2 * config.segmentSpacingFactor;
 }
 
-function confineBodyToArena(player: PlayerState, config: GameConfig): void {
+function confineBodyToArena(player: PlayerState, config: GameConfig): boolean {
   const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
+  let confined = false;
   for (const segment of player.body) {
-    confinePointToArenaCircle(segment, maximumBodyCenterRadius);
+    confined = confinePointToArenaCircle(segment, maximumBodyCenterRadius) || confined;
   }
+  return confined;
 }
 
 /**
@@ -323,8 +325,16 @@ export function isPlayerGeometryInsideArena(
   player: Readonly<PlayerState>,
   config: Readonly<GameConfig>,
 ): boolean {
-  const maximumHeadCenterRadius = Math.max(0, config.arenaRadius - getPlayerRadius(player, config));
-  const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
+  const headRadius = getPlayerRadius(player, config);
+  const bodyRadius = getBodyRadius(player, config);
+  if (
+    !Number.isFinite(headRadius) ||
+    !Number.isFinite(bodyRadius) ||
+    headRadius > config.arenaRadius ||
+    bodyRadius > config.arenaRadius
+  ) return false;
+  const maximumHeadCenterRadius = config.arenaRadius - headRadius;
+  const maximumBodyCenterRadius = config.arenaRadius - bodyRadius;
   return pointFitsArenaCircle(player.position, maximumHeadCenterRadius) &&
     player.body.every((segment) => pointFitsArenaCircle(segment, maximumBodyCenterRadius));
 }
@@ -417,11 +427,41 @@ export function spawnPlayer(
     direction = randomDirection.value;
   }
 
-  const mass = Math.max(
-    state.config.minimumMass,
-    options.mass ?? state.config.startMass,
+  const requestedMass = options.mass ?? state.config.startMass;
+  if (!Number.isFinite(requestedMass)) {
+    throw new Error("Player spawn mass must be finite");
+  }
+  const mass = Math.max(state.config.minimumMass, requestedMass);
+  const headRadius = getPlayerRadius({ mass }, state.config);
+  const bodyRadius = getBodyRadius({ mass }, state.config);
+  if (
+    !Number.isFinite(headRadius) ||
+    !Number.isFinite(bodyRadius) ||
+    headRadius > state.config.arenaRadius ||
+    bodyRadius > state.config.arenaRadius
+  ) {
+    throw new Error("Player spawn geometry must fit inside the arena");
+  }
+  // An explicit spawn is an internal/test seam today, but it must preserve the
+  // same geometry invariant as a random public spawn. Repair the head before
+  // any previous-position or body history is derived from it so malformed
+  // coordinates cannot survive as living authoritative state.
+  const maximumHeadCenterRadius = Math.max(
+    0,
+    state.config.arenaRadius - getPlayerRadius({ mass }, state.config),
   );
+  confinePointToArenaCircle(position, maximumHeadCenterRadius);
   const shieldSeconds = options.shieldSeconds ?? state.config.spawnShieldSeconds;
+  if (!Number.isFinite(shieldSeconds)) {
+    throw new Error("Player spawn shield must be finite");
+  }
+  const shieldTicks = Math.max(
+    0,
+    Math.ceil(shieldSeconds / state.config.fixedStepSeconds),
+  );
+  if (!Number.isSafeInteger(shieldTicks)) {
+    throw new Error("Player spawn shield exceeds the safe tick range");
+  }
   const player: PlayerState = {
     id,
     name: options.name ?? id,
@@ -433,10 +473,7 @@ export function spawnPlayer(
     previousBody: [],
     mass,
     alive: true,
-    shieldTicksRemaining: Math.max(
-      0,
-      Math.ceil(shieldSeconds / state.config.fixedStepSeconds),
-    ),
+    shieldTicksRemaining: shieldTicks,
     spawnedAtTick: state.tick,
     lastInput: {
       sequence: -1,
@@ -617,10 +654,11 @@ function getTurnRate(player: PlayerState, config: GameConfig): number {
   );
 }
 
-function updateBodyPositions(player: PlayerState, config: GameConfig): void {
+function updateBodyPositions(player: PlayerState, config: GameConfig): boolean {
   const spacing = getSegmentSpacing(player, config);
   const maximumBodyCenterRadius = Math.max(0, config.arenaRadius - getBodyRadius(player, config));
   let leader = player.position;
+  let repairedMalformedGeometry = false;
 
   for (const segment of player.body) {
     const deltaX = segment.x - leader.x;
@@ -629,6 +667,7 @@ function updateBodyPositions(player: PlayerState, config: GameConfig): void {
     let awayX: number;
     let awayY: number;
     if (!Number.isFinite(lengthSquared) || lengthSquared <= EPSILON) {
+      repairedMalformedGeometry ||= !Number.isFinite(lengthSquared);
       awayX = -player.direction.x;
       awayY = -player.direction.y;
     } else {
@@ -641,6 +680,16 @@ function updateBodyPositions(player: PlayerState, config: GameConfig): void {
     confinePointToArenaCircle(segment, maximumBodyCenterRadius);
     leader = segment;
   }
+  return repairedMalformedGeometry;
+}
+
+function repairMalformedHead(player: PlayerState, config: GameConfig): void {
+  if (Number.isFinite(player.position.x) && Number.isFinite(player.position.y)) return;
+  const maximumHeadCenterRadius = Math.max(
+    0,
+    config.arenaRadius - getPlayerRadius(player, config),
+  );
+  confinePointToArenaCircle(player.position, maximumHeadCenterRadius);
 }
 
 function snapshotPreviousGeometry(player: PlayerState): void {
@@ -839,6 +888,36 @@ function sweptHeadToBodyHitTime(
   return earliest;
 }
 
+function findBoundaryDeath(
+  player: Readonly<PlayerState>,
+  state: Readonly<GameState>,
+): DeathCandidate | undefined {
+  const maximumCenterDistance =
+    state.config.arenaRadius - getPlayerRadius(player, state.config);
+  if (
+    !Number.isFinite(maximumCenterDistance) ||
+    maximumCenterDistance < 0 ||
+    magnitudeSquared(player.position) > maximumCenterDistance ** 2
+  ) {
+    return {
+      victimId: player.id,
+      cause: "boundary",
+      collisionTime: 1,
+    };
+  }
+  return undefined;
+}
+
+function findBoundaryDeaths(state: GameState): DeathCandidate[] {
+  return Object.values(state.players)
+    .filter((player) => player.alive)
+    .sort((first, second) => first.id.localeCompare(second.id))
+    .flatMap((player) => {
+      const death = findBoundaryDeath(player, state);
+      return death ? [death] : [];
+    });
+}
+
 function findCollisionDeaths(state: GameState): DeathCandidate[] {
   const players = Object.values(state.players)
     .filter((player) => player.alive)
@@ -870,14 +949,8 @@ function findCollisionDeaths(state: GameState): DeathCandidate[] {
       }
     }
 
-    const maximumCenterDistance =
-      state.config.arenaRadius - getPlayerRadius(attacker, state.config);
-    if (magnitudeSquared(attacker.position) > maximumCenterDistance ** 2) {
-      const boundaryDeath: DeathCandidate = {
-        victimId: attacker.id,
-        cause: "boundary",
-        collisionTime: 1,
-      };
+    const boundaryDeath = findBoundaryDeath(attacker, state);
+    if (boundaryDeath) {
       if (!earliest || boundaryDeath.collisionTime < earliest.collisionTime) {
         earliest = boundaryDeath;
       }
@@ -1175,9 +1248,33 @@ function resolveDeaths(
   deaths: readonly DeathCandidate[],
   events: GameEvent[],
 ): void {
-  for (const death of deaths) {
+  const orderedDeaths = [...deaths].sort((first, second) => {
+    const byContactTime = first.collisionTime - second.collisionTime;
+    if (Math.abs(byContactTime) > EPSILON) return byContactTime;
+
+    // Two heads can reach each other's living chain during the same fixed
+    // step. A stable server tie-break prevents one contact from becoming two
+    // deaths without granting size, speed, purchase, or latency privilege.
+    const byKillerId = (first.killerId ?? "").localeCompare(second.killerId ?? "");
+    if (byKillerId !== 0) return byKillerId;
+    return first.victimId.localeCompare(second.victimId);
+  });
+
+  for (const death of orderedDeaths) {
     const victim = state.players[death.victimId];
     if (!victim?.alive) continue;
+
+    // Collision candidates are discovered against the beginning-of-resolution
+    // living set. If their credited body owner was defeated at an earlier (or
+    // tie-broken same) sub-step, that body no longer earns a later reciprocal
+    // kill. This is the authoritative single-winner guarantee.
+    if (
+      death.cause === "collision" &&
+      death.killerId &&
+      !state.players[death.killerId]?.alive
+    ) {
+      continue;
+    }
 
     if (death.cause === "collision" && death.collisionTime < 1) {
       placePlayerAtStepFraction(victim, death.collisionTime);
@@ -1802,10 +1899,14 @@ export function stepGame(
     const player = state.players[playerId];
     if (!player.alive) continue;
 
+    repairMalformedHead(player, state.config);
     snapshotPreviousGeometry(player);
     player.stats.survivalTicks += 1;
 
     if (isPlayerMooredForCharging(state, player)) {
+      // A moored chain skips the ordinary follower update, so it still needs
+      // the one confinement pass that moving chains receive below.
+      if (confineBodyToArena(player, state.config)) snapshotPreviousGeometry(player);
       continue;
     }
 
@@ -1840,11 +1941,20 @@ export function stepGame(
       syncBodyLength(player, state.config);
     }
 
-    updateBodyPositions(player, state.config);
+    if (updateBodyPositions(player, state.config)) {
+      // The ordinary follower pass repairs malformed segment coordinates. Only
+      // that exceptional tick needs a second history copy so interpolation can
+      // never retain the invalid pre-repair pose.
+      snapshotPreviousGeometry(player);
+    }
   }
 
   resolveDeaths(state, findCollisionDeaths(state), events);
   collectDrops(state, events);
+  // A pickup can increase solid radii even when the head did not move. Re-run
+  // the physical wall check before returning the tick so growth can never
+  // leave an oversized or newly wall-overlapping creature alive for one frame.
+  resolveDeaths(state, findBoundaryDeaths(state), events);
   compactTransientDrops(state);
   updateChargingStations(state, events);
 

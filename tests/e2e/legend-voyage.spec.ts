@@ -75,7 +75,7 @@ test("legacy query-string store preview cannot expose a payment action", async (
   await expect(page.getByTestId("founder-unlock-button")).toHaveCount(0);
 });
 
-test("returning captains can reach Legend Voyage directly without hunting through Settings", async ({ page }) => {
+test("returning captains reach their Log directly while Legend Voyage stays in Settings", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("wormifi.captain-progression.v1", JSON.stringify({
       version: 1,
@@ -88,10 +88,8 @@ test("returning captains can reach Legend Voyage directly without hunting throug
   });
   await page.goto("/");
 
-  const directVoyage = page.getByTestId("legend-voyage-launch");
-  await expect(directVoyage).toBeVisible();
-  await expect(directVoyage).toContainText("LEGEND VOYAGE");
-  await expect(directVoyage).toContainText("$1.99/MO OR $9.99 ONCE");
+  await expect(page.getByTestId("captain-log-launch")).toContainText("CAPTAIN'S LOG");
+  await expect(page.getByTestId("legend-voyage-launch")).toHaveCount(0);
   const launcherFit = await page.locator(".launch-panel").evaluate((panel) => ({
     clientHeight: panel.clientHeight,
     scrollHeight: panel.scrollHeight,
@@ -100,7 +98,14 @@ test("returning captains can reach Legend Voyage directly without hunting throug
   }));
   expect(launcherFit.scrollHeight).toBeLessThanOrEqual(launcherFit.clientHeight + 1);
   expect(launcherFit.bottom).toBeLessThanOrEqual(launcherFit.viewportHeight);
-  await directVoyage.click();
+
+  await page.getByTestId("settings-button").click();
+  const settingsVoyage = page.getByTestId("legend-voyage-launch");
+  await expect(settingsVoyage).toBeVisible();
+  await expect(settingsVoyage).toContainText("LEGEND VOYAGE");
+  await expect(settingsVoyage).toContainText("NOT FOR SALE YET");
+  await expect(settingsVoyage).toContainText("$1.99/MO ACCESS OR $9.99 OWN FOREVER");
+  await settingsVoyage.click();
 
   await expect(page.getByTestId("legend-voyage")).toBeVisible();
   await expect(page.getByTestId("settings-panel")).toHaveCount(0);

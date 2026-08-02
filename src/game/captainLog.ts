@@ -1,4 +1,8 @@
-import type { CaptainRunSource, CaptainRunSummary } from "./captainProgression";
+import type {
+  CaptainProgression,
+  CaptainRunSource,
+  CaptainRunSummary,
+} from "./captainProgression";
 
 export const CAPTAIN_LOG_STORAGE_KEY = "wormifi.captain-log.v1";
 const MAX_RECENT_RUNS = 8;
@@ -262,6 +266,36 @@ export function readCaptainLog(
   } catch {
     return structuredClone(EMPTY_LOG);
   }
+}
+
+export function reconcileCaptainLogHistory(
+  current: CaptainLogState,
+  progression: CaptainProgression,
+  storage: StorageLike | undefined = browserStorage(),
+): CaptainLogState {
+  const normalized = normalizeCaptainLog(current);
+  const totalRuns = Math.max(normalized.totalRuns, progression.completedRuns);
+  const totalScore = Math.max(normalized.totalScore, progression.totalScore);
+  if (totalRuns === normalized.totalRuns && totalScore === normalized.totalScore) {
+    return normalized;
+  }
+
+  // Captain's Log shipped after the original local XP record. Preserve the
+  // two lifetime counters that older browsers genuinely know, without
+  // inventing historical cuts, ranks, modes, dates, or recent-voyage detail.
+  const reconciled: CaptainLogState = {
+    ...normalized,
+    totalRuns,
+    totalScore,
+    updatedAtMs: Math.max(normalized.updatedAtMs, progression.updatedAtMs),
+  };
+  try {
+    storage?.setItem(CAPTAIN_LOG_STORAGE_KEY, JSON.stringify(reconciled));
+  } catch {
+    // A blocked browser store never blocks play. The in-memory view still uses
+    // the truthful lifetime counters for this session.
+  }
+  return reconciled;
 }
 
 function orderSeed(dayKey: string): number {

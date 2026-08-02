@@ -8,7 +8,9 @@ import {
   dailyCaptainOrders,
   normalizeCaptainLog,
   readCaptainLog,
+  reconcileCaptainLogHistory,
 } from "../src/game/captainLog";
+import { CAPTAIN_PROGRESSION_STORAGE_KEY } from "../src/game/captainProgression";
 
 function memoryStorage(raw?: string) {
   const values = new Map<string, string>();
@@ -107,6 +109,38 @@ describe("Captain's Log depth loop", () => {
     expect(state.recentRuns).toHaveLength(8);
     expect(state.recentRuns[0].score).toBe(10);
     expect(state.recentRuns[7].score).toBe(3);
+  });
+
+  it("carries truthful legacy run and score totals into the newer log", () => {
+    const storage = memoryStorage();
+    storage.setItem(CAPTAIN_PROGRESSION_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      xp: 7_885,
+      completedRuns: 295,
+      totalScore: 94_200,
+      lastAwardXp: 30,
+      updatedAtMs: 2_000,
+    }));
+    const newerLog = awardCaptainLogRun(STRONG_RUN, readCaptainLog(storage), storage, 1_000).state;
+    const reconciled = reconcileCaptainLogHistory(newerLog, {
+      version: 1,
+      xp: 7_885,
+      completedRuns: 295,
+      totalScore: 94_200,
+      lastAwardXp: 30,
+      updatedAtMs: 2_000,
+    }, storage);
+
+    expect(reconciled).toMatchObject({
+      totalRuns: 295,
+      totalScore: 94_200,
+      totalKills: 2,
+      bestScore: 6_000,
+      updatedAtMs: 2_000,
+    });
+    expect(reconciled.recentRuns).toHaveLength(1);
+    expect(readCaptainLog(storage)).toEqual(reconciled);
+    expect(awardCaptainLogRun(STRONG_RUN, reconciled, storage, 3_000).state.totalRuns).toBe(296);
   });
 
   it("fails closed on malformed, future, or hostile browser data", () => {

@@ -35,22 +35,23 @@ describe("defeated-worm treasure trace", () => {
       const state = createGameState("body-shaped-hoard", {
         fixedStepSeconds: 0.1,
         arenaRadius: 100,
-        baseSpeed: 0,
-        boostSpeed: 0,
+        baseSpeed: 100,
+        boostSpeed: 100,
         spawnShieldSeconds: 0,
         maximumDeathDrops: 80,
       });
       const defeated = spawnPlayer(state, {
         id: "curved-captain",
-        position: { x: 180, y: 0 },
+        position: { x: 100, y: 0 },
         direction: { x: 1, y: 0 },
         mass: 48,
         shieldSeconds: 0,
       });
+      const headX = defeated.position.x;
       defeated.body = [
-        { x: 166, y: 0 },
-        { x: 160, y: 12 },
-        { x: 150, y: 20 },
+        { x: headX - 14, y: 0 },
+        { x: headX - 20, y: 12 },
+        { x: headX - 30, y: 20 },
       ];
       defeated.previousBody = defeated.body.map((point) => ({ ...point }));
       stepGame(state);

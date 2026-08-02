@@ -35,6 +35,7 @@ import {
   getPresentedSnapshot,
   pushAuthoritativeSnapshot,
   resetLivePresentationBuffer,
+  type LivePresentationBuffer,
 } from "../game/livePresentation";
 import {
   ArenaTutorial,
@@ -65,7 +66,6 @@ import {
 } from "../game/treasureRender";
 import {
   commonTreasureSprite,
-  drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
   drawPickupRewardPopup,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
@@ -99,6 +99,21 @@ import { RARE_TREASURE_CHEST_MASS, treasurePointValue } from "../game/treasureEc
 import { ambientTreasureOpacity } from "../game/treasureFlow";
 import { isWormMaterialPattern, wormMaterialForIdentity } from "../game/wormMaterials";
 import {
+  drawBoundaryGuardians,
+  getBoundaryGuardianSpec,
+  type BoundaryGuardianStrike,
+} from "../game/boundaryGuardians";
+import {
+  wormateParentAppearanceFromThemeId,
+  wormateParentOutfitForIdentity,
+  wormateParentSkinForIdentity,
+} from "../game/wormateParentCatalog";
+import { drawWorldPickupField } from "../game/worldCosmeticRender";
+import {
+  getArenaVisualTheme,
+  type WorldCosmeticState,
+} from "../game/worldCosmetics";
+import {
   fixedHelmAnchor,
   touchStartsHelm,
   type ControlScheme,
@@ -109,6 +124,10 @@ import {
   isGameBoardId,
   type GameBoardId,
 } from "../game/boardPreference";
+import {
+  arenaBoundaryIntersectsViewport,
+  clipCanvasToArenaCircle,
+} from "../game/arenaBoundary";
 import {
   getGamePaceProfile,
   isGamePaceId,
@@ -137,7 +156,6 @@ import {
   type CameraMotionState,
 } from "../game/cameraMotion";
 import type { CaptainRunSummary } from "../game/captainProgression";
-import { clipCanvasToArenaCircle } from "../game/arenaBoundary";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
 const DEFAULT_ARENA_WS_URL = "ws://127.0.0.1:8080";
@@ -162,6 +180,7 @@ interface LiveArenaCanvasProps {
   paceId?: GamePaceId;
   themeId: CosmeticThemeId;
   photoSkin?: PhotoSkinCanvasAppearance;
+  worldCosmetics: WorldCosmeticState;
   controlScheme: ControlScheme;
   onBoardResolved?: (boardId: GameBoardId) => void;
   onPaceResolved?: (paceId: GamePaceId) => void;
@@ -230,6 +249,28 @@ interface LiveWorldState {
   pace?: WorldMessage["pace"];
   chargingStations: Map<string, ChargingStationState>;
   heatRing?: PublicHeatRingState;
+}
+
+function getResponsivePresentedSnapshot(
+  buffer: LivePresentationBuffer,
+  now: number,
+  playerId: string | undefined,
+  direction: Readonly<Vec2>,
+  world: LiveWorldState | null,
+): SnapshotMessage | null {
+  const authority = playerId
+    ? buffer.latest?.players.find((player) => player.id === playerId)
+    : undefined;
+  if (!playerId || !authority || !world) return getPresentedSnapshot(buffer, now);
+  return getPresentedSnapshot(buffer, now, {
+    playerId,
+    direction,
+    baseSpeed: world.pace?.baseSpeed ?? DEFAULT_GAME_CONFIG.baseSpeed,
+    boostSpeed: world.pace?.boostSpeed ?? DEFAULT_GAME_CONFIG.boostSpeed,
+    arenaRadius: world.arenaRadius,
+    headRadius: getPlayerRadius(authority, world.collisionRadii),
+    bodyRadius: getBodyRadius(authority, world.collisionRadii),
+  });
 }
 
 interface HeatRingUiState {
@@ -625,7 +666,13 @@ export function isAuthoritativeEvent(value: unknown) {
     return isPublicHeatRing(value.heatRing);
   }
   if (value.type === "heatRingResolved") {
-    return isStringTuple(value.botIds) &&
+    if (!isStringTuple(value.botIds)) return false;
+    const hasLegacyOutcome = value.winnerId === undefined && value.defeatedId === undefined;
+    const hasSingleWinnerOutcome =
+      typeof value.winnerId === "string" && value.botIds.includes(value.winnerId) &&
+      typeof value.defeatedId === "string" && value.botIds.includes(value.defeatedId) &&
+      value.winnerId !== value.defeatedId;
+    return (hasLegacyOutcome || hasSingleWinnerOutcome) &&
       Array.isArray(value.dropIds) && value.dropIds.length > 0 &&
       value.dropIds.every((id) => typeof id === "string" && id.length > 0) &&
       new Set(value.dropIds).size === value.dropIds.length &&
@@ -795,6 +842,7 @@ export function LiveArenaCanvas({
   paceId,
   themeId,
   photoSkin,
+  worldCosmetics,
   controlScheme,
   onBoardResolved,
   onPaceResolved,
@@ -834,6 +882,7 @@ export function LiveArenaCanvas({
   const nextHudRefreshAtRef = useRef(0);
   const cameraRef = useRef<CameraMotionState>(createCameraMotionState());
   const particlesRef = useRef<LiveParticle[]>([]);
+  const boundaryStrikeRef = useRef<BoundaryGuardianStrike | undefined>(undefined);
   const particleEmissionsRef = useRef(0);
   const previousFrameAtRef = useRef<number | undefined>(undefined);
   const pickupComboRef = useRef({ count: 0, lastTick: Number.NEGATIVE_INFINITY });
@@ -965,6 +1014,7 @@ export function LiveArenaCanvas({
     tutorialRetargetRef.current = { count: 0 };
     tutorialTargetTrackingRef.current = {};
     particlesRef.current = [];
+    boundaryStrikeRef.current = undefined;
     particleEmissionsRef.current = 0;
     pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
     collectorPullEventsRef.current = 0;
@@ -1337,7 +1387,9 @@ export function LiveArenaCanvas({
                   drop?.source === "death" &&
                   drop.mixedOrigin !== true &&
                   drop.originPlayerId !== undefined &&
-                  gameEvent.botIds.includes(drop.originPlayerId)
+                  (gameEvent.defeatedId
+                    ? drop.originPlayerId === gameEvent.defeatedId
+                    : gameEvent.botIds.includes(drop.originPlayerId))
                 );
               const realMass = realJewels.reduce((sum, drop) => sum + drop.mass, 0);
               const reconciled = realJewels.length === gameEvent.dropIds.length &&
@@ -1351,7 +1403,9 @@ export function LiveArenaCanvas({
               };
               showActionCallout(
                 reconciled
-                  ? `RIVAL HOARD RELEASED · ${realJewels.length} REAL JEWELS · ${Number(realMass.toFixed(1))} SIZE`
+                  ? `${gameEvent.winnerId
+                      ? `${competitiveSnapshot.players.find((player) => player.id === gameEvent.winnerId)?.name?.toUpperCase() ?? "RIVAL"} WINS · `
+                      : ""}RIVAL HOARD RELEASED · ${realJewels.length} REAL JEWELS · ${Number(realMass.toFixed(1))} SIZE`
                   : "RIVAL HOARD RELEASED · VERIFYING REAL JEWELS",
                 2_800,
               );
@@ -1489,6 +1543,14 @@ export function LiveArenaCanvas({
             if (gameEvent.type === "playerDied") {
               const victim = competitiveSnapshot.players.find((player) => player.id === gameEvent.playerId) ??
                 snapshotRef.current?.players.find((player) => player.id === gameEvent.playerId);
+              if (gameEvent.cause === "boundary" && victim) {
+                const strikeStartedAt = performance.now();
+                boundaryStrikeRef.current = {
+                  position: { ...victim.position },
+                  startedAt: strikeStartedAt,
+                  until: strikeStartedAt + 760,
+                };
+              }
               if (victim && !reducedMotionRef.current) {
                 const particleCountBeforeRelease = particlesRef.current.length;
                 appendDeathReleaseParticles(
@@ -1714,6 +1776,7 @@ export function LiveArenaCanvas({
     if (actionCalloutTimerRef.current !== undefined) window.clearTimeout(actionCalloutTimerRef.current);
     if (sprintReleaseTimerRef.current !== undefined) window.clearTimeout(sprintReleaseTimerRef.current);
     particlesRef.current = [];
+    boundaryStrikeRef.current = undefined;
     particleEmissionsRef.current = 0;
     previousFrameAtRef.current = undefined;
     pickupComboRef.current = { count: 0, lastTick: Number.NEGATIVE_INFINITY };
@@ -1780,7 +1843,13 @@ export function LiveArenaCanvas({
       }
       const canvas = canvasRef.current;
       if (canvas) {
-        const presentedSnapshot = getPresentedSnapshot(presentationRef.current, now);
+        const presentedSnapshot = getResponsivePresentedSnapshot(
+          presentationRef.current,
+          now,
+          ui.playerId,
+          directionRef.current,
+          worldRef.current,
+        );
         renderLiveArena(
           canvas,
           presentedSnapshot,
@@ -1793,18 +1862,26 @@ export function LiveArenaCanvas({
           tutorialSparkIdRef.current,
           particlesRef.current,
           photoSkinRef.current,
+          worldCosmetics,
+          boundaryStrikeRef.current,
         );
       }
       animationFrame = requestAnimationFrame(frame);
     };
     animationFrame = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [ui.playerId]);
+  }, [ui.playerId, worldCosmetics]);
 
   const setPointerDirection = (clientX: number, clientY: number) => {
     const rect = stageRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const snapshot = getPresentedSnapshot(presentationRef.current, performance.now());
+    const snapshot = getResponsivePresentedSnapshot(
+      presentationRef.current,
+      performance.now(),
+      ui.playerId,
+      directionRef.current,
+      worldRef.current,
+    );
     const player = snapshot?.players.find((candidate) => candidate.id === ui.playerId);
     const direction = pointerSteeringDirection(
       { x: clientX - rect.left, y: clientY - rect.top },
@@ -1959,6 +2036,10 @@ export function LiveArenaCanvas({
       data-board-id={worldRef.current?.board?.id ?? boardId ?? ""}
       data-pace-id={worldRef.current?.pace?.id ?? paceId ?? ""}
       data-theme-id={themeId}
+      data-pickup-theme-id={worldCosmetics.pickupThemeId}
+      data-arena-visual-theme-id={worldCosmetics.arenaThemeId}
+      data-boundary-moat-id={worldCosmetics.arenaThemeId}
+      data-boundary-guardian-label={getBoundaryGuardianSpec(worldCosmetics.arenaThemeId).label}
       data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
       data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
       data-heat-ring-phase={heatRingUiRef.current.phase}
@@ -2359,6 +2440,8 @@ function renderLiveArena(
   tutorialSparkId: string | null,
   particles: readonly LiveParticle[],
   photoSkin: PhotoSkinCanvasAppearance | undefined,
+  worldCosmetics: WorldCosmeticState,
+  boundaryStrike: BoundaryGuardianStrike | undefined,
 ) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -2384,7 +2467,8 @@ function renderLiveArena(
   ) as CanvasRenderingContext2D | null;
   if (!context) return;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  drawArenaFloor(context, width, height, "#123153", "#081a34", "#020813");
+  const arenaTheme = getArenaVisualTheme(worldCosmetics.arenaThemeId);
+  drawArenaFloor(context, width, height, ...arenaTheme.colors);
 
   const ownPlayer = snapshot?.players.find((player) => player.id === playerId);
   const camera = advanceCameraMotion(
@@ -2477,7 +2561,7 @@ function renderLiveArena(
     fieldItemCount += 1;
   }
   fieldItems.length = fieldItemCount;
-  drawGroundTreasureSpriteField(
+  drawWorldPickupField(
     context,
     fieldItems,
     worldToScreen,
@@ -2485,6 +2569,7 @@ function renderLiveArena(
     width,
     height,
     now,
+    worldCosmetics.pickupThemeId,
   );
 
   for (const drop of world.drops.values()) {
@@ -2537,7 +2622,17 @@ function renderLiveArena(
     );
   }
   context.restore();
-  drawLiveBoundary(context, world, worldToScreen, zoom, now);
+  drawLiveBoundary(
+    context,
+    world,
+    worldToScreen,
+    zoom,
+    now,
+    width,
+    height,
+    worldCosmetics,
+    boundaryStrike,
+  );
 
   drawArenaVignette(context, width, height);
 }
@@ -2559,16 +2654,44 @@ function drawLiveBoundary(
   worldToScreen: (point: Vec2) => Vec2,
   zoom: number,
   now: number,
+  width: number,
+  height: number,
+  worldCosmetics: WorldCosmeticState,
+  boundaryStrike: BoundaryGuardianStrike | undefined,
 ) {
   const boundary = worldToScreen({ x: 0, y: 0 });
+  const radius = world.arenaRadius * zoom;
+  const lineWidth = Math.max(9, 28 * zoom);
+  const shadowBlur = 26;
+  if (!arenaBoundaryIntersectsViewport(
+    boundary,
+    radius,
+    lineWidth,
+    shadowBlur,
+    width,
+    height,
+  )) return;
+  drawBoundaryGuardians(context, {
+    center: boundary,
+    radius,
+    zoom,
+    width,
+    height,
+    now,
+    reducedMotion: now === 0,
+    themeId: worldCosmetics.arenaThemeId,
+    strike: boundaryStrike,
+  });
+  const guardianSpec = getBoundaryGuardianSpec(worldCosmetics.arenaThemeId);
   context.save();
-  context.strokeStyle = `rgba(255, 89, 130, ${0.38 + Math.sin(now * 0.004) * 0.1})`;
-  context.lineWidth = Math.max(9, 28 * zoom);
-  context.shadowColor = "#ff4d83";
-  context.shadowBlur = 26;
+  context.globalAlpha = 0.68 + Math.sin(now * 0.004) * 0.1;
+  context.strokeStyle = guardianSpec.wallColor;
+  context.lineWidth = lineWidth;
+  context.shadowColor = guardianSpec.wallGlowColor;
+  context.shadowBlur = shadowBlur;
   context.setLineDash([28 * zoom, 18 * zoom]);
   context.beginPath();
-  context.arc(boundary.x, boundary.y, world.arenaRadius * zoom, 0, Math.PI * 2);
+  context.arc(boundary.x, boundary.y, radius, 0, Math.PI * 2);
   context.stroke();
   context.restore();
 }
@@ -2759,6 +2882,15 @@ function drawNetworkChain(
   const isLocal = player.id === localPlayerId;
   const isHeatCorsair = heatCorsairIds.includes(player.id);
   const activeRelic = createActiveRelicCanvasModel(player.specialist, currentTick);
+  const parentAppearance = player.themeId
+    ? wormateParentAppearanceFromThemeId(player.themeId)
+    : undefined;
+  const parentSkinId = player.themeId
+    ? parentAppearance?.skinId
+    : wormateParentSkinForIdentity(identityNumber);
+  const parentOutfit = player.themeId
+    ? parentAppearance?.outfit
+    : wormateParentOutfitForIdentity(identityNumber);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorVortex(context, head, headRadius, now, palette[0]);
@@ -2797,9 +2929,13 @@ function drawNetworkChain(
     materialGlow: materialGlow && isLocal,
     boosting: player.boosting === true,
     cinematicHead: isLocal,
+    parentSkinId,
+    parentOutfit,
+    viewportWidth: width,
+    viewportHeight: height,
   });
 
-  if (photoSkin && points.length > 2) {
+  if (isLocal && photoSkin && points.length > 2) {
     drawPhotoSkinCanvas(context, {
       points: points.slice(1),
       bodyRadius,
@@ -2809,13 +2945,15 @@ function drawNetworkChain(
     });
   }
 
-  drawTurboReserveGauge(context, {
-    points,
-    bodyRadius,
-    reserveRatio: getPlayerTurboReserveRatio(player, DEFAULT_GAME_CONFIG),
-    now,
-    motion: materialMotion,
-  });
+  if (parentSkinId === undefined) {
+    drawTurboReserveGauge(context, {
+      points,
+      bodyRadius,
+      reserveRatio: getPlayerTurboReserveRatio(player, DEFAULT_GAME_CONFIG),
+      now,
+      motion: materialMotion,
+    });
+  }
 
   if (activeRelic && points[1]) {
     // Relic paint stays inside an existing body segment. It changes neither

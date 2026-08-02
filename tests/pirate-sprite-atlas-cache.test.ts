@@ -386,6 +386,46 @@ describe("bounded static pirate treasure rotation atlases", () => {
     }
   });
 
+  it("keeps exact treasure sprites while dropping decorative shadows in dense fields", async () => {
+    vi.stubGlobal("Image", ReadyImage);
+    const { drawGroundTreasureSpriteField } = await import(
+      "../src/game/pirateSpriteAtlas"
+    );
+    const items = Array.from({ length: 8 }, (_, seed) => ({
+      ...ITEM,
+      id: `dense-${seed}`,
+      seed,
+      screenX: 30 + seed * 32,
+    }));
+    const context = canvasContext(1);
+    drawGroundTreasureSpriteField(
+      context as unknown as CanvasRenderingContext2D,
+      items,
+      () => ITEM.position,
+      1,
+      320,
+      180,
+      0,
+      "dense",
+    );
+    await flushMicrotasks();
+    context.drawImage.mockClear();
+    drawGroundTreasureSpriteField(
+      context as unknown as CanvasRenderingContext2D,
+      items,
+      () => ITEM.position,
+      1,
+      320,
+      180,
+      100,
+      "dense",
+    );
+
+    expect(imageDrawCalls(context, "ground-treasure-v3-rotations")).toHaveLength(8);
+    expect(imageDrawCalls(context, "treasure-float-shadow-v1.svg")).toHaveLength(0);
+    expect(imageDrawCalls(context, "treasure-glint-v1.svg")).toHaveLength(1);
+  });
+
   it("negative-caches an invalid atlas and keeps the authored fallback", async () => {
     class InvalidAtlasImage extends ReadyImage {
       override set src(value: string) {

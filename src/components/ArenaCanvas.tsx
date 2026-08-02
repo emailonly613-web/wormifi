@@ -67,7 +67,6 @@ import {
 } from "../game/treasureRender";
 import {
   commonTreasureSprite,
-  drawGroundTreasureSpriteField,
   drawPirateAtlasSprite,
   drawPickupRewardPopup,
   GROUND_TREASURE_MIN_LOGICAL_SIZE,
@@ -115,7 +114,23 @@ import {
   isWormMaterialPattern,
   wormMaterialForIdentity,
 } from "../game/wormMaterials";
+import {
+  wormateParentOutfitForIdentity,
+  wormateParentSkinForIdentity,
+} from "../game/wormateParentCatalog";
 import { materialGlowEnabled, materialMotionScale } from "../game/renderPreferences";
+import { drawWorldPickupField } from "../game/worldCosmeticRender";
+import {
+  drawBoundaryGuardians,
+  getBoundaryGuardianSpec,
+  type BoundaryGuardianStrike,
+} from "../game/boundaryGuardians";
+import {
+  getArenaVisualTheme,
+  type ArenaVisualThemeId,
+  type WorldCosmeticState,
+  type PickupThemeId,
+} from "../game/worldCosmetics";
 import {
   drawPhotoSkinCanvas,
   type PhotoSkinCanvasAppearance,
@@ -132,7 +147,12 @@ import {
 } from "../game/cameraMotion";
 import type { CaptainRunSummary } from "../game/captainProgression";
 import type { CaptainDepthRunUpdate } from "../game/captainLog";
-import { clipCanvasToArenaCircle } from "../game/arenaBoundary";
+import {
+  arenaBoundaryIntersectsViewport,
+  clipCanvasToArenaCircle,
+} from "../game/arenaBoundary";
+
+export { arenaBoundaryIntersectsViewport } from "../game/arenaBoundary";
 
 const PLAYER_ID = LOCAL_PLAYER_ID;
 const BOT_COUNT = LOCAL_BOT_COUNT;
@@ -164,6 +184,7 @@ interface ArenaCanvasProps {
   boardId: GameBoardId;
   paceId: GamePaceId;
   photoSkin?: PhotoSkinCanvasAppearance;
+  worldCosmetics: WorldCosmeticState;
   controlScheme: ControlScheme;
   onExit: () => void;
   onRestart: () => void;
@@ -254,6 +275,7 @@ interface ArenaRenderRuntime {
   particles: Particle[];
   impactUntil: number;
   shakeUntil: number;
+  boundaryStrike?: BoundaryGuardianStrike;
   reducedMotion: boolean;
   debugHitboxes: boolean;
   tutorialSparkId?: string;
@@ -476,6 +498,7 @@ export function ArenaCanvas({
   boardId,
   paceId,
   photoSkin,
+  worldCosmetics,
   controlScheme,
   onExit,
   onRestart,
@@ -678,6 +701,7 @@ export function ArenaCanvas({
       preStepChestIds: new Set(),
       impactUntil: 0,
       shakeUntil: 0,
+      boundaryStrike: undefined,
       reducedMotion,
       debugHitboxes: new URLSearchParams(window.location.search).get("hitboxes") === "1",
       tutorialSparkId: undefined,
@@ -897,6 +921,14 @@ export function ArenaCanvas({
 
         if (event.type === "playerDied") {
           const victim = runtime.state.players[event.playerId];
+          if (event.cause === "boundary" && victim) {
+            const strikeStartedAt = performance.now();
+            runtime.boundaryStrike = {
+              position: { ...victim.position },
+              startedAt: strikeStartedAt,
+              until: strikeStartedAt + 760,
+            };
+          }
           if (victim && !runtime.reducedMotion) {
             appendDeathReleaseParticles(
               runtime.particles,
@@ -945,7 +977,7 @@ export function ArenaCanvas({
           replay.lastFrame = now;
           replay.accumulatorSeconds = 0;
         }
-        renderArena(canvas, replay ?? runtime, now, photoSkinRef.current);
+        renderArena(canvas, replay ?? runtime, now, photoSkinRef.current, worldCosmetics);
         return;
       }
 
@@ -1034,7 +1066,7 @@ export function ArenaCanvas({
         }
 
         updateParticles(replay.particles, replayDelta);
-        renderArena(canvas, replay, now, photoSkinRef.current);
+        renderArena(canvas, replay, now, photoSkinRef.current, worldCosmetics);
         animationFrame = requestAnimationFrame(frame);
         return;
       }
@@ -1151,7 +1183,7 @@ export function ArenaCanvas({
       }
 
       updateParticles(runtime.particles, deltaSeconds);
-      renderArena(canvas, runtime, now, photoSkinRef.current);
+      renderArena(canvas, runtime, now, photoSkinRef.current, worldCosmetics);
 
       if (
         runtime.state.tick % 5 === 0 &&
@@ -1211,6 +1243,7 @@ export function ArenaCanvas({
     tutorial.sawCollector,
     tutorial.spentSprint,
     tutorial.stageRef,
+    worldCosmetics,
   ]);
 
   const setPointerDirection = (clientX: number, clientY: number) => {
@@ -1543,6 +1576,10 @@ export function ArenaCanvas({
       data-board-id={boardId}
       data-pace-id={paceId}
       data-theme-id={photoSkin?.renderPlan.theme.id ?? ""}
+      data-pickup-theme-id={worldCosmetics.pickupThemeId}
+      data-arena-visual-theme-id={worldCosmetics.arenaThemeId}
+      data-boundary-moat-id={worldCosmetics.arenaThemeId}
+      data-boundary-guardian-label={getBoundaryGuardianSpec(worldCosmetics.arenaThemeId).label}
       data-local-photo-skin={photoSkin?.renderPlan.localPhotosEnabled ? "true" : "false"}
       data-local-photo-images={photoSkin?.decodedImages.size ?? 0}
       data-platform-paused={paused ? "true" : "false"}
@@ -1927,6 +1964,7 @@ function renderArena(
   runtime: ArenaRenderRuntime,
   now: number,
   photoSkin: PhotoSkinCanvasAppearance | undefined,
+  worldCosmetics: WorldCosmeticState,
 ) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -1963,7 +2001,8 @@ function renderArena(
     );
   }
 
-  drawArenaFloor(context, width, height, "#102b4a");
+  const arenaTheme = getArenaVisualTheme(worldCosmetics.arenaThemeId);
+  drawArenaFloor(context, width, height, ...arenaTheme.colors);
 
   const player = runtime.state.players[PLAYER_ID];
   const camera = advanceCameraMotion(
@@ -2017,6 +2056,7 @@ function renderArena(
     height,
     effectTime,
     runtime.tutorialSparkId,
+    worldCosmetics.pickupThemeId,
   );
 
   const players = Object.values(runtime.state.players)
@@ -2077,7 +2117,16 @@ function renderArena(
   context.restore();
   // The physical wall is the topmost arena geometry. Treasure, death releases,
   // creatures, and their glow can approach it but never paint over or escape.
-  drawBoundary(context, runtime.state, worldToScreen, zoom, effectTime, width, height);
+  drawBoundary(
+    context,
+    runtime,
+    worldToScreen,
+    zoom,
+    effectTime,
+    width,
+    height,
+    worldCosmetics.arenaThemeId,
+  );
 
   drawArenaVignette(context, width, height);
 
@@ -2101,17 +2150,20 @@ function drawArenaTexture(
 
 function drawBoundary(
   context: CanvasRenderingContext2D,
-  state: GameState,
+  runtime: ArenaRenderRuntime,
   worldToScreen: (point: Vec2) => Vec2,
   zoom: number,
   now: number,
   width: number,
   height: number,
+  themeId: ArenaVisualThemeId,
 ) {
   const center = worldToScreen({ x: 0, y: 0 });
-  const radius = state.config.arenaRadius * zoom;
+  const radius = runtime.state.config.arenaRadius * zoom;
   const lineWidth = Math.max(9, 28 * zoom);
-  const shadowBlur = 26;
+  // The 1,050-drop stress field already has a strong solid wall. Avoid a large
+  // animated blur filter there; it is costly in pixels and adds no rule signal.
+  const shadowBlur = runtime.state.drops.length >= 900 ? 0 : 26;
   if (!arenaBoundaryIntersectsViewport(
     center,
     radius,
@@ -2120,10 +2172,23 @@ function drawBoundary(
     width,
     height,
   )) return;
+  drawBoundaryGuardians(context, {
+    center,
+    radius,
+    zoom,
+    width,
+    height,
+    now,
+    reducedMotion: runtime.reducedMotion,
+    themeId,
+    strike: runtime.boundaryStrike,
+  });
+  const guardianSpec = getBoundaryGuardianSpec(themeId);
   context.save();
-  context.strokeStyle = `rgba(255, 89, 130, ${0.38 + Math.sin(now * 0.004) * 0.1})`;
+  context.globalAlpha = 0.68 + Math.sin(now * 0.004) * 0.1;
+  context.strokeStyle = guardianSpec.wallColor;
   context.lineWidth = lineWidth;
-  context.shadowColor = "#ff4d83";
+  context.shadowColor = guardianSpec.wallGlowColor;
   context.shadowBlur = shadowBlur;
   context.setLineDash([28 * zoom, 18 * zoom]);
   context.beginPath();
@@ -2142,6 +2207,7 @@ function drawDrops(
   height: number,
   now: number,
   tutorialSparkId?: string,
+  pickupThemeId: PickupThemeId = "parent-sweet-feast",
 ) {
   // Reuse both the list and each stable ground-item descriptor. Practice can
   // hold 1,050 drops, so rebuilding these objects every frame creates GC
@@ -2191,7 +2257,7 @@ function drawDrops(
     item.screenY = screenY;
     fieldItems.push(item);
   }
-  drawGroundTreasureSpriteField(
+  drawWorldPickupField(
     context,
     fieldItems,
     worldToScreen,
@@ -2199,6 +2265,7 @@ function drawDrops(
     width,
     height,
     now,
+    pickupThemeId,
   );
 
   for (const drop of state.drops) {
@@ -2351,6 +2418,12 @@ function drawLivingChain(
   const shielded = player.shieldTicksRemaining > 0;
   const points = chainPointScratch;
   const activeRelic = createActiveRelicCanvasModel(player.specialist, state.tick);
+  const parentSkinId = photoSkin
+    ? photoSkin.renderPlan.parentSkinId
+    : wormateParentSkinForIdentity(identity);
+  const parentOutfit = photoSkin
+    ? photoSkin.renderPlan.parentOutfit
+    : wormateParentOutfitForIdentity(identity);
 
   if (activeRelic?.presentation.relicKind === "loot-compass") {
     drawCollectorField(context, headScreen, headRadius, now, palette[0]);
@@ -2389,6 +2462,10 @@ function drawLivingChain(
     materialGlow: materialGlow && player.id === PLAYER_ID,
     boosting: isPlayerBoosting(player, state.config),
     cinematicHead: player.id === PLAYER_ID,
+    parentSkinId,
+    parentOutfit,
+    viewportWidth: width,
+    viewportHeight: height,
   });
 
   if (photoSkin && points.length > 2) {
@@ -2401,13 +2478,15 @@ function drawLivingChain(
     });
   }
 
-  drawTurboReserveGauge(context, {
-    points,
-    bodyRadius: followerRadius,
-    reserveRatio: getPlayerTurboReserveRatio(player, state.config),
-    now,
-    motion: materialMotion,
-  });
+  if (parentSkinId === undefined) {
+    drawTurboReserveGauge(context, {
+      points,
+      bodyRadius: followerRadius,
+      reserveRatio: getPlayerTurboReserveRatio(player, state.config),
+      now,
+      motion: materialMotion,
+    });
+  }
 
   if (activeRelic && points[1]) {
     // Relic paint stays entirely inside an existing solid segment. It changes
@@ -2462,31 +2541,6 @@ function drawLivingChain(
   context.restore();
 }
 
-export function arenaBoundaryIntersectsViewport(
-  center: Readonly<Vec2>,
-  radius: number,
-  lineWidth: number,
-  shadowBlur: number,
-  width: number,
-  height: number,
-) {
-  // Canvas shadows have implementation-defined soft tails. The fixed guard is
-  // deliberately far larger than this 26px blur, antialiasing and the 9px
-  // shake: the boundary is skipped only when the expanded annulus misses.
-  const paintSpread = lineWidth / 2 + Math.max(128, shadowBlur * 3 + Math.SQRT2 * 9);
-  const innerRadius = Math.max(0, radius - paintSpread);
-  const outerRadius = radius + paintSpread;
-  const closestX = clamp(center.x, 0, width);
-  const closestY = clamp(center.y, 0, height);
-  const closestDeltaX = center.x - closestX;
-  const closestDeltaY = center.y - closestY;
-  const minimumDistanceSquared = closestDeltaX ** 2 + closestDeltaY ** 2;
-  const farthestDeltaX = Math.max(Math.abs(center.x), Math.abs(center.x - width));
-  const farthestDeltaY = Math.max(Math.abs(center.y), Math.abs(center.y - height));
-  const maximumDistanceSquared = farthestDeltaX ** 2 + farthestDeltaY ** 2;
-  return minimumDistanceSquared <= outerRadius ** 2 &&
-    (innerRadius === 0 || maximumDistanceSquared >= innerRadius ** 2);
-}
 function drawCollectorField(
   context: CanvasRenderingContext2D,
   head: Vec2,
