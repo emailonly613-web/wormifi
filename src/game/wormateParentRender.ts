@@ -65,14 +65,16 @@ function readyAtlas(state: AtlasState, source: string): HTMLImageElement | undef
 }
 
 export async function preloadWormateParentVisuals(): Promise<boolean> {
-  const [skins, wear, abilities, portions] = await Promise.all([
+  // Bodies and wearables come from the parent catalogue; food and treasure are
+  // Wormifi's own, so the portion atlas is deliberately not fetched here. It
+  // was 177 KB downloaded on every visit and stitched into a combined field
+  // that nothing draws - dead weight against the load-time budget.
+  const [skins, wear, abilities] = await Promise.all([
     requestAtlas(skinAtlas, SKIN_ATLAS_SOURCE),
     requestAtlas(wearAtlas, WEAR_ATLAS_SOURCE),
     requestAtlas(abilityAtlas, ABILITY_ATLAS_SOURCE),
-    requestAtlas(portionAtlas, PORTION_ATLAS_SOURCE),
   ]);
-  if (portions) combinedPortionFieldAtlas(portions);
-  return Boolean(skins && wear && abilities && portions);
+  return Boolean(skins && wear && abilities);
 }
 
 export interface WormateParentSegmentPlan {
