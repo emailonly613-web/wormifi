@@ -33,6 +33,9 @@ const TAU = Math.PI * 2;
  */
 const SMOOTH_BODY_STEP = 0.18;
 
+/** How thin the very tip of the tail draws, as a fraction of the body radius. */
+const TAIL_TIP_SCALE = 0.34;
+
 /**
  * How far forward, in head radii, the face is moved before it is stamped.
  *
@@ -517,13 +520,18 @@ export function drawWormateParentWorm(
   // Walk the spine and stamp densely rather than once per chain point, so the
   // circles merge into one tube instead of reading as separate beads. Painted
   // tail-to-head so every forward stamp cleanly overlaps the one behind it.
-  const taperFor = (distanceFromTail: number) => distanceFromTail === 0
-    ? 0.72
-    : distanceFromTail === 1
-      ? 0.88
-      : distanceFromTail === 2
-        ? 0.97
-        : 1;
+  // A worm should read as a creature, not a pipe. The old taper touched only the
+  // last three segments - 0.72, 0.88, 0.97 - so the body ran full width almost to
+  // the tip and ended in a blunt stub. The tail now thins over a run proportional
+  // to the worm's own length, so a long worm tapers over a long tail rather than
+  // snapping thin at the very end, and eases in rather than stepping.
+  const taperSegments = Math.max(3, Math.min(14, Math.round(points.length * 0.22)));
+  const taperFor = (distanceFromTail: number) => {
+    if (distanceFromTail >= taperSegments) return 1;
+    // Ease out: quick off the tip, then flattening into the body.
+    const t = distanceFromTail / taperSegments;
+    return TAIL_TIP_SCALE + (1 - TAIL_TIP_SCALE) * Math.sqrt(t);
+  };
   const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
   const tailIndex = points.length - 1;
 
