@@ -6067,6 +6067,23 @@ html.mobile-browser-game .app-shell[data-playing="true"] {
   text-align: center;
 }
 
+/*
+  The consent panel is fixed to the bottom at z-index 10000, and on a phone it
+  spans the full width - it sat directly on top of this card and swallowed the
+  tap, so the install button was visible but dead. Raising the card's z-index
+  would only stack it over the panel; lifting it clear is the honest fix. Both
+  are dismissible surfaces, so this only applies while the panel is up.
+*/
+body:has(.analytics-consent) .install-app-card {
+  bottom: max(232px, calc(env(safe-area-inset-bottom) + 206px));
+}
+
+@media (max-width: 640px) {
+  body:has(.analytics-consent) .install-app-card {
+    bottom: max(292px, calc(env(safe-area-inset-bottom) + 266px));
+  }
+}
+
 .install-app-card > button,
 .install-app-card > a {
   display: flex;
