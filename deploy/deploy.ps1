@@ -35,17 +35,29 @@ $envs += [pscustomobject]@{ key = 'VITE_GA4_MEASUREMENT_ID'; scope = 'BUILD_TIME
 $web.envs = $envs
 Step "set VITE_GA4_MEASUREMENT_ID=$Ga4MeasurementId (BUILD_TIME, static site 'web')"
 
-# Keep the live service on the same spatial profile as the reviewed source
-# spec. Reading and rewriting the live spec preserves DigitalOcean-owned fields
-# while making these product-critical values impossible to silently skip.
+# Keep the live service on the same spatial profile as the SOURCE OF TRUTH:
+# src/game/spatialFeel.ts. The wrapper reads the numbers out of the code so a
+# board change can never be silently overridden by stale env pins (2026-08-03:
+# hardcoded 1450/600 here kept the old tight board live while the code
+# shipped the spacious 2400/1100 one — the verify step even "proved" it).
+$spatialSource = Get-Content (Join-Path $PSScriptRoot '..\src\game\spatialFeel.ts') -Raw
+function Read-ProfileNumber([string]$name) {
+  if ($script:spatialSource -notmatch "$name\s*:\s*([0-9_]+)") {
+    throw "could not read $name from src/game/spatialFeel.ts"
+  }
+  [int]($Matches[1] -replace '_', '')
+}
+$profilePopulation = Read-ProfileNumber 'targetPopulation'
+$profileDropCount = Read-ProfileNumber 'targetDropCount'
+$profileArenaRadius = Read-ProfileNumber 'arenaRadius'
 $arena = $spec.services | Where-Object { $_.name -eq 'arena' }
 if (-not $arena) { throw 'service "arena" not found in the spec' }
 $liveArena = $liveSpec.services | Where-Object { $_.name -eq 'arena' }
 $desiredArenaRuntime = [ordered]@{
-  TARGET_POPULATION = '32'
-  TARGET_DROP_COUNT = '600'
+  TARGET_POPULATION = [string]$profilePopulation
+  TARGET_DROP_COUNT = [string]$profileDropCount
   SNAPSHOT_HZ = '15'
-  ARENA_RADIUS = '1450'
+  ARENA_RADIUS = [string]$profileArenaRadius
 }
 $arenaRuntimeAlready = $true
 foreach ($entry in $desiredArenaRuntime.GetEnumerator()) {
@@ -193,12 +205,12 @@ $fail = @()
 
 $health = Invoke-RestMethod -Uri 'https://wormifi.com/healthz'
 if (
-  $health.roomProfile.targetPopulation -eq 32 -and
-  $health.roomProfile.targetDropCount -eq 600 -and
+  $health.roomProfile.targetPopulation -eq $profilePopulation -and
+  $health.roomProfile.targetDropCount -eq $profileDropCount -and
   $health.roomProfile.snapshotHz -eq 15 -and
-  $health.roomProfile.arenaRadius -eq 1450
+  $health.roomProfile.arenaRadius -eq $profileArenaRadius
 ) {
-  Step 'PROVEN: live server reports the 32-player / 600-drop / radius-1450 room profile'
+  Step "PROVEN: live server reports the $profilePopulation-player / $profileDropCount-drop / radius-$profileArenaRadius room profile (from spatialFeel.ts)"
 } else {
   $fail += "live room profile mismatch: $($health.roomProfile | ConvertTo-Json -Compress)"
 }
