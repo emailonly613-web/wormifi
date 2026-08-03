@@ -1640,9 +1640,26 @@ export function LiveArenaCanvas({
                 );
               }
               if (gameEvent.killerId === handshake.playerId && gameEvent.playerId !== handshake.playerId) {
-                showActionCallout(`CHAIN CUT · ${victim?.name ?? "RIVAL"} RELEASED`, 2_200);
-                playTone(510, 0.11, 0.055);
-                if (!reducedMotionRef.current) navigator.vibrate?.([12, 18, 22]);
+                // A kill is the game's peak moment: a rising slice over a low
+                // thump, a gold shower where the rival fell, and the reminder
+                // that the hoard is yours to take.
+                showActionCallout(`CUT! ${victim?.name ?? "RIVAL"} RELEASED · COLLECT THE HOARD`, 2_200);
+                playTone(510, 0.06, 0.05);
+                window.setTimeout(() => playTone(820, 0.09, 0.05), 55);
+                window.setTimeout(() => playTone(140, 0.16, 0.045), 25);
+                if (!reducedMotionRef.current) {
+                  navigator.vibrate?.([12, 18, 34]);
+                  if (victim) {
+                    pushLiveBurst(
+                      particlesRef.current,
+                      victim.position,
+                      16,
+                      ["#ffd76a", "#fff1a1"],
+                      message.tick,
+                      1.15,
+                    );
+                  }
+                }
               }
               if (gameEvent.playerId === handshake.playerId) {
                 const killer = gameEvent.killerId
