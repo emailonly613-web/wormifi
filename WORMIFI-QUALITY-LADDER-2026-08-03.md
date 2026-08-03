@@ -21,7 +21,7 @@ needed · 1–2 = missing or broken. Items landed TONIGHT are marked ✅ with be
 | 7 | Tail silhouette | ✅ 2→9 | Needle cone → quarter-circle cap (last ~10%, floor 0.5×), motion-proven. |
 | 8 | Boost feel | 6 | Speed change is real but the visual is a faint trail. Plan: stronger wake particles + camera micro-shake on boost start. |
 | 9 | Death moment | 5 | Instant vanish + hoard. Plan: a brief slow-mo pop + mass scatter animation (render-only). |
-| 10 | Kill feedback for the killer | 4 | A callout exists; no visceral cue. Plan: screen-edge gold flash + "CUT!" sting + score burst. |
+| 10 | Kill feedback for the killer | ✅ 4→9 | Landed at db46c4f: rising slice + low thump, gold shower at the fall, COLLECT THE HOARD callout, stronger haptic. 10 = a brief screen-edge gold vignette. |
 | 11 | Spawn moment | 5 | You just appear. Plan: a splash-in ripple (render-only, matches the sea theme). |
 | 12 | Turn responsiveness at 15Hz snapshots | 7 | Local prediction + interpolation are solid (measured flat 60fps). Plan: verify feel at 150ms+ artificial latency and tune the prediction horizon. |
 | 13 | Near-miss readability | 5 | Bodies are clear but there's no danger cue when a head nearly clips. Plan: brief rim-glow on the segment you almost hit. |
@@ -117,7 +117,7 @@ needed · 1–2 = missing or broken. Items landed TONIGHT are marked ✅ with be
 |---|---|---|---|
 | 76 | Worm material/skin system | 8 | 190 skins + 9 materials + faces (prior lanes). Plan: confirm materials on the honeycomb palette. |
 | 77 | Treasure sprite variety | 7 | Real pirate set. Plan: rare-chest sparkle loop. |
-| 78 | Multiplier token look | 5 | Small tile with ×N. Plan: tier-colored glow ring (gold 2×, orange 5×, red 10×) + gentle bob. |
+| 78 | Multiplier token look | ✅ 5→9 | Landed at 6491e73: pulsing tier-colored halo, gold → red x10, reduced-motion-frozen, in-budget blur. 10 = a gentle vertical bob. |
 | 79 | Background parallax depth | 6 | Grid + ship backdrop. Plan: a second slower parallax layer of silhouettes. |
 | 80 | Death hoard look | 7 | Body-shaped trace shipped in a prior lane. Plan: brief glitter on fresh hoards. |
 | 81 | Screen-shake discipline | 7 | Exists, reduced-motion safe. Plan: cap stacking shakes. |
