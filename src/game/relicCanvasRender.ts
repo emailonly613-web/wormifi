@@ -305,6 +305,34 @@ function drawGildedMultiplierPickup(
   context.shadowBlur = 0;
 }
 
+const MULTIPLIER_TIER_HALO: Readonly<Record<number, string>> = Object.freeze({
+  2: "rgba(255, 209, 102, 0.55)",
+  3: "rgba(255, 184, 61, 0.6)",
+  4: "rgba(255, 148, 43, 0.65)",
+  5: "rgba(255, 106, 43, 0.7)",
+  10: "rgba(255, 64, 64, 0.8)",
+});
+
+function drawMultiplierTierHalo(
+  context: CanvasRenderingContext2D,
+  tier: number,
+  beaconRadius: number,
+  now: number,
+): void {
+  const halo = MULTIPLIER_TIER_HALO[tier];
+  if (!halo) return;
+  const pulse = 1 + Math.sin(now * 0.004 + tier) * 0.08;
+  context.save();
+  context.shadowColor = halo;
+  context.shadowBlur = tier >= 10 ? 20 : 14;
+  context.strokeStyle = halo;
+  context.lineWidth = Math.max(1.6, beaconRadius * 0.13);
+  context.beginPath();
+  context.arc(0, 0, beaconRadius * 1.28 * pulse, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
+
 export function drawGroundRelicPickup(
   context: CanvasRenderingContext2D,
   drop: Readonly<GroundRelicIdentity>,
@@ -321,6 +349,10 @@ export function drawGroundRelicPickup(
   const beaconRadius = Math.max(8, options.beaconRadius);
   context.save();
   if (relic.relicKind === "gilded-ledger" && drop.relicTier) {
+    // Tier-colored halo so a token reads from across the sea: gold commons
+    // up to the red x10 jackpot. Pulses off the shared clock, which reduced
+    // motion already freezes.
+    drawMultiplierTierHalo(context, drop.relicTier, beaconRadius, options.now);
     if (
       (drop.relicTier === 2 || drop.relicTier === 5 || drop.relicTier === 10) &&
       drawWormateParentAbility(
