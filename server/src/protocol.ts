@@ -239,6 +239,12 @@ export interface SnapshotMessage {
   events: AuthoritativeEvent[];
   /** Dynamic progress/cooldown truth for board charging landmarks. */
   chargingStations?: PublicChargingStationState[];
+  /**
+   * The RECIPIENT'S own stacking Treasure Multiplier chips as
+   * [tier, remainingSeconds] pairs. Per-recipient, additive: absent when no
+   * boost is running; old clients ignore the extra key.
+   */
+  boosts?: Array<[number, number]>;
 }
 
 export interface PresenceMessage {

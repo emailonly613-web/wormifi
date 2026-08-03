@@ -19,6 +19,11 @@ import {
   isTreasureMultiplierTier,
 } from "./relics";
 import { MASS_PER_BODY_SEGMENT } from "./treasureEconomy";
+import {
+  effectiveTreasureBoost,
+  grantTreasureBoost,
+  pruneTreasureBoosts,
+} from "./treasureBoosts";
 import type {
   BotInputContext,
   BotInputProviderMap,
@@ -482,6 +487,7 @@ export function spawnPlayer(
     alive: true,
     shieldTicksRemaining: shieldTicks,
     spawnedAtTick: state.tick,
+    treasureBoosts: {},
     lastInput: {
       sequence: -1,
       clientTick: state.tick,
@@ -1395,7 +1401,8 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
         : storedMass;
     const bankRemainder = storedMass - collectedMass;
     const treasureMultiplier = collectedMass > 0
-      ? getTreasureMassMultiplier(collector.specialist, state.tick)
+      ? getTreasureMassMultiplier(collector.specialist, state.tick) *
+        effectiveTreasureBoost(collector.treasureBoosts, state.tick)
       : 1;
     const awardedMass = collectedMass * treasureMultiplier;
     collector.mass += awardedMass;
@@ -1430,6 +1437,27 @@ function collectDrops(state: GameState, events: GameEvent[]): void {
       });
     }
     const relicKind = getDropRelicKind(drop);
+    // Treasure Multiplier tokens STACK (owner spec 2026-08-03): each pickup
+    // adds its tier's seconds to that tier's own timer, no cap, tiers run
+    // together and multiply. They no longer occupy the one-at-a-time
+    // specialist slot, so a Spyglass never dies to a 2x token.
+    if (relicKind === "gilded-ledger" && isTreasureMultiplierTier(drop.relicTier)) {
+      grantTreasureBoost(
+        collector.treasureBoosts,
+        drop.relicTier,
+        state.tick,
+        state.config.fixedStepSeconds,
+      );
+      events.push({
+        type: "treasureBoostGranted",
+        tick: state.tick,
+        playerId: collector.id,
+        dropId: drop.id,
+        relicTier: drop.relicTier,
+        expiresAtTick: collector.treasureBoosts[drop.relicTier] ?? state.tick,
+      });
+      continue;
+    }
     if (relicKind) {
       const durationTicks = drop.relicDurationTicks ??
         drop.specialistDurationTicks ??
@@ -1931,6 +1959,7 @@ export function stepGame(
     repairMalformedHead(player, state.config);
     snapshotPreviousGeometry(player);
     player.stats.survivalTicks += 1;
+    if (state.tick % 30 === 0) pruneTreasureBoosts(player.treasureBoosts, state.tick);
 
     if (isPlayerMooredForCharging(state, player)) {
       // A moored chain skips the ordinary follower update, so it still needs

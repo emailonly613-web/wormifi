@@ -162,6 +162,11 @@ import {
   easedMassFor,
   pruneGrowthEasing,
 } from "../game/growthPresentation";
+import {
+  activeTreasureBoostChips,
+  type TreasureBoostChip,
+} from "../game/treasureBoosts";
+import { BoostChips } from "./BoostChips";
 
 // One cached pattern tile serves every solo/replay frame on this canvas.
 const honeycombCache = createHoneycombPatternCache();
@@ -228,6 +233,7 @@ interface HudState {
   currentTick: number;
   fixedStepSeconds: number;
   chargingStation?: ChargingStationPresentation;
+  boostChips: TreasureBoostChip[];
 }
 
 interface ArenaLeaderboardProps {
@@ -499,6 +505,7 @@ function getInitialHud(): HudState {
   return {
     score: 0,
     mass: DEFAULT_GAME_CONFIG.startMass,
+    boostChips: [],
     length: DEFAULT_GAME_CONFIG.startingBodySegments,
     rank: BOT_COUNT + 1,
     rankTotal: BOT_COUNT + 1,
@@ -1240,6 +1247,11 @@ export function ArenaCanvas({
         setHud((current) => ({
           score: calculateScore(currentPlayer, runtime.state.config),
           mass: Math.round(currentPlayer.mass),
+          boostChips: activeTreasureBoostChips(
+            currentPlayer.treasureBoosts,
+            runtime.state.tick,
+            runtime.state.config.fixedStepSeconds,
+          ),
           length: currentPlayer.body.length,
           rank: getPlayerRank(runtime.state, PLAYER_ID) ?? BOT_COUNT + 1,
           rankTotal: Object.values(runtime.state.players).filter((player) => player.alive).length,
@@ -1741,6 +1753,8 @@ export function ArenaCanvas({
               rank={hud.rank}
               rankTotal={hud.rankTotal}
             />
+
+            <BoostChips chips={hud.boostChips} testId="solo-boost-chips" />
 
             <RelicStatus
               active={hud.activeRelic}

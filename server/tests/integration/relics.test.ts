@@ -8,6 +8,10 @@ import {
   PIRATE_RELIC_RESPAWN_SECONDS,
 } from "../../src/relic-director.ts";
 import { ArenaRoom } from "../../src/room.ts";
+import {
+  GILDED_LEDGER_GROUND_COUNT,
+  TREASURE_TIER_SEQUENCE,
+} from "../../../src/game/relicDirector.ts";
 
 interface RoomTestSurface {
   simulationStep(): void;
@@ -102,46 +106,16 @@ test("rooms seed the complete Relic set deterministically without changing the v
         mass: 0,
         relicTier: undefined,
       },
-      {
-        id: "gilded-ledger-relic-1",
-        relicKind: "gilded-ledger",
+      // Ledger tokens derive from the director's own count and rarity
+      // sequence so a tuning change can never silently pass a stale pin.
+      ...Array.from({ length: GILDED_LEDGER_GROUND_COUNT }, (_, index) => ({
+        id: `gilded-ledger-relic-${index + 1}`,
+        relicKind: "gilded-ledger" as const,
         durationTicks: 80,
         specialist: undefined,
         mass: 0,
-        relicTier: 2,
-      },
-      {
-        id: "gilded-ledger-relic-2",
-        relicKind: "gilded-ledger",
-        durationTicks: 80,
-        specialist: undefined,
-        mass: 0,
-        relicTier: 3,
-      },
-      {
-        id: "gilded-ledger-relic-3",
-        relicKind: "gilded-ledger",
-        durationTicks: 80,
-        specialist: undefined,
-        mass: 0,
-        relicTier: 4,
-      },
-      {
-        id: "gilded-ledger-relic-4",
-        relicKind: "gilded-ledger",
-        durationTicks: 80,
-        specialist: undefined,
-        mass: 0,
-        relicTier: 5,
-      },
-      {
-        id: "gilded-ledger-relic-5",
-        relicKind: "gilded-ledger",
-        durationTicks: 80,
-        specialist: undefined,
-        mass: 0,
-        relicTier: 10,
-      },
+        relicTier: TREASURE_TIER_SEQUENCE[index % TREASURE_TIER_SEQUENCE.length],
+      })),
     ]);
 
     const capture = new CaptureSocket();
@@ -199,41 +173,13 @@ test("rooms seed the complete Relic set deterministically without changing the v
           specialistDurationTicks: undefined,
           relicTier: undefined,
         },
-        {
-          relicKind: "gilded-ledger",
+        ...Array.from({ length: GILDED_LEDGER_GROUND_COUNT }, (_, index) => ({
+          relicKind: "gilded-ledger" as const,
           relicDurationTicks: 80,
           specialist: undefined,
           specialistDurationTicks: undefined,
-          relicTier: 2,
-        },
-        {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
-          specialist: undefined,
-          specialistDurationTicks: undefined,
-          relicTier: 3,
-        },
-        {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
-          specialist: undefined,
-          specialistDurationTicks: undefined,
-          relicTier: 4,
-        },
-        {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
-          specialist: undefined,
-          specialistDurationTicks: undefined,
-          relicTier: 5,
-        },
-        {
-          relicKind: "gilded-ledger",
-          relicDurationTicks: 80,
-          specialist: undefined,
-          specialistDurationTicks: undefined,
-          relicTier: 10,
-        },
+          relicTier: TREASURE_TIER_SEQUENCE[index % TREASURE_TIER_SEQUENCE.length],
+        })),
       ],
     );
   } finally {

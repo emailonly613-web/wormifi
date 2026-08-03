@@ -10,7 +10,16 @@ import type { GameEvent, GameState, PirateRelicKind } from "./types";
 
 export const PIRATE_RELIC_RESPAWN_SECONDS = 5;
 export const PIRATE_RELIC_RADIUS = 9;
-export const GILDED_LEDGER_GROUND_COUNT = 5;
+/** Owner 2026-08-03 "more multipliers everywhere": a dozen on the ground. */
+export const GILDED_LEDGER_GROUND_COUNT = 12;
+
+/**
+ * Deterministic rarity ladder cycled by spawn number (no RNG — replays and
+ * the exam harness stay reproducible): 2x common, 10x the rare jackpot.
+ */
+export const TREASURE_TIER_SEQUENCE = Object.freeze([
+  2, 3, 2, 4, 2, 3, 5, 2, 3, 4, 2, 10,
+] as const);
 
 /** The server retains its separate proven owner for the legacy Collector. */
 export const SERVER_DIRECTED_RELIC_KINDS = Object.freeze([
@@ -111,24 +120,18 @@ export class PirateRelicDirector {
 
   private spawn(relicKind: PirateRelicKind): void {
     if (this.groundRelicCount(relicKind) >= this.desiredGroundCount(relicKind)) return;
+    // Multiplier tokens spawn across the WHOLE arena (owner 2026-08-03) —
+    // the old centre-biased 42% ring kept the far sea empty of them.
     const point = randomPointInCircle(
       this.state.randomState,
-      Math.max(
-        1,
-        relicKind === "gilded-ledger"
-          ? Math.min(
-              this.state.config.arenaRadius - 140,
-              this.state.config.arenaRadius * 0.42,
-            )
-          : this.state.config.arenaRadius - 140,
-      ),
+      Math.max(1, this.state.config.arenaRadius - 140),
     );
     this.state.randomState = point.state;
     const number = (this.spawnNumbers.get(relicKind) ?? 0) + 1;
     this.spawnNumbers.set(relicKind, number);
     const durationSeconds = getPirateRelicSpec(relicKind).durationSeconds;
     const relicTier = relicKind === "gilded-ledger"
-      ? GILDED_LEDGER_TIERS[(number - 1) % GILDED_LEDGER_TIERS.length]
+      ? TREASURE_TIER_SEQUENCE[(number - 1) % TREASURE_TIER_SEQUENCE.length]
       : undefined;
     spawnDrop(this.state, {
       id: `${relicKind}-relic-${number}`,

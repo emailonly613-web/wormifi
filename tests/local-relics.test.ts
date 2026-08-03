@@ -20,9 +20,9 @@ import {
   INITIAL_PIRATE_RELIC_KINDS,
   PIRATE_RELIC_RESPAWN_SECONDS,
   PirateRelicDirector,
+  TREASURE_TIER_SEQUENCE,
 } from "../src/game/relicDirector";
 import {
-  GILDED_LEDGER_TIERS,
   getDropRelicKind,
   getPirateRelicSpec,
 } from "../src/game/relics";
@@ -80,10 +80,12 @@ describe("local pirate Relic parity", () => {
         relicKind === "gilded-ledger" ? GILDED_LEDGER_GROUND_COUNT : 1,
       );
     }
+    // The ground tiers derive from the director's own rarity sequence so a
+    // tuning change can never silently pass a stale pin.
     expect(groundRelics(first.state, "gilded-ledger").map((drop) => drop.relicTier))
-      .toEqual([2, 3, 4, 5, 10]);
-    expect(GILDED_LEDGER_TIERS).toEqual([2, 3, 4, 5, 10, 2, 3, 2, 4, 2]);
-    expect(GILDED_LEDGER_TIERS.filter((tier) => tier === 10)).toHaveLength(1);
+      .toEqual(TREASURE_TIER_SEQUENCE.slice(0, GILDED_LEDGER_GROUND_COUNT));
+    // The 10x jackpot stays rare: exactly one per rarity cycle.
+    expect(TREASURE_TIER_SEQUENCE.filter((tier) => tier === 10)).toHaveLength(1);
     expect(groundRelic(first.state, "loot-compass")).toMatchObject({
       id: "collector-beacon-launch",
       specialist: "collector",
@@ -132,7 +134,9 @@ describe("local pirate Relic parity", () => {
   });
 
   it("collects, expires, and respawns every initial Relic on exact deterministic ticks", () => {
-    for (const relicKind of INITIAL_PIRATE_RELIC_KINDS) {
+    // The Treasure Multiplier lives a stacking-boost life now — it has its
+    // own deterministic lifecycle test below.
+    for (const relicKind of INITIAL_PIRATE_RELIC_KINDS.filter((kind) => kind !== "gilded-ledger")) {
       const state = createGameState(`local-${relicKind}-lifecycle`, {
         fixedStepSeconds: 1,
         arenaRadius: 600,
@@ -168,9 +172,7 @@ describe("local pirate Relic parity", () => {
       if (relicKind === "loot-compass") {
         expect(activated).not.toHaveProperty("relicKind");
       }
-      const desiredGroundCount = relicKind === "gilded-ledger"
-        ? GILDED_LEDGER_GROUND_COUNT
-        : 1;
+      const desiredGroundCount = 1;
       expect(groundRelics(state, relicKind), relicKind)
         .toHaveLength(desiredGroundCount - 1);
 
@@ -199,10 +201,70 @@ describe("local pirate Relic parity", () => {
       expect(groundRelics(state, relicKind), relicKind).toHaveLength(desiredGroundCount);
       expect(groundRelics(state, relicKind), relicKind).toContainEqual(
         expect.objectContaining({
-          id: `${relicKind}-relic-${relicKind === "gilded-ledger" ? 6 : 2}`,
+          id: `${relicKind}-relic-2`,
         }),
       );
     }
+  });
+
+  it("grants, lapses, and respawns Treasure Multiplier tokens deterministically", () => {
+    const state = createGameState("local-gilded-ledger-lifecycle", {
+      fixedStepSeconds: 1,
+      arenaRadius: 600,
+      baseSpeed: 0,
+      boostSpeed: 0,
+      spawnShieldSeconds: 0,
+    });
+    const player = spawnPlayer(state, {
+      id: "local-relic-runner",
+      position: { x: 0, y: 0 },
+      direction: { x: 1, y: 0 },
+      shieldSeconds: 0,
+    });
+    const director = new PirateRelicDirector(state, ["gilded-ledger"]);
+    const tokens = groundRelics(state, "gilded-ledger");
+    expect(tokens).toHaveLength(GILDED_LEDGER_GROUND_COUNT);
+    const firstToken = tokens.find((drop) => drop.id === "gilded-ledger-relic-1")!;
+    expect(firstToken.relicTier).toBe(TREASURE_TIER_SEQUENCE[0]);
+    player.position = { ...firstToken.position };
+    player.previousPosition = { ...firstToken.position };
+
+    let result = stepGame(state);
+    director.reconcile(result.events);
+    // The token feeds the stacking boost bag, never the specialist slot.
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "treasureBoostGranted",
+      tick: 1,
+      playerId: player.id,
+      relicTier: TREASURE_TIER_SEQUENCE[0],
+    }));
+    expect(player.specialist).toBeUndefined();
+    const boostExpiry = player.treasureBoosts[TREASURE_TIER_SEQUENCE[0]]!;
+    // 2x lasts 20 seconds (fixedStepSeconds=1 makes ticks seconds here).
+    expect(boostExpiry).toBe(1 + 20);
+    expect(groundRelics(state, "gilded-ledger"))
+      .toHaveLength(GILDED_LEDGER_GROUND_COUNT - 1);
+
+    // The ground refills on the standard respawn cadence, boost still running.
+    const respawnTick = 1 + PIRATE_RELIC_RESPAWN_SECONDS;
+    while (state.tick < respawnTick) {
+      result = stepGame(state);
+      director.reconcile(result.events);
+    }
+    expect(groundRelics(state, "gilded-ledger")).toHaveLength(GILDED_LEDGER_GROUND_COUNT);
+    expect(groundRelics(state, "gilded-ledger")).toContainEqual(
+      expect.objectContaining({
+        id: `gilded-ledger-relic-${GILDED_LEDGER_GROUND_COUNT + 1}`,
+      }),
+    );
+
+    // The boost lapses on its own clock (the stack prune sweeps at tick 30).
+    while (state.tick < 30) {
+      result = stepGame(state);
+      director.reconcile(result.events);
+    }
+    expect(state.tick).toBeGreaterThanOrEqual(boostExpiry);
+    expect(player.treasureBoosts[TREASURE_TIER_SEQUENCE[0]]).toBeUndefined();
   });
 
   it("rebuilds a board-bound v2 run with identical Relic state and checksum", () => {

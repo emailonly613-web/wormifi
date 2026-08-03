@@ -172,6 +172,8 @@ import {
   easedMassFor,
   pruneGrowthEasing,
 } from "../game/growthPresentation";
+import { parseTreasureBoostChips, type TreasureBoostChip } from "../game/treasureBoosts";
+import { BoostChips } from "./BoostChips";
 
 // One cached pattern tile serves every live frame on this canvas.
 const honeycombCache = createHoneycombPatternCache();
@@ -926,6 +928,8 @@ export function LiveArenaCanvas({
   const debugHitboxesRef = useRef(new URLSearchParams(window.location.search).get("hitboxes") === "1");
   const [boosting, setBoosting] = useState(false);
   const [touchGuide, setTouchGuide] = useState<TouchGuide | null>(null);
+  const [boostChips, setBoostChips] = useState<TreasureBoostChip[]>([]);
+  const boostChipsSignatureRef = useRef("");
   const [deathNotice, setDeathNotice] = useState<string | null>(null);
   const [actionCallout, setActionCallout] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(reducedMotionRef.current);
@@ -1392,6 +1396,14 @@ export function LiveArenaCanvas({
           if (!handshake?.welcomed || !handshake.worldSynced || message.roomId !== handshake.roomId) return;
           if (!world || world.roomId !== message.roomId) return;
           if (!message.players.some((player) => player.id === handshake.playerId)) return;
+          // The recipient's stacking multiplier chips (additive field; only
+          // re-rendered when the chip list actually changes).
+          const chips = parseTreasureBoostChips(message.boosts);
+          const chipsSignature = chips.map((chip) => `${chip.tier}:${chip.remainingSeconds}`).join(",");
+          if (chipsSignature !== boostChipsSignatureRef.current) {
+            boostChipsSignatureRef.current = chipsSignature;
+            setBoostChips(chips);
+          }
           const competitiveSnapshot = mergeSnapshotWithPresence(message, presenceRef.current);
           const removedDrops = new Map<string, PublicDropState>();
           for (const id of message.removedDropIds) {
@@ -2265,6 +2277,8 @@ export function LiveArenaCanvas({
             </p>
           )}
         </aside>
+
+        <BoostChips chips={boostChips} testId="live-boost-chips" />
 
         <RelicStatus
           active={ui.activeRelic}

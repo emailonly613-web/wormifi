@@ -1,0 +1,63 @@
+/* Stacked Treasure Multiplier chips, pinned top-center over the arena. */
+.boost-chip-row {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.boost-chip {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  min-width: 44px;
+  padding: 4px 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 196, 84, 0.72);
+  background: linear-gradient(180deg, rgba(64, 44, 8, 0.88), rgba(38, 26, 5, 0.88));
+  color: #ffe9bd;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 12px rgba(255, 173, 40, 0.25);
+  animation: boost-chip-pulse 1.6s ease-in-out infinite;
+}
+
+.boost-chip b {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.boost-chip small {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #d9b878;
+}
+
+.boost-chip--total {
+  border-color: rgba(93, 239, 216, 0.75);
+  background: linear-gradient(180deg, rgba(8, 58, 52, 0.9), rgba(4, 34, 32, 0.9));
+  color: #d7fff5;
+  box-shadow: 0 0 14px rgba(93, 239, 216, 0.3);
+}
+
+.boost-chip--total small { color: #8fd9c9; }
+
+@keyframes boost-chip-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boost-chip { animation: none; }
+}
+
+@media (max-width: 480px) {
+  .boost-chip-row { top: 6px; gap: 4px; }
+  .boost-chip { min-width: 36px; padding: 3px 7px; }
+  .boost-chip b { font-size: 12px; }
+}

@@ -247,13 +247,12 @@ describe("owner-required pirate power parity", () => {
       relicTier: 5,
     });
     const result = stepGame(state);
-    expect(player.specialist).toMatchObject({
-      relicKind: "gilded-ledger",
-      relicTier: 5,
-    });
+    // Owner spec 2026-08-03: multiplier tokens feed the STACKING boost bag,
+    // never the one-at-a-time specialist slot.
+    expect(player.treasureBoosts[5]).toBeGreaterThan(state.tick);
+    expect(player.specialist?.relicKind).not.toBe("gilded-ledger");
     expect(result.events).toContainEqual(expect.objectContaining({
-      type: "specialistActivated",
-      relicKind: "gilded-ledger",
+      type: "treasureBoostGranted",
       relicTier: 5,
     }));
   });

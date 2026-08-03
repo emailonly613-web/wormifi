@@ -61,6 +61,7 @@ import {
   LIVE_SPATIAL_PROFILE,
   RECOMMENDED_PLAYER_INTEREST_RADIUS,
 } from "../../src/game/spatialFeel.ts";
+import { packTreasureBoostChips } from "../../src/game/treasureBoosts.ts";
 import { selectNeutralTreasureMass } from "../../src/game/treasureEconomy.ts";
 import {
   ambientTreasureLifetimeTicks,
@@ -724,10 +725,24 @@ export class ArenaRoom {
             interestIndex,
           )
         : snapshot;
+      // The recipient's own stacking multiplier chips ride the snapshot as an
+      // additive per-recipient field — never the shared player tuples. A dead
+      // captain's chips vanish with them.
+      const recipientPlayer = this.state.players[session.playerId];
+      const recipientBoosts = recipientPlayer?.alive
+        ? packTreasureBoostChips(
+          recipientPlayer.treasureBoosts,
+          this.state.tick,
+          this.state.config.fixedStepSeconds,
+        )
+        : [];
+      const scopedWithBoosts = recipientBoosts.length > 0
+        ? { ...scopedSnapshot, boosts: recipientBoosts }
+        : scopedSnapshot;
       const encoded = JSON.stringify(
         session.snapshotTupleV1
-          ? packSnapshotTupleForWire(scopedSnapshot, tuplePlayersById)
-          : packSnapshotForWire(scopedSnapshot),
+          ? packSnapshotTupleForWire(scopedWithBoosts, tuplePlayersById)
+          : packSnapshotForWire(scopedWithBoosts),
       );
       // A skipped dynamic player frame is self-healing because the next frame
       // is complete. A skipped collectible delta is not, so delta-bearing

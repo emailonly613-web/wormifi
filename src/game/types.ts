@@ -151,6 +151,8 @@ export interface PlayerState {
   lastInput: PlayerInput;
   shedMassRemainder: number;
   specialist?: ActiveSpecialist;
+  /** Stacking Treasure Multiplier timers: tier -> authoritative expiry tick. */
+  treasureBoosts: Partial<Record<TreasureMultiplierTier, number>>;
   stats: PlayerStats;
 }
 
@@ -327,6 +329,14 @@ export type GameEvent =
       relicKind?: PirateRelicKind;
       relicTier?: TreasureMultiplierTier;
       durationTicks: number;
+    }
+  | {
+      type: "treasureBoostGranted";
+      tick: number;
+      playerId: PlayerId;
+      dropId: DropId;
+      relicTier: TreasureMultiplierTier;
+      expiresAtTick: number;
     }
   | {
       type: "specialistExpired";
