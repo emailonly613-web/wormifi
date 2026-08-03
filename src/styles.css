@@ -7428,6 +7428,61 @@ body:has(.analytics-consent) .install-app-card {
   letter-spacing: .12em;
 }
 
+/* Board chips: the board choice on the launcher itself, one tap from PLAY. */
+.launcher-board-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.launcher-board-chip {
+  display: grid;
+  min-height: 42px;
+  padding: 5px 8px;
+  align-content: center;
+  gap: 1px;
+  border: 1px solid rgba(132, 204, 236, .26);
+  border-radius: 12px;
+  color: #d8eef8;
+  background: rgba(6, 21, 42, .72);
+  text-align: center;
+  cursor: pointer;
+}
+
+.launcher-board-chip:hover:not(:disabled) {
+  border-color: rgba(93, 239, 216, .65);
+  background: rgba(21, 68, 82, .72);
+}
+
+.launcher-board-chip.active {
+  border-color: rgba(255, 196, 84, .78);
+  background: rgba(64, 44, 8, .55);
+  box-shadow: 0 0 0 1px rgba(255, 196, 84, .35) inset;
+}
+
+.launcher-board-chip:disabled {
+  opacity: .62;
+  cursor: default;
+}
+
+.launcher-board-chip b {
+  font-size: 10px;
+  letter-spacing: .07em;
+}
+
+.launcher-board-chip small {
+  color: #91aebe;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+@media (max-width: 480px) {
+  .launcher-board-row { grid-template-columns: 1fr; }
+  .launcher-board-chip { min-height: 34px; }
+}
+
 .friend-room-card--quick {
   padding: 0;
   border-radius: 14px;

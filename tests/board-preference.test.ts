@@ -93,17 +93,19 @@ describe("board preference and immutable room selection", () => {
 });
 
 describe("accessible BoardPicker markup", () => {
-  it("defaults to Open Seas and presents two native radio choices with full relay disclosure", () => {
+  it("defaults to Open Seas and presents one native radio per catalog board with full disclosure", () => {
     const markup = renderToStaticMarkup(createElement(BoardPicker));
 
     expect(markup).toContain("CHOOSE YOUR BOARD");
     expect(markup).toContain('data-board-id="open-seas"');
     expect(markup).toContain('data-board-locked="false"');
-    expect(markup.match(/type="radio"/gu)).toHaveLength(2);
+    // Derived from the catalog so adding a board can never silently hide one.
+    expect(markup.match(/type="radio"/gu)).toHaveLength(BOARD_OPTIONS.length);
     expect(markup).toMatch(/checked="" value="open-seas"/u);
     expect(markup).toContain("Open Seas is the default");
     expect(markup).toContain("Three harbor pads: stay inside for up to +9, +20, or +42 size in real time.");
     expect(markup).toContain("Two wrap-capstan objectives: Port Capstan and Starboard Capstan.");
+    expect(markup).toContain("No objectives, no landmarks. Eat, grow, outlast.");
   });
 
   it("locks every control to the existing room board even when a different board was requested", () => {
@@ -114,7 +116,7 @@ describe("accessible BoardPicker markup", () => {
 
     expect(markup).toContain('data-board-id="black-pearl-relay"');
     expect(markup).toContain('data-board-locked="true"');
-    expect(markup.match(/disabled=""/gu)).toHaveLength(2);
+    expect(markup.match(/disabled=""/gu)).toHaveLength(BOARD_OPTIONS.length);
     expect(markup).toMatch(/checked="" value="black-pearl-relay"/u);
     expect(markup).toContain(
       "EXISTING ROOM LOCKED TO BLACK PEARL RELAY — ITS BOARD CANNOT BE OVERRIDDEN.",

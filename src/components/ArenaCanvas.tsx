@@ -153,6 +153,13 @@ import {
   setUserCameraZoom,
   type ZoomMotionState,
 } from "../game/cameraZoomControl";
+import {
+  createHoneycombPatternCache,
+  drawHoneycombLattice,
+} from "../game/honeycombLattice";
+
+// One cached pattern tile serves every solo/replay frame on this canvas.
+const honeycombCache = createHoneycombPatternCache();
 import type { CaptainRunSummary } from "../game/captainProgression";
 import type { CaptainDepthRunUpdate } from "../game/captainLog";
 import {
@@ -2061,7 +2068,11 @@ function renderArena(
     return output;
   };
 
-  drawArenaTexture(context, width, height, camera, zoom, effectTime);
+  if (runtime.state.board?.id === "honeycomb-cove") {
+    drawHoneycombLattice(context, honeycombCache, width, height, camera, zoom);
+  } else {
+    drawArenaTexture(context, width, height, camera, zoom, effectTime);
+  }
   drawPirateShipBackdrop(context, width, height);
   context.save();
   clipCanvasToArenaCircle(

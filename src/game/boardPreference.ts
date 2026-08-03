@@ -24,6 +24,14 @@ export const BOARD_OPTIONS: readonly BoardOption[] = Object.freeze([
     objectiveDisclosure: "Three harbor pads: stay inside for up to +9, +20, or +42 size in real time.",
   }),
   Object.freeze({
+    id: "honeycomb-cove",
+    name: "Honeycomb Cove",
+    shortLabel: "CLASSIC · HONEYCOMB SEA",
+    description: "The classic worm arena on a golden honeycomb floor — just you, the treasure, and the crowd.",
+    objectiveCount: 0,
+    objectiveDisclosure: "No objectives, no landmarks. Eat, grow, outlast.",
+  }),
+  Object.freeze({
     id: "black-pearl-relay",
     name: "Black Pearl Relay",
     shortLabel: "TWO CAPSTAN RELAY",
@@ -43,7 +51,8 @@ export interface ResolvedRoomBoardPreference {
 }
 
 export function isGameBoardId(value: unknown): value is GameBoardId {
-  return value === "open-seas" || value === "black-pearl-relay";
+  return value === "open-seas" || value === "black-pearl-relay" ||
+    value === "honeycomb-cove";
 }
 
 export function normalizeBoardPreference(value: unknown): GameBoardId {

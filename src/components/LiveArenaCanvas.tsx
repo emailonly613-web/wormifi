@@ -163,6 +163,13 @@ import {
   setUserCameraZoom,
   type ZoomMotionState,
 } from "../game/cameraZoomControl";
+import {
+  createHoneycombPatternCache,
+  drawHoneycombLattice,
+} from "../game/honeycombLattice";
+
+// One cached pattern tile serves every live frame on this canvas.
+const honeycombCache = createHoneycombPatternCache();
 import type { CaptainRunSummary } from "../game/captainProgression";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
@@ -2529,7 +2536,11 @@ function renderLiveArena(
     y: height / 2 + (point.y - camera.y) * zoom,
   });
 
-  drawNetworkGrid(context, width, height, camera, zoom, now);
+  if (world?.board?.id === "honeycomb-cove") {
+    drawHoneycombLattice(context, honeycombCache, width, height, camera, zoom);
+  } else {
+    drawNetworkGrid(context, width, height, camera, zoom, now);
+  }
   drawPirateShipBackdrop(context, width, height);
   if (!snapshot || !world) {
     context.fillStyle = "rgba(213, 244, 255, 0.72)";

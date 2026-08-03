@@ -347,20 +347,6 @@ export class AuthoritativeArenaServer {
       }
 
       const requestedRoomId = join.value.roomId ?? "public-1";
-      const roomId = join.value.matchmakingV1 === true && !join.value.reconnectToken
-        ? this.selectPublicMatchmakingRoom(requestedRoomId)
-        : requestedRoomId;
-      if (!roomId) {
-        this.send(socket, {
-          type: "error",
-          code: "RATE_LIMITED",
-          message: "Every public arena on this server is full. Another arena is being prepared.",
-        });
-        return;
-      }
-      let room = this.rooms.get(roomId);
-      let createdRoom = false;
-      const captainRoomTier = captainRoomTierFromRoomId(roomId);
       const requestedBoard = join.value.boardId
         ? getGameBoardProfile(join.value.boardId)
         : undefined;
@@ -383,6 +369,20 @@ export class AuthoritativeArenaServer {
         });
         return;
       }
+      const roomId = join.value.matchmakingV1 === true && !join.value.reconnectToken
+        ? this.selectPublicMatchmakingRoom(requestedRoomId, requestedBoard?.id, requestedPace?.id)
+        : requestedRoomId;
+      if (!roomId) {
+        this.send(socket, {
+          type: "error",
+          code: "RATE_LIMITED",
+          message: "Every public arena on this server is full. Another arena is being prepared.",
+        });
+        return;
+      }
+      let room = this.rooms.get(roomId);
+      let createdRoom = false;
+      const captainRoomTier = captainRoomTierFromRoomId(roomId);
       if (captainRoomTier && (join.value.boardId || join.value.paceId)) {
         this.send(socket, {
           type: "error",
@@ -587,7 +587,11 @@ export class AuthoritativeArenaServer {
     this.rooms.delete(room.id);
   }
 
-  private selectPublicMatchmakingRoom(requestedRoomId: string): string | undefined {
+  private selectPublicMatchmakingRoom(
+    requestedRoomId: string,
+    requestedBoardId?: string,
+    requestedPaceId?: string,
+  ): string | undefined {
     if (!PUBLIC_ROOM_PATTERN.test(requestedRoomId)) return requestedRoomId;
 
     const publicRooms = [...this.rooms.values()]
@@ -597,7 +601,13 @@ export class AuthoritativeArenaServer {
         const rightNumber = Number.parseInt(right.id.slice("public-".length), 10);
         return leftNumber - rightNumber;
       });
-    const available = publicRooms.find((room) => room.canAcceptNewHuman());
+    // A matchmade captain lands only in a room whose board and pace match the
+    // request. Board-blind balancing bounced second-board joins off
+    // ROOM_BOARD_MISMATCH the moment the board became easy to find.
+    const available = publicRooms.find((room) =>
+      room.canAcceptNewHuman() &&
+      (requestedBoardId === undefined || room.state.board.id === requestedBoardId) &&
+      (requestedPaceId === undefined || room.paceId === requestedPaceId));
     if (available) return available.id;
     if (this.rooms.size >= this.maxRooms) return undefined;
 

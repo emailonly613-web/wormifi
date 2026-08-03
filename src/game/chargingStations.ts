@@ -128,13 +128,26 @@ export const BLACK_PEARL_RELAY_BOARD: Readonly<GameBoardConfig> = Object.freeze(
   ]) as unknown as ChargingStationConfig[],
 });
 
-export type GameBoardId = "open-seas" | "black-pearl-relay";
+/**
+ * The classic board (owner order 2026-08-03): pure genre play — you, the
+ * treasure, and the crowd — on a honeycomb sea floor. No stations, no
+ * objectives; the simplicity IS the design, matching the classic worm-arena
+ * feel players know while keeping Wormifi's speed and manners.
+ */
+export const HONEYCOMB_COVE_BOARD: Readonly<GameBoardConfig> = Object.freeze({
+  id: "honeycomb-cove",
+  name: "Honeycomb Cove",
+  chargingStations: Object.freeze([]) as unknown as ChargingStationConfig[],
+});
+
+export type GameBoardId = "open-seas" | "black-pearl-relay" | "honeycomb-cove";
 
 /** Public immutable board catalog. Rooms select one profile only at creation. */
 export const GAME_BOARD_CATALOG: Readonly<Record<GameBoardId, Readonly<GameBoardConfig>>> =
   Object.freeze({
     "open-seas": OPEN_SEAS_BOARD,
     "black-pearl-relay": BLACK_PEARL_RELAY_BOARD,
+    "honeycomb-cove": HONEYCOMB_COVE_BOARD,
   });
 
 export function getGameBoardProfile(

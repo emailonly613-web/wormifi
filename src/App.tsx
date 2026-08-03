@@ -1593,6 +1593,27 @@ export function App() {
               </div>
             )}
 
+            {/* The board choice lives ON the launcher, one tap from PLAY —
+                buried-in-settings is how a second board stays unplayed. */}
+            {!isCrazyGamesDistribution && (
+              <div className="launcher-board-row" data-testid="launcher-board-chips" role="group" aria-label="Choose your board">
+                {BOARD_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`launcher-board-chip${boardSelection.boardId === option.id ? " active" : ""}`}
+                    aria-pressed={boardSelection.boardId === option.id}
+                    disabled={boardSelection.locked}
+                    data-testid={`launcher-board-chip-${option.id}`}
+                    onClick={() => chooseBoard(option.id)}
+                  >
+                    <b>{option.name}</b>
+                    <small>{option.shortLabel}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <button
               ref={playButtonRef}
               className="play-button play-button--primary"
