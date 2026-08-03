@@ -167,9 +167,17 @@ import {
   createHoneycombPatternCache,
   drawHoneycombLattice,
 } from "../game/honeycombLattice";
+import {
+  createGrowthEasingState,
+  easedMassFor,
+  pruneGrowthEasing,
+} from "../game/growthPresentation";
 
 // One cached pattern tile serves every live frame on this canvas.
 const honeycombCache = createHoneycombPatternCache();
+
+// Eased per-worm growth presentation, shared by every live frame.
+const liveGrowthEasing = createGrowthEasingState();
 import type { CaptainRunSummary } from "../game/captainProgression";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
@@ -2664,10 +2672,14 @@ function renderLiveArena(
     .sort((first, second) => first.mass - second.mass);
   const wormMaterialMotion = now === 0 ? 0 : materialMotionScale();
   const wormMaterialGlow = materialGlowEnabled();
+  // Growth easing rides frameNow (the real clock) — `now` is zeroed under
+  // reduced motion and would freeze the presented mass entirely.
+  pruneGrowthEasing(liveGrowthEasing, frameNow);
   for (const player of players) {
     drawNetworkChain(
       context,
       player,
+      easedMassFor(liveGrowthEasing, player.id, player.mass, frameNow),
       snapshot.tick,
       world.fixedStepSeconds,
       playerId,
@@ -2915,6 +2927,7 @@ function drawNetworkDrop(
 function drawNetworkChain(
   context: CanvasRenderingContext2D,
   player: PublicPlayerState,
+  presentedMass: number,
   currentTick: number,
   fixedStepSeconds: number,
   localPlayerId: string | undefined,
@@ -2937,8 +2950,11 @@ function drawNetworkChain(
   const palette = player.themeId
     ? [...getCosmeticTheme(player.themeId).palette]
     : palettes[stableNumber(player.id) % palettes.length];
-  const headRadius = getPlayerRadius(player, collisionRadii) * zoom;
-  const bodyRadius = getBodyRadius(player, collisionRadii) * zoom;
+  // Drawn girth eases toward the true mass so a hoard vacuum swells the worm
+  // instead of inflating it same-tick (collision stays on the true mass).
+  const presented = { mass: presentedMass };
+  const headRadius = getPlayerRadius(presented, collisionRadii) * zoom;
+  const bodyRadius = getBodyRadius(presented, collisionRadii) * zoom;
   const identityNumber = stableNumber(player.id);
   const shielded = player.shieldTicksRemaining > 0;
   const isHuman = player.kind === "human";

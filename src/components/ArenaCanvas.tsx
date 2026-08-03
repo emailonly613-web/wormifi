@@ -157,9 +157,17 @@ import {
   createHoneycombPatternCache,
   drawHoneycombLattice,
 } from "../game/honeycombLattice";
+import {
+  createGrowthEasingState,
+  easedMassFor,
+  pruneGrowthEasing,
+} from "../game/growthPresentation";
 
 // One cached pattern tile serves every solo/replay frame on this canvas.
 const honeycombCache = createHoneycombPatternCache();
+
+// Eased per-worm growth presentation, shared by every solo/replay frame.
+const soloGrowthEasing = createGrowthEasingState();
 import type { CaptainRunSummary } from "../game/captainProgression";
 import type { CaptainDepthRunUpdate } from "../game/captainLog";
 import {
@@ -2109,6 +2117,7 @@ function renderArena(
   const players = Object.values(runtime.state.players)
     .filter((entry) => entry.alive)
     .sort((first, second) => first.mass - second.mass);
+  pruneGrowthEasing(soloGrowthEasing, now);
   const wormMaterialMotion = runtime.reducedMotion ? 0 : materialMotionScale();
   const wormMaterialGlow = materialGlowEnabled();
   for (const entry of players) {
@@ -2459,8 +2468,11 @@ function drawLivingChain(
     : player.id === PLAYER_ID && isRewardedCorsairSkinEquipped()
       ? [...GILDED_CORSAIR_PALETTE]
       : paletteFor(player.id);
-  const headRadius = getPlayerRadius(player, state.config) * zoom;
-  const followerRadius = getBodyRadius(player, state.config) * zoom;
+  // Drawn girth eases toward the true mass so a hoard vacuum swells the worm
+  // instead of inflating it same-tick (collision stays on the true mass).
+  const presented = { mass: easedMassFor(soloGrowthEasing, player.id, player.mass, now) };
+  const headRadius = getPlayerRadius(presented, state.config) * zoom;
+  const followerRadius = getBodyRadius(presented, state.config) * zoom;
   const identity = stableNumber(player.id);
   const shielded = player.shieldTicksRemaining > 0;
   const points = chainPointScratch;
