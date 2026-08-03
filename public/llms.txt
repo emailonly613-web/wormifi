@@ -8,11 +8,15 @@
 > nothing purchasable affects gameplay.
 
 Key facts: one-word brand name "Wormifi" (worm-if-ee), unrelated to Wi-Fi or
-network worms. Two boards (Open Seas; Black Pearl Relay with twin capstan
-objectives), three room paces (Harbor, Classic, Tempest), friend rooms via
-shared codes, sprint costs 4 size/second at 2.0x speed and drops the spent
-size as collectable wake loot. Design law: nothing appears from nowhere -
-killed crews drop their conserved mass where they fell.
+network worms. Three boards (Open Seas free-roam with growth pads; Honeycomb
+Cove, the classic no-objective arena on a honeycomb sea floor; Black Pearl
+Relay with twin capstan objectives), three room paces (Harbor, Classic,
+Tempest), friend rooms via shared codes, mouse-wheel/pinch camera zoom with a
+fairness cap, stacking x2-x10 treasure multiplier tokens (each pickup adds
+time to its tier's clock, no cap; overlapping tiers multiply; shown as gold
+chips at the top of the screen), sprint costs 4 size/second at 2.0x speed and
+drops the spent size as collectable wake loot. Design law: nothing appears
+from nowhere - killed crews drop their conserved mass where they fell.
 
 ## Play
 - [Founding 50 external test](https://wormifi.com/founding-50.html?utm_source=llms&utm_medium=machine_discovery&utm_campaign=founding_50&utm_id=llms): play one run, host a free private room, or invite one friend

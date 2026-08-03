@@ -108,6 +108,7 @@ export default defineConfig(({ mode }) => {
         devlog: page("devlog.html"),
         devlogOneServerAuthority: page("devlog-one-server-authority.html"),
         devlogConservedMass: page("devlog-conserved-mass.html"),
+        devlogSpaciousUpdate: page("devlog-spacious-update.html"),
         devlogAnimatedMaterials: page("devlog-animated-materials.html"),
         devlog60fpsBudget: page("devlog-60fps-budget.html"),
         devlogNoAppStore: page("devlog-no-app-store.html"),
