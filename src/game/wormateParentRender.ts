@@ -34,7 +34,7 @@ const TAU = Math.PI * 2;
 const SMOOTH_BODY_STEP = 0.18;
 
 /** How thin the very tip of the tail draws, as a fraction of the body radius. */
-const TAIL_TIP_SCALE = 0.34;
+const TAIL_TIP_SCALE = 0.5;
 
 /**
  * How far forward, in head radii, the face is moved before it is stamped.
@@ -520,17 +520,18 @@ export function drawWormateParentWorm(
   // Walk the spine and stamp densely rather than once per chain point, so the
   // circles merge into one tube instead of reading as separate beads. Painted
   // tail-to-head so every forward stamp cleanly overlaps the one behind it.
-  // A worm should read as a creature, not a pipe. The old taper touched only the
-  // last three segments - 0.72, 0.88, 0.97 - so the body ran full width almost to
-  // the tip and ended in a blunt stub. The tail now thins over a run proportional
-  // to the worm's own length, so a long worm tapers over a long tail rather than
-  // snapping thin at the very end, and eases in rather than stepping.
-  const taperSegments = Math.max(3, Math.min(14, Math.round(points.length * 0.22)));
+  // A worm should end in a ROUNDED CAP, like a fingertip — not a needle and
+  // not a chopped stub. The long 22%-of-body cone read as a deflating pipe on
+  // the live board (owner 2026-08-03: "the tail getting smaller what the
+  // heck"). The cap is short — the body runs parent-fat almost to the end —
+  // and follows a quarter-circle profile, which is also MORE honest to the
+  // collider: collision uses the full body radius on every segment.
+  const taperSegments = Math.max(2, Math.min(6, Math.round(points.length * 0.10)));
   const taperFor = (distanceFromTail: number) => {
     if (distanceFromTail >= taperSegments) return 1;
-    // Ease out: quick off the tip, then flattening into the body.
+    // Circular ease: stays wide, then rounds off quickly at the very tip.
     const t = distanceFromTail / taperSegments;
-    return TAIL_TIP_SCALE + (1 - TAIL_TIP_SCALE) * Math.sqrt(t);
+    return TAIL_TIP_SCALE + (1 - TAIL_TIP_SCALE) * Math.sqrt(1 - (1 - t) * (1 - t));
   };
   const stampStep = Math.max(1.2, options.bodyRadius * SMOOTH_BODY_STEP);
   const tailIndex = points.length - 1;
@@ -587,7 +588,17 @@ export function drawWormateParentWorm(
   }
 
   const head = points[0];
-  const angle = Math.atan2(options.direction.y, options.direction.x);
+  // The face sits on the DRAWN neck axis, never the input direction: steering
+  // swings the input toward the pointer a beat before the body follows, which
+  // slid the eyes around the side of the head mid-turn (owner 2026-08-03:
+  // "the face is not aligned properly"). The rendered neck matches the pose
+  // at every heading by construction.
+  const neck = points[Math.min(2, points.length - 1)];
+  const neckX = head.x - neck.x;
+  const neckY = head.y - neck.y;
+  const angle = Math.hypot(neckX, neckY) > 1e-6
+    ? Math.atan2(neckY, neckX)
+    : Math.atan2(options.direction.y, options.direction.x);
   context.save();
   context.translate(head.x, head.y);
   context.rotate(angle);
