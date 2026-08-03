@@ -943,6 +943,19 @@ export function ArenaCanvas({
           if (!runtime.reducedMotion) navigator.vibrate?.([12, 24, 22]);
         }
 
+        if (event.type === "treasureBoostGranted" && event.playerId === PLAYER_ID) {
+          // The stack chime rises with the tier; the x10 jackpot earns the
+          // biggest moment in the game. Mirrors the live arena exactly.
+          const tier = event.relicTier;
+          setActionCallout(
+            tier >= 10 ? "×10 JACKPOT · STACKED!" : `×${tier} MULTIPLIER · STACKED`,
+          );
+          window.setTimeout(() => setActionCallout(null), 900);
+          playTone(430 + tier * 60, 0.12, 0.045);
+          window.setTimeout(() => playTone(650 + tier * 80, 0.16, 0.04), 90);
+          if (!runtime.reducedMotion) navigator.vibrate?.(tier >= 10 ? 24 : 10);
+        }
+
         if (event.type === "specialistExpired" && event.playerId === PLAYER_ID) {
           const relic = resolveRelicPresentation(event.relicKind);
           setActionCallout(`${relic.label.toUpperCase()} SPENT · FIND ANOTHER RELIC`);

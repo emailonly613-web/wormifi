@@ -1552,6 +1552,31 @@ export function LiveArenaCanvas({
               tutorial.spentSprint();
               playTone(165, 0.045, 0.012);
             }
+            if (gameEvent.type === "treasureBoostGranted" && gameEvent.playerId === handshake.playerId) {
+              // The stack chime rises with the tier; the x10 jackpot earns
+              // the biggest moment in the game.
+              const tier = gameEvent.relicTier;
+              showActionCallout(
+                tier >= 10 ? "×10 JACKPOT · STACKED!" : `×${tier} MULTIPLIER · STACKED`,
+                900,
+              );
+              playTone(430 + tier * 60, 0.12, 0.045);
+              window.setTimeout(() => playTone(650 + tier * 80, 0.16, 0.04), 90);
+              if (!reducedMotionRef.current) navigator.vibrate?.(tier >= 10 ? 24 : 10);
+              const boostedPlayer = competitiveSnapshot.players.find(
+                (player) => player.id === handshake.playerId,
+              );
+              if (boostedPlayer) {
+                pushLiveBurst(
+                  particlesRef.current,
+                  boostedPlayer.position,
+                  reducedMotionRef.current ? 0 : tier >= 10 ? 14 : 8,
+                  ["#ffd76a", "#ffbb33"],
+                  message.tick,
+                  1,
+                );
+              }
+            }
             if (gameEvent.type === "specialistActivated" && gameEvent.playerId === handshake.playerId) {
               tutorial.sawCollector();
               const relic = resolveRelicPresentation(gameEvent.relicKind);
