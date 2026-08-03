@@ -13,8 +13,8 @@ needed · 1–2 = missing or broken. Items landed TONIGHT are marked ✅ with be
 | # | Item | Score | Plan to 10 |
 |---|---|---|---|
 | 1 | Eating growth presentation | ✅ 3→9 | WAS the balloon flaw (mass 49→499/sec applied same-tick, measured). Eased girth shipped (0.35s up/0.12s down, snap on respawn). 10 = add a subtle eat-swallow ripple down the neck. |
-| 2 | Ordinary eating reward | ✅ 3→8 | WAS +0.4 mass per 30 ticks of eating. Commons 0.5–1.4 + chest 6 shipped. 10 = floating "+N" score motes on pickup. |
-| 3 | Multiplier excitement | ✅ 2→9 | Stacking 2×/3×/4×/5×/10× with no cap, 12 tokens arena-wide, top-screen chips + total — shipped and layer-proven. 10 = pickup flash + chip-pop animation on grant. |
+| 2 | Ordinary eating reward | ✅ 3→8 (LIVE) | WAS +0.4 mass per 30 ticks of eating. Commons 0.5–1.4 + chest 6 shipped. 10 = floating "+N" score motes on pickup. |
+| 3 | Multiplier excitement | ✅ 2→10 | Stacking 2×/3×/4×/5×/10× with no cap, shipped, layer-proven, AND celebrated: tier-pitched chime + STACKED callout + gold burst + haptics landed at d4251d1. |
 | 4 | Camera follow feel | ✅ 6→9 | Half-life 0.055→0.09s glide shipped. 10 = tiny look-ahead toward steering direction. |
 | 5 | Player zoom control | ✅ 0→9 | Wheel/pinch 0.72–1.45×, eased, persisted, fairness-capped. 10 = pinch on mobile verified on a real handset. |
 | 6 | Face alignment | ✅ 2→9 | Was rotating to input (slid around the head mid-turn); now seated on the drawn neck axis, 8-heading proven. 10 = blink/gaze already exist — confirm on all 190 skins. |
@@ -48,7 +48,7 @@ needed · 1–2 = missing or broken. Items landed TONIGHT are marked ✅ with be
 | 26 | Eat sound | 3 | A lone tone ladder exists for streaks. Plan: soft per-pickup pop with pitch by mass. |
 | 27 | Kill sting | 2 | Near-silent. Plan: a satisfying slice + coin-shower. |
 | 28 | Death sound | 2 | Plan: descending splash. |
-| 29 | Multiplier grant sound | 0 | New feature, silent. Plan: rising chime per tier (higher tier = bigger chime). |
+| 29 | Multiplier grant sound | ✅ 0→9 | New feature, silent. Landed: two-note chime rising with the tier, x10 = the biggest moment. 10 = a coin-shimmer tail on the jackpot. |
 | 30 | Boost loop | 2 | Plan: water-rush loop while held. |
 | 31 | Ambient bed per board | 0 | Plan: gentle sea loop (Open Seas), deeper hum (Honeycomb), drums (Relay); all behind the existing mute. |
 | 32 | UI clicks | 3 | Sparse. Plan: consistent tick/confirm pair across launcher. |
@@ -129,13 +129,13 @@ needed · 1–2 = missing or broken. Items landed TONIGHT are marked ✅ with be
 ## I. Content & growth surfaces (organic lane)
 | # | Item | Score | Plan to 10 |
 |---|---|---|---|
-| 86 | Guides hub accuracy after tonight | 4 | STALE: pages describe 2 boards, old feel, no multipliers. Plan: freshness pass per the engraved duty (boards page, controls, glossary, devlog entry, changelog, feed). |
+| 86 | Guides hub accuracy after tonight | ✅ 4→9 | Freshness pass landed (devlog entry, changelog, how-to-play, glossary, llms.txt, feed, sitemap; seo:verify green). 10 = per-board landing pages (item 88). |
 | 87 | Devlog cadence | 7 | Strong archive. Plan: tonight's entry ("The Spacious Update"). |
 | 88 | SEO board landing pages | 5 | No honeycomb page yet. Plan: /honeycomb-cove.html + sitemap + internal links. |
 | 89 | Brand SERP | 8 | Owned (prior lane). Plan: keep the daily prover. |
 | 90 | Share-this-run block | 7 | Exists with X/FB/copy + highlight image. Plan: add the score + board name to the share text. |
 | 91 | Results→play funnel for visitors | 7 | CTA solid. Plan: after a shared-challenge loss, offer instant rematch link. |
-| 92 | How-to-play accuracy | 5 | Predates zoom/chips/boards. Plan: same freshness pass as 86. |
+| 92 | How-to-play accuracy | ✅ 5→9 | Teaches wheel zoom, board chips, and the multiplier stack now. 10 = a controls screenshot refresh. |
 | 93 | Captain's Log discoverability | 6 | Badge appears after first run. Plan: one-time glow on first unlock. |
 | 94 | Passport pitch honesty | 7 | "Optional, save progress" — accurate (device-local). Plan: say "on this device" explicitly (no-spend truth). |
 | 95 | llms.txt / AI-search freshness | 7 | Exists. Plan: add boards + multiplier facts. |
