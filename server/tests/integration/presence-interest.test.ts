@@ -70,12 +70,14 @@ test("tuple clients, cached presence clients, and old v5 clients negotiate compa
   assert.ok(oldPlayer);
   assert.ok(cachedPresencePlayer);
   assert.ok(newPlayer);
-  oldPlayer.position = { x: -1_000, y: 0 };
-  oldPlayer.body = [{ x: -1_020, y: 0 }];
+  // Pairwise distances all exceed DEFAULT_PLAYER_INTEREST_RADIUS (1,600) so
+  // interest culling separates every pair, exactly as ±1,000 did at 1,000.
+  oldPlayer.position = { x: -1_700, y: 0 };
+  oldPlayer.body = [{ x: -1_720, y: 0 }];
   cachedPresencePlayer.position = { x: 0, y: 0 };
   cachedPresencePlayer.body = [{ x: -20, y: 0 }];
-  newPlayer.position = { x: 1_000, y: 0 };
-  newPlayer.body = [{ x: 980, y: 0 }];
+  newPlayer.position = { x: 1_700, y: 0 };
+  newPlayer.body = [{ x: 1_680, y: 0 }];
 
   oldSocket.messages = [];
   cachedPresenceSocket.messages = [];

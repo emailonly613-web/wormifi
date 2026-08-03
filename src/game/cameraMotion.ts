@@ -3,8 +3,13 @@ import type { Vec2 } from "./types";
 /**
  * Camera response is expressed in real time so identical play feels identical
  * on 30 Hz phones, 60 Hz laptops, and high-refresh desktop displays.
+ *
+ * 0.09 s follows the parent-game glide (owner order 2026-08-03: smoother
+ * board feel): the head leads the frame slightly through turns instead of
+ * being pinned to it. Steering already anchors to the rendered head, so the
+ * extra trail never bends aim.
  */
-export const CAMERA_RESPONSE_HALF_LIFE_SECONDS = 0.055;
+export const CAMERA_RESPONSE_HALF_LIFE_SECONDS = 0.09;
 
 /**
  * Ordinary sprinting cannot create a gap this large. Crossing it means the

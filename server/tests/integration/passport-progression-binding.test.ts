@@ -10,6 +10,12 @@ import {
   ArenaRoom,
   type AuthoritativeLifeResult,
 } from "../../src/room";
+import { LIVE_SPATIAL_PROFILE } from "../../../src/game/spatialFeel.ts";
+
+// The captain must start OUTSIDE the arena so the boundary ends the life and
+// fires the award. Derived from the live profile so a board resize can never
+// silently park them back inside.
+const BEYOND_BOUNDARY_X = LIVE_SPATIAL_PROFILE.arenaRadius + 650;
 
 interface RoomTestSurface {
   simulationStep(): void;
@@ -75,7 +81,7 @@ test("authenticated sockets emit one server-owned life result and reject cross-a
 
     room.state.config.baseSpeed = 0;
     room.state.config.boostSpeed = 0;
-    captain.position = { x: 2_100, y: 0 };
+    captain.position = { x: BEYOND_BOUNDARY_X, y: 0 };
     captain.previousPosition = { ...captain.position };
     captain.mass = 80;
     captain.stats.peakMass = 94;
@@ -84,8 +90,8 @@ test("authenticated sockets emit one server-owned life result and reject cross-a
     captain.stats.survivalTicks = 120;
     captain.shieldTicksRemaining = 0;
     captain.body = [
-      { x: 2_086, y: 0 },
-      { x: 2_080, y: 12 },
+      { x: BEYOND_BOUNDARY_X - 14, y: 0 },
+      { x: BEYOND_BOUNDARY_X - 20, y: 12 },
     ];
     captain.previousBody = captain.body.map((point) => ({ ...point }));
     witness.position = { x: 0, y: 0 };

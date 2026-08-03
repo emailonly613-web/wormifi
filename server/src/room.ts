@@ -57,7 +57,10 @@ import {
   getGamePaceProfile,
   type GamePaceId,
 } from "../../src/game/gamePace.ts";
-import { LIVE_SPATIAL_PROFILE } from "../../src/game/spatialFeel.ts";
+import {
+  LIVE_SPATIAL_PROFILE,
+  RECOMMENDED_PLAYER_INTEREST_RADIUS,
+} from "../../src/game/spatialFeel.ts";
 import { selectNeutralTreasureMass } from "../../src/game/treasureEconomy.ts";
 import {
   ambientTreasureLifetimeTicks,
@@ -68,7 +71,10 @@ const MAX_SNAPSHOT_BUFFER_BYTES = 256 * 1024;
 const SCHEDULER_WAKE_MS = 4;
 const MAX_CATCH_UP_STEPS = 4;
 export const DEFAULT_PRESENCE_HZ = 2;
-export const DEFAULT_PLAYER_INTEREST_RADIUS = 1_000;
+// Must cover the camera's MAX_VISIBLE_WORLD_RADIUS with margin (test-pinned):
+// a fully zoomed-out player sees to 1,500 world units, so anything nearer
+// than 1,600 is already in their snapshot before it can enter the frame.
+export const DEFAULT_PLAYER_INTEREST_RADIUS = RECOMMENDED_PLAYER_INTEREST_RADIUS;
 
 /** Published room cadence: replacement appears five seconds after effect expiry. */
 export const COLLECTOR_BEACON_RESPAWN_SECONDS = 5;

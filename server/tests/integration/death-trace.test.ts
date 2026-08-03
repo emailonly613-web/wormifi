@@ -12,6 +12,12 @@ import type {
   WelcomeMessage,
 } from "../../src/protocol.ts";
 import { ArenaRoom } from "../../src/room.ts";
+import { LIVE_SPATIAL_PROFILE } from "../../../src/game/spatialFeel.ts";
+
+// The defeated captain must start OUTSIDE the arena so the boundary ends the
+// life and spills the hoard. Derived from the live profile so a board resize
+// can never silently park them back inside.
+const BEYOND_BOUNDARY_X = LIVE_SPATIAL_PROFILE.arenaRadius + 650;
 
 interface RoomTestSurface {
   simulationStep(): void;
@@ -76,15 +82,15 @@ test("two live clients receive the same mass-conserving body-shaped death hoard"
 
     room.state.config.baseSpeed = 0;
     room.state.config.boostSpeed = 0;
-    defeated.position = { x: 2_100, y: 0 };
+    defeated.position = { x: BEYOND_BOUNDARY_X, y: 0 };
     defeated.previousPosition = { ...defeated.position };
     defeated.mass = 48;
     defeated.stats.peakMass = 48;
     defeated.shieldTicksRemaining = 0;
     defeated.body = [
-      { x: 2_086, y: 0 },
-      { x: 2_080, y: 12 },
-      { x: 2_070, y: 20 },
+      { x: BEYOND_BOUNDARY_X - 14, y: 0 },
+      { x: BEYOND_BOUNDARY_X - 20, y: 12 },
+      { x: BEYOND_BOUNDARY_X - 30, y: 20 },
     ];
     defeated.previousBody = defeated.body.map((point) => ({ ...point }));
     witness.position = { x: 0, y: 0 };

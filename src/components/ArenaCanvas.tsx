@@ -145,6 +145,14 @@ import {
   snapCameraMotion,
   type CameraMotionState,
 } from "../game/cameraMotion";
+import {
+  advanceZoomMotion,
+  applyWheelZoom,
+  createZoomMotionState,
+  getUserCameraZoom,
+  setUserCameraZoom,
+  type ZoomMotionState,
+} from "../game/cameraZoomControl";
 import type { CaptainRunSummary } from "../game/captainProgression";
 import type { CaptainDepthRunUpdate } from "../game/captainLog";
 import {
@@ -272,6 +280,7 @@ interface Particle {
 interface ArenaRenderRuntime {
   state: GameState;
   camera: CameraMotionState;
+  zoomMotion: ZoomMotionState;
   particles: Particle[];
   impactUntil: number;
   shakeUntil: number;
@@ -693,6 +702,7 @@ export function ArenaCanvas({
       lastFrame: performance.now(),
       accumulatorSeconds: 0,
       camera: createCameraMotionState(),
+      zoomMotion: createZoomMotionState(),
       particles: [],
       resultCommitted: false,
       runEnded: false,
@@ -772,6 +782,19 @@ export function ArenaCanvas({
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, [ensureAudio, paused, pressSprint, recordMeaningfulSteer, releaseSprint, result, running]);
+
+  useEffect(() => {
+    // Native listener: React's synthetic wheel path cannot reliably
+    // preventDefault, and the page must not scroll while the arena zooms.
+    const stage = stageRef.current;
+    if (!stage) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setUserCameraZoom(applyWheelZoom(getUserCameraZoom(), event.deltaY));
+    };
+    stage.addEventListener("wheel", handleWheel, { passive: false });
+    return () => stage.removeEventListener("wheel", handleWheel);
+  }, []);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -1257,13 +1280,18 @@ export function ArenaCanvas({
       rect,
       runtime?.camera.position ?? { x: 0, y: 0 },
       player?.alive ? player.position : undefined,
-      runtime && player
+      // Steering must read the zoom the frame actually drew with — the
+      // presented (eased) value — or aim bends mid-glide.
+      runtime?.zoomMotion.initialized
+        ? runtime.zoomMotion.value
+        : runtime && player
         ? getArenaCameraZoom(
           rect.width,
           rect.height,
           player.mass,
           player.specialist,
           runtime.state.tick,
+          getUserCameraZoom(),
         )
         : 1,
       10,
@@ -1354,6 +1382,7 @@ export function ArenaCanvas({
         camera: replayPlayer
           ? createCameraMotionState(replayPlayer.position, performance.now())
           : createCameraMotionState(),
+        zoomMotion: createZoomMotionState(),
         particles: [],
         impactUntil: 0,
         shakeUntil: 0,
@@ -2012,12 +2041,19 @@ function renderArena(
   );
   // One shared framing rule keeps desktop, phone, Practice, replay, Live, and
   // radar knowledge aligned with the same inhabited open-zone composition.
-  const zoom = getArenaCameraZoom(
-    width,
-    height,
-    player?.mass ?? 100,
-    player?.specialist,
-    runtime.state.tick,
+  // The presented zoom glides toward its target (wheel, mass growth, relics)
+  // so the board scales smoothly instead of stepping.
+  const zoom = advanceZoomMotion(
+    runtime.zoomMotion,
+    getArenaCameraZoom(
+      width,
+      height,
+      player?.mass ?? 100,
+      player?.specialist,
+      runtime.state.tick,
+      getUserCameraZoom(),
+    ),
+    now,
   );
   const worldToScreen = (point: Vec2, output: Vec2 = { x: 0, y: 0 }): Vec2 => {
     output.x = width / 2 + (point.x - camera.x) * zoom;

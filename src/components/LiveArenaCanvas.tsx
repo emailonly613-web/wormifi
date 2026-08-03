@@ -155,6 +155,14 @@ import {
   pointerSteeringDirection,
   type CameraMotionState,
 } from "../game/cameraMotion";
+import {
+  advanceZoomMotion,
+  applyWheelZoom,
+  createZoomMotionState,
+  getUserCameraZoom,
+  setUserCameraZoom,
+  type ZoomMotionState,
+} from "../game/cameraZoomControl";
 import type { CaptainRunSummary } from "../game/captainProgression";
 
 const EXPECTED_PROTOCOL_VERSION = PROTOCOL_VERSION;
@@ -357,10 +365,11 @@ function liveRadarVisibleRadius(
   mass: number,
   activeRelic: ActiveSpecialist | undefined,
   tick: number,
+  userZoom: number,
 ): number {
   const width = canvas?.clientWidth ?? 0;
   const height = canvas?.clientHeight ?? 0;
-  return getArenaCameraVisibleRadius(width, height, mass, activeRelic, tick);
+  return getArenaCameraVisibleRadius(width, height, mass, activeRelic, tick, userZoom);
 }
 
 function stableNumber(text: string) {
@@ -881,6 +890,7 @@ export function LiveArenaCanvas({
   const sequenceRef = useRef(-1);
   const nextHudRefreshAtRef = useRef(0);
   const cameraRef = useRef<CameraMotionState>(createCameraMotionState());
+  const zoomMotionRef = useRef<ZoomMotionState>(createZoomMotionState());
   const particlesRef = useRef<LiveParticle[]>([]);
   const boundaryStrikeRef = useRef<BoundaryGuardianStrike | undefined>(undefined);
   const particleEmissionsRef = useRef(0);
@@ -1832,6 +1842,19 @@ export function LiveArenaCanvas({
   }, [pressSprint, recordMeaningfulSteer, releaseSprint, running]);
 
   useEffect(() => {
+    // Native listener: React's synthetic wheel path cannot reliably
+    // preventDefault, and the page must not scroll while the arena zooms.
+    const stage = stageRef.current;
+    if (!stage) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setUserCameraZoom(applyWheelZoom(getUserCameraZoom(), event.deltaY));
+    };
+    stage.addEventListener("wheel", handleWheel, { passive: false });
+    return () => stage.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  useEffect(() => {
     let animationFrame = 0;
     const frame = (now: number) => {
       const previousFrameAt = previousFrameAtRef.current ?? now;
@@ -1856,6 +1879,8 @@ export function LiveArenaCanvas({
           worldRef.current,
           ui.playerId,
           cameraRef.current,
+          zoomMotionRef.current,
+          getUserCameraZoom(),
           now,
           reducedMotionRef.current ? 0 : now,
           debugHitboxesRef.current,
@@ -1888,13 +1913,18 @@ export function LiveArenaCanvas({
       rect,
       cameraRef.current.position,
       player?.alive ? player.position : undefined,
-      getArenaCameraZoom(
-        rect.width,
-        rect.height,
-        player?.mass ?? ui.exactMass,
-        player?.specialist ?? ui.activeRelic,
-        snapshot?.tick ?? ui.tick,
-      ),
+      // Steering must read the zoom the frame actually drew with — the
+      // presented (eased) value — or aim bends mid-glide.
+      zoomMotionRef.current.initialized
+        ? zoomMotionRef.current.value
+        : getArenaCameraZoom(
+          rect.width,
+          rect.height,
+          player?.mass ?? ui.exactMass,
+          player?.specialist ?? ui.activeRelic,
+          snapshot?.tick ?? ui.tick,
+          getUserCameraZoom(),
+        ),
       8,
     );
     if (!direction) return;
@@ -2014,6 +2044,7 @@ export function LiveArenaCanvas({
       ui.exactMass,
       ui.activeRelic,
       ui.tick,
+      getUserCameraZoom(),
     ),
   );
   const radarStations: RadarStation[] = radarWorld?.board
@@ -2435,6 +2466,8 @@ function renderLiveArena(
   world: LiveWorldState | null,
   playerId: string | undefined,
   cameraMotion: CameraMotionState,
+  zoomMotion: ZoomMotionState,
+  userZoom: number,
   frameNow: number,
   now: number,
   debugHitboxes: boolean,
@@ -2477,12 +2510,19 @@ function renderLiveArena(
     ownPlayer?.alive ? ownPlayer.position : undefined,
     frameNow,
   );
-  const zoom = getArenaCameraZoom(
-    width,
-    height,
-    ownPlayer?.mass ?? 100,
-    ownPlayer?.specialist,
-    snapshot?.tick ?? 0,
+  // The presented zoom glides toward its target (wheel, mass growth, relics)
+  // so the board scales smoothly instead of stepping.
+  const zoom = advanceZoomMotion(
+    zoomMotion,
+    getArenaCameraZoom(
+      width,
+      height,
+      ownPlayer?.mass ?? 100,
+      ownPlayer?.specialist,
+      snapshot?.tick ?? 0,
+      userZoom,
+    ),
+    frameNow,
   );
   const worldToScreen = (point: Vec2): Vec2 => ({
     x: width / 2 + (point.x - camera.x) * zoom,
