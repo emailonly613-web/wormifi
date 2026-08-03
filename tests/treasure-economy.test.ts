@@ -43,7 +43,9 @@ describe("long-run treasure growth economy", () => {
     const pickupCountForFirstFollower = Math.ceil(
       MASS_PER_BODY_SEGMENT / COMMON_TREASURE_MAX_MASS,
     );
-    expect(pickupCountForFirstFollower).toBe(50);
+    // The 2026-08-03 richer commons made ordinary eating visible, but growth
+    // stays EARNED: a body segment still takes a sustained run of pickups.
+    expect(pickupCountForFirstFollower).toBeGreaterThanOrEqual(20);
 
     for (let pickup = 1; pickup < pickupCountForFirstFollower; pickup += 1) {
       spawnDrop(state, {

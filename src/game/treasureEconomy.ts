@@ -1,6 +1,9 @@
-export const COMMON_TREASURE_MIN_MASS = 0.2;
-export const COMMON_TREASURE_MAX_MASS = 0.6;
-export const RARE_TREASURE_CHEST_MASS = 3.5;
+// Owner 2026-08-03 ("an endless sea of small incremental eatings, boring as
+// hell"): commons more than doubled so ordinary eating visibly moves the
+// needle; the chest rose with them to stay a jackpot moment.
+export const COMMON_TREASURE_MIN_MASS = 0.5;
+export const COMMON_TREASURE_MAX_MASS = 1.4;
+export const RARE_TREASURE_CHEST_MASS = 6;
 export const RARE_TREASURE_CHEST_SIGNAL = 0.965;
 export const STARTER_TREASURE_MASS = 0.4;
 export const MASS_PER_BODY_SEGMENT = 30;
