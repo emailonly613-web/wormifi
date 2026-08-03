@@ -1202,6 +1202,17 @@ export function LiveArenaCanvas({
     });
   }, []);
 
+  // Board/pace matter only at JOIN time. They are read through refs so the
+  // post-join preference flip (the room resolves -> the picker locks -> the
+  // prop becomes undefined) can never tear down a healthy socket. That
+  // teardown re-joined the ORIGINAL room without the board request and
+  // silently rehomed a Honeycomb captain onto Open Seas (caught on the live
+  // wire, 2026-08-03).
+  const joinBoardIdRef = useRef(boardId);
+  joinBoardIdRef.current = boardId;
+  const joinPaceIdRef = useRef(paceId);
+  joinPaceIdRef.current = paceId;
+
   useEffect(() => {
     if (!running) return;
     let disposed = false;
@@ -1242,13 +1253,15 @@ export function LiveArenaCanvas({
       let retriedWithoutRoomRules = false;
 
       const sendJoin = (reconnectToken?: string, includeRoomRules = true) => {
+        const joinBoardId = joinBoardIdRef.current;
+        const joinPaceId = joinPaceIdRef.current;
         socket.send(JSON.stringify({
           type: "join",
           roomId: assignedRoomId,
           name: playerName || "Guest",
           ...(reconnectToken ? { reconnectToken } : {}),
-          ...(includeRoomRules && !roomRulesResolved && boardId ? { boardId } : {}),
-          ...(includeRoomRules && !roomRulesResolved && paceId ? { paceId } : {}),
+          ...(includeRoomRules && !roomRulesResolved && joinBoardId ? { boardId: joinBoardId } : {}),
+          ...(includeRoomRules && !roomRulesResolved && joinPaceId ? { paceId: joinPaceId } : {}),
           themeId,
           presenceV1: true,
           snapshotTupleV1: true,
@@ -1704,7 +1717,7 @@ export function LiveArenaCanvas({
           }
           if (
             (message.code === "ROOM_BOARD_MISMATCH" || message.code === "ROOM_PACE_MISMATCH") &&
-            (boardId || paceId) &&
+            (joinBoardIdRef.current || joinPaceIdRef.current) &&
             !retriedWithoutRoomRules &&
             !handshakeRef.current?.welcomed
           ) {
@@ -1776,8 +1789,6 @@ export function LiveArenaCanvas({
     onPaceResolved,
     onRoomResolved,
     publicMatchmaking,
-    boardId,
-    paceId,
     playTone,
     showActionCallout,
     showDeathNotice,
